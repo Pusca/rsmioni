@@ -1,0 +1,76 @@
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../**/*.blade.php';
+@source '../**/*.tsx';
+@source '../**/*.ts';
+@source '../**/*.js';
+
+/*
+ * RS Mioni — Palette dark dashboard
+ * Ispirata al manuale RH24, non copia asset proprietari
+ */
+@theme {
+    --font-sans: 'Inter', 'Segoe UI', ui-sans-serif, system-ui, sans-serif;
+
+    /* Sfondi */
+    --color-bg-primary:   #0f1117;
+    --color-bg-secondary: #1a1d27;
+    --color-bg-card:      #22263a;
+    --color-bg-hover:     #2a2f45;
+
+    /* Bordi */
+    --color-border:       #2e3348;
+
+    /* Testo */
+    --color-text-primary:   #e8eaf2;
+    --color-text-secondary: #9ba3c0;
+    --color-text-muted:     #5c6380;
+
+    /* Header */
+    --color-header:       #12151f;
+
+    /* Accenti stato chiosco */
+    --color-chiaro:   #22c55e;   /* verde — collegamento in chiaro */
+    --color-nascosto: #eab308;   /* giallo — collegamento nascosto */
+    --color-parlato:  #3b82f6;   /* blu — in parlato */
+    --color-danger:   #ef4444;   /* rosso — errore / da acquisire */
+    --color-warning:  #f97316;   /* arancione — attenzione */
+    --color-ok:       #22c55e;   /* verde — pagamento/documento OK */
+}
+
+/* Reset base */
+html, body { height: 100%; margin: 0; padding: 0; }
+
+/* Scrollbar dark */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #1a1d27; }
+::-webkit-scrollbar-thumb { background: #2e3348; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #5c6380; }
+
+/* Lampeggio icona chiamata in arrivo */
+@keyframes blink {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.25; }
+}
+.animate-blink { animation: blink 0.8s ease-in-out infinite; }
+
+/* Pulsazione cerchi kiosk (stato chiamata in corso) */
+@keyframes pulse-ring {
+    0%   { transform: scale(0.85); opacity: 1; }
+    100% { transform: scale(2.2);  opacity: 0; }
+}
+.animate-pulse-ring { animation: pulse-ring 1.4s cubic-bezier(0.215, 0.61, 0.355, 1) infinite; }
+
+/* Sottolineatura icone stato attivo (collegamento chiaro/nascosto) */
+.icon-active-chiaro   { border-bottom: 2px solid #ef4444; }
+.icon-active-nascosto { border-bottom: 2px solid #eab308; }
+.icon-active-attesa   { border-bottom: 2px solid #9ba3c0; }
+
+/* Focus reset per bottoni card portineria */
+button:focus { outline: none; }
+button:focus-visible { outline: 2px solid #3b82f6; outline-offset: 2px; }
+
+/* Transizione hover card chiosco */
+.chiosco-card-hover:hover { background-color: var(--color-bg-hover); }
