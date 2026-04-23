@@ -176,17 +176,20 @@ export function useWebRtcChiosco({ chioscoId }: Options): ChioscoWebRtcResult {
                 payload: RTCSessionDescriptionInit,
                 pcRef: RTCPeerConnection,
             ) => {
+                console.log('[WebRTC-K] processaOffer — setRemoteDescription...', 'tipo:', payload.type, 'pc.signalingState:', pcRef.signalingState);
                 await pcRef.setRemoteDescription(new RTCSessionDescription(payload));
                 remoteDescSet = true;
+                console.log('[WebRTC-K] setRemoteDescription OK — signalingState:', pcRef.signalingState);
 
                 if (iceQueue.length > 0) {
                     console.log(`[WebRTC-K] flush coda ICE: ${iceQueue.length} candidate`);
                     for (const cand of iceQueue) {
-                        try { await pcRef.addIceCandidate(new RTCIceCandidate(cand)); } catch { /* ignore */ }
+                        try { await pcRef.addIceCandidate(new RTCIceCandidate(cand)); } catch (e) { console.warn('[WebRTC-K] ICE flush error:', e); }
                     }
                     iceQueue = [];
                 }
 
+                console.log('[WebRTC-K] createAnswer...');
                 const answer = await pcRef.createAnswer();
                 await pcRef.setLocalDescription(answer);
                 console.log('[WebRTC-K] answer inviata');
@@ -240,7 +243,7 @@ export function useWebRtcChiosco({ chioscoId }: Options): ChioscoWebRtcResult {
                                 console.log('[WebRTC-K] condivisione schermo terminata');
                                 setCondivisioneAttiva(false);
                             }
-                        } catch { /* peer già chiuso o segnale malformato */ }
+                        } catch (e) { console.error('[WebRTC-K] signal handler error:', e); }
                     });
 
                     webrtcChannel.error(() => {
