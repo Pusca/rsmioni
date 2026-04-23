@@ -5,43 +5,45 @@ import { createInertiaApp } from '@inertiajs/react';
 import Echo from 'laravel-echo';
 import Pusher from 'pusher-js';
 
-// ── Laravel Echo / Reverb ──────────────────────────────────────────────────
+// ── Laravel Echo / Pusher ──────────────────────────────────────────────────
 //
-// Ziggy (route helpers JS) deliberatamente NON installato.
-// Le URL nei service TS sono hardcoded — nessuna dipendenza da Ziggy.
-// Se in futuro serve route() in JS: composer require tightenco/ziggy
+// Broadcast driver: Pusher (managed WebSocket, free tier).
+// Sostituisce Reverb che richiedeva un processo WebSocket server separato
+// non disponibile su hosting condiviso.
 //
-// Echo<'reverb'>: T deve estendere keyof Broadcaster — 'reverb' è valido.
+// Variabili richieste in .env:
+//   BROADCAST_CONNECTION=pusher
+//   PUSHER_APP_ID, PUSHER_APP_KEY, PUSHER_APP_SECRET, PUSHER_APP_CLUSTER
+//   VITE_PUSHER_APP_KEY, VITE_PUSHER_APP_CLUSTER
+//
+// Echo si connette a Pusher solo se VITE_PUSHER_APP_KEY è configurata.
+// Senza credenziali: Echo non viene inizializzato, i hook rilevano l'assenza
+// e attivano il polling HTTP fallback (usePortineriaRealtime, useKioskStato).
+//
+// Ziggy deliberatamente NON installato — URL hardcoded nei service TS.
+
 declare global {
     interface Window {
         Pusher: typeof Pusher;
-        Echo: Echo<'reverb'>;
+        Echo: Echo<'pusher'>;
     }
 }
 
 window.Pusher = Pusher;
 
-// Echo si connette a Reverb solo se VITE_REVERB_APP_KEY è configurata.
-// Senza Reverb attivo: connessione fallisce silenziosamente,
-// il hook usePortineriaRealtime lo rileva e attiva il polling fallback.
-const reverbKey = import.meta.env.VITE_REVERB_APP_KEY as string | undefined;
+const pusherKey = import.meta.env.VITE_PUSHER_APP_KEY as string | undefined;
 
-if (reverbKey) {
+if (pusherKey) {
     window.Echo = new Echo({
-        broadcaster:       'reverb',
-        key:               reverbKey,
-        wsHost:            import.meta.env.VITE_REVERB_HOST  ?? 'localhost',
-        wsPort:            Number(import.meta.env.VITE_REVERB_PORT  ?? 8080),
-        wssPort:           Number(import.meta.env.VITE_REVERB_PORT  ?? 443),
-        forceTLS:          (import.meta.env.VITE_REVERB_SCHEME ?? 'http') === 'https',
-        enabledTransports: ['ws', 'wss'],
-        authEndpoint:      '/broadcasting/auth',
+        broadcaster:  'pusher',
+        key:          pusherKey,
+        cluster:      import.meta.env.VITE_PUSHER_APP_CLUSTER ?? 'eu',
+        forceTLS:     true,
+        authEndpoint: '/broadcasting/auth',
     });
 }
 
 // ── Inertia ────────────────────────────────────────────────────────────────
-// import.meta.glob<{ default: ComponentType }> fornisce il tipo corretto
-// per le pagine React dopo l'introduzione di vite-env.d.ts.
 createInertiaApp({
     title: (title) => `${title} — RS Mioni`,
     resolve: async (name) => {
