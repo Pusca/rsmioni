@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Kiosk;
 
+use App\Enums\StatoChiosco;
 use App\Http\Controllers\Controller;
 use App\Models\Chiosco;
 use App\Services\PortineriaService;
@@ -59,6 +60,12 @@ class KioskController extends Controller
         ]);
 
         session(['chiosco_id' => $request->chiosco_id]);
+
+        // Porta il chiosco in idle quando si connette (default Cache = offline)
+        $chiosco = Chiosco::find($request->chiosco_id);
+        if ($chiosco && $this->portineria->statoChiosco($chiosco->id) === StatoChiosco::Offline) {
+            $this->portineria->impostaStato($chiosco, StatoChiosco::Idle);
+        }
 
         return redirect()->route('kiosk.index');
     }
