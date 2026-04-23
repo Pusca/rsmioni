@@ -174,7 +174,7 @@ export function classificaErroreCondivisione(err: unknown): ErroreMedia {
  */
 export const patchSdp = (sdp: string): string =>
     sdp.split(/\r?\n/)
-        .filter(line => !(line.startsWith('a=ssrc:') && / msid:\S+ \S/.test(line)))
+        .filter(line => !line.startsWith('a=ssrc:') && !line.startsWith('a=ssrc-group:'))
         .join('\r\n');
 
 export const TIMEOUT_MSG: ErroreMedia = {
