@@ -13,6 +13,7 @@ use App\Models\Hotel;
 use App\Models\Prenotazione;
 use App\Services\CameraService;
 use App\Services\DocumentoService;
+use App\Services\PortineriaService;
 use App\Services\PrenotazioneService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -26,6 +27,7 @@ class PrenotazioniController extends Controller
         private readonly PrenotazioneService $service,
         private readonly CameraService       $cameraService,
         private readonly DocumentoService    $documentoService,
+        private readonly PortineriaService   $portineriaService,
     ) {}
 
     // ── Lista ─────────────────────────────────────────────────────────────────
@@ -65,7 +67,7 @@ class PrenotazioniController extends Controller
     public function show(Request $request, string $id): Response
     {
         $user = $request->user();
-        $pren = Prenotazione::with(['hotel', 'pagamenti', 'documenti', 'camere'])->findOrFail($id);
+        $pren = Prenotazione::with(['hotel', 'pagamenti.chiosco', 'documenti', 'camere'])->findOrFail($id);
 
         if (! $this->service->accessoConsentito($user, $pren)) {
             abort(403);
@@ -108,12 +110,16 @@ class PrenotazioniController extends Controller
             ->filter(fn($item) => $item['documenti']->isNotEmpty())
             ->values();
 
-        // Chioschi attivi dell'hotel — per acquisizione documento e stampa remota
-        // NB: tutti i chioschi attivi (per acquisizione); il filtro has_stampante
-        // è applicato nel modal lato UI per la stampa remota.
+        // Chioschi attivi dell'hotel — per acquisizione documento, stampa remota e POS.
+        // Ogni chiosco include lo stato runtime corrente (da Cache/Redis) in modo che
+        // l'UI possa filtrare il POS solo ai chioschi in stato in_parlato (RH24).
         $chioschi = Chiosco::where('hotel_id', $pren->hotel_id)
             ->where('attivo', true)
-            ->get(['id', 'nome', 'has_stampante']);
+            ->get(['id', 'nome', 'has_stampante', 'has_pos', 'tipo_pos'])
+            ->map(fn(Chiosco $c) => array_merge($c->toArray(), [
+                'stato' => $this->portineriaService->statoChiosco($c->id)->value,
+            ]))
+            ->values();
 
         return Inertia::render('Prenotazioni/Show', [
             'prenotazione'        => $pren,

@@ -47,9 +47,10 @@ class StatoChioscoController extends Controller
 
         if (! $ok) {
             $attuale = $this->portineria->statoChiosco($chiosco->id);
+            $motivo  = $this->portineria->ultimoMotivoRifiuto();
 
             return response()->json([
-                'error'   => 'Transizione non consentita',
+                'error'   => $motivo ?? 'Transizione non consentita',
                 'attuale' => $attuale->value,
             ], 422);
         }

@@ -6,6 +6,8 @@ use App\Enums\Profilo;
 use App\Enums\StatoChiosco;
 use App\Events\ChioscoStatoCambiato;
 use App\Models\Chiosco;
+use App\Models\Hotel;
+use App\Services\DiagnosticaChioscoService;
 use Illuminate\Support\Facades\Cache;
 
 /**
@@ -23,6 +25,14 @@ class PortineriaService
 {
     const TTL_STATO    = 300;  // 5 min
     const TTL_MESSAGGIO = 600; // 10 min
+
+    /** Motivo dell'ultimo rifiuto di transizione — leggibile dal controller per il feedback UI. */
+    private ?string $ultimoMotivoRifiuto = null;
+
+    public function ultimoMotivoRifiuto(): ?string
+    {
+        return $this->ultimoMotivoRifiuto;
+    }
 
     // ── Lettura stato ──────────────────────────────────────────────────────
 
@@ -55,11 +65,17 @@ class PortineriaService
             ->orderBy('nome')
             ->get();
 
-        return $chioschi->map(function (Chiosco $c) {
+        $diagService = app(DiagnosticaChioscoService::class);
+
+        return $chioschi->map(function (Chiosco $c) use ($diagService) {
+            $presenza = $diagService->presenza($c->id);
             return [
                 ...$c->toArray(),
-                'stato'           => $this->statoChiosco($c->id)->value,
+                'stato'            => $this->statoChiosco($c->id)->value,
                 'messaggio_attesa' => $this->messaggioAttesa($c->id),
+                'ultima_presenza'  => $presenza['online']
+                    ? ['online' => true,  'secondi_fa' => $presenza['secondi_fa']]
+                    : ['online' => false, 'secondi_fa' => null],
             ];
         })->values()->all();
     }
@@ -77,6 +93,7 @@ class PortineriaService
         ?string      $messaggio = null,
     ): bool {
         $attuale = $this->statoChiosco($chiosco->id);
+        $this->ultimoMotivoRifiuto = null;
 
         if (! $attuale->puoTransire($nuovo)) {
             return false;
@@ -84,6 +101,24 @@ class PortineriaService
 
         if (! $this->transizioneLecitaPerProfilo($attuale, $nuovo, $profiloCaller)) {
             return false;
+        }
+
+        // Verifica limite sessioni concorrenti configurato sull'hotel.
+        // Il check si applica solo all'inizio di una nuova sessione attiva
+        // (da non-connesso a connesso), NON alle transizioni interne a una
+        // sessione già attiva (es. in_chiaro ↔ in_nascosto, in_parlato ↔ in_chiaro).
+        if (! $attuale->isConnesso() && $nuovo->isConnesso()) {
+            $hotel  = Hotel::find($chiosco->hotel_id);
+            $limite = $hotel?->chioschi_concorrenti_max ?? 0;
+
+            if ($limite > 0) {
+                $attivi = $this->contatoreSessioniAttive($chiosco);
+                if ($attivi >= $limite) {
+                    $this->ultimoMotivoRifiuto = "Limite sessioni concorrenti raggiunto ({$attivi}/{$limite}). "
+                        . 'Chiudere una connessione attiva prima di procedere.';
+                    return false;
+                }
+            }
         }
 
         $this->impostaStato($chiosco, $nuovo, $messaggio);
@@ -143,6 +178,28 @@ class PortineriaService
 
         // Receptionist pieno: tutte le transizioni lecite dalla state machine
         return true;
+    }
+
+    // ── Sessioni concorrenti ──────────────────────────────────────────────
+
+    /**
+     * Conta i chioschi dello stesso hotel che hanno una sessione attiva,
+     * escludendo il chiosco target (che sta avviando la propria sessione).
+     *
+     * "Attiva" = in_chiaro | in_nascosto | in_parlato | messaggio_attesa
+     * (ossia qualsiasi stato in cui un receptionist è già impegnato).
+     */
+    private function contatoreSessioniAttive(Chiosco $chiosco): int
+    {
+        $ids = Chiosco::where('hotel_id', $chiosco->hotel_id)
+            ->where('attivo', true)
+            ->where('id', '!=', $chiosco->id)
+            ->pluck('id');
+
+        return $ids->filter(function (string $id) {
+            $stato = $this->statoChiosco($id);
+            return $stato->isConnesso() || $stato === StatoChiosco::MessaggioAttesa;
+        })->count();
     }
 
     // ── Cache key helpers ─────────────────────────────────────────────────

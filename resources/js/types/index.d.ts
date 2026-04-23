@@ -41,7 +41,7 @@ export type ContestoDocumento = 'prenotazione' | 'camera' | 'regola';
 export type CategoriaRegola = 'generale' | 'turistica' | 'supporto' | 'sicurezza';
 
 // Esito POS
-export type EsitoPOS = 'pending' | 'ok' | 'ko' | 'no_file';
+export type EsitoPOS = 'pending' | 'ok' | 'ko' | 'no_file' | 'annullato';
 
 // ──────────────────────────────────────────────
 // Entità di dominio (shape dei dati passati da Inertia come props)
@@ -70,10 +70,17 @@ export interface Chiosco {
     hotel?: Hotel;
 }
 
+/** Presenza heartbeat — snapshot leggero passato in chioschiConStato */
+export interface UltimaPresenza {
+    online: boolean;
+    secondi_fa: number | null;
+}
+
 /** Chiosco arricchito con stato runtime (usato in Portineria) */
 export interface ChioscoConStato extends Chiosco {
     stato: StatoChiosco;
     messaggio_attesa: string | null;
+    ultima_presenza: UltimaPresenza | null;
 }
 
 export interface Utente {

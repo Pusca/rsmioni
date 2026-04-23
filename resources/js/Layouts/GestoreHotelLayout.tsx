@@ -47,18 +47,19 @@ export default function GestoreHotelLayout({ children }: { children: ReactNode }
                         Prenotazioni
                     </NavLink>
 
-                    {/* Camere — stub M5, link attivo ma mostra placeholder */}
                     <NavLink href="/camere" active={currentUrl.startsWith('/camere')}>
                         <BedIcon />
                         Camere
-                        <MilestoneBadge>M5</MilestoneBadge>
                     </NavLink>
 
-                    {/* Regolamento — stub M5 */}
                     <NavLink href="/regolamento" active={currentUrl.startsWith('/regolamento')}>
                         <DocumentIcon />
                         Regolamento
-                        <MilestoneBadge>M5</MilestoneBadge>
+                    </NavLink>
+
+                    <NavLink href="/configurazioni/hotel" active={currentUrl.startsWith('/configurazioni')}>
+                        <SettingsIcon />
+                        Configurazioni
                     </NavLink>
                 </div>
 
@@ -154,24 +155,6 @@ function NavLink({
     );
 }
 
-function MilestoneBadge({ children }: { children: React.ReactNode }) {
-    return (
-        <span
-            className="rounded font-mono"
-            style={{
-                fontSize:        '8px',
-                padding:         '1px 4px',
-                color:           '#5c6380',
-                backgroundColor: 'rgba(92,99,128,0.15)',
-                border:          '1px solid #2e3348',
-                marginLeft:      '2px',
-            }}
-        >
-            {children}
-        </span>
-    );
-}
-
 function CalendarIcon() {
     return (
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" style={{ flexShrink: 0 }}>
@@ -200,6 +183,15 @@ function DocumentIcon() {
             <line x1="16" y1="13" x2="8" y2="13" />
             <line x1="16" y1="17" x2="8" y2="17" />
             <polyline points="10 9 9 9 8 9" />
+        </svg>
+    );
+}
+
+function SettingsIcon() {
+    return (
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" style={{ flexShrink: 0 }}>
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
         </svg>
     );
 }

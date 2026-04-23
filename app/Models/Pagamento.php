@@ -19,6 +19,7 @@ class Pagamento extends Model
         'chiosco_id',
         'importo_richiesto',
         'valuta',
+        'causale',
         'esito',
         'importo_effettivo',
         'tipo_pos',

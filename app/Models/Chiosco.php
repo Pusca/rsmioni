@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\StatoInstallazione;
 use App\Enums\TipoChiosco;
 use App\Enums\TipoPOS;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -30,17 +31,24 @@ class Chiosco extends Model
         'path_log_pos',
         'attivo',
         'ip_address',
+        'stato_installazione',
+        'note_installazione',
+        'checklist_installazione',
+        'installato_at',
     ];
 
     protected function casts(): array
     {
         return [
-            'tipo'          => TipoChiosco::class,
-            'tipo_pos'      => TipoPOS::class,
-            'interattivo'   => 'boolean',
-            'has_pos'       => 'boolean',
-            'has_stampante' => 'boolean',
-            'attivo'        => 'boolean',
+            'tipo'                    => TipoChiosco::class,
+            'tipo_pos'                => TipoPOS::class,
+            'interattivo'             => 'boolean',
+            'has_pos'                 => 'boolean',
+            'has_stampante'           => 'boolean',
+            'attivo'                  => 'boolean',
+            'stato_installazione'     => StatoInstallazione::class,
+            'checklist_installazione' => 'array',
+            'installato_at'           => 'datetime',
         ];
     }
 

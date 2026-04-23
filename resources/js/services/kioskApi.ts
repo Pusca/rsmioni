@@ -258,6 +258,77 @@ export async function annullaStampa(): Promise<void> {
     } catch { /* best-effort */ }
 }
 
+// ── Pagamento POS remoto — kiosk side ────────────────────────────────────────
+
+export interface PagamentoPendenteResult {
+    pendente:      true;
+    pagamento_id:  string;
+    importo:       number;
+    valuta:        string;
+    causale:       string | null;
+    tipo_pos:      string;
+}
+
+/**
+ * GET /kiosk/pagamento-pendente
+ * Il chiosco fa polling per verificare se il receptionist ha richiesto un pagamento POS.
+ */
+export async function getPagamentoPendente(): Promise<PagamentoPendenteResult | null> {
+    try {
+        const res = await fetch('/kiosk/pagamento-pendente', {
+            headers: { Accept: 'application/json' },
+        });
+        if (! res.ok) return null;
+        const data = await res.json() as { pendente: boolean } & Partial<PagamentoPendenteResult>;
+        if (! data.pendente) return null;
+        return {
+            pendente:     true,
+            pagamento_id: data.pagamento_id ?? '',
+            importo:      data.importo      ?? 0,
+            valuta:       data.valuta       ?? 'EUR',
+            causale:      data.causale      ?? null,
+            tipo_pos:     data.tipo_pos     ?? 'ingenico',
+        };
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * POST /kiosk/pagamenti/esito
+ * Segnala al server l'esito dell'operazione POS.
+ */
+export async function segnalaEsitoPagamento(
+    esito: 'ok' | 'ko' | 'annullato',
+    importo_effettivo?: number,
+): Promise<{ ok: boolean; errore?: string }> {
+    try {
+        const res = await fetch('/kiosk/pagamenti/esito', {
+            method:  'POST',
+            headers: { ...headers(), Accept: 'application/json' },
+            body:    JSON.stringify({ esito, importo_effettivo: importo_effettivo ?? null }),
+        });
+        const data = await res.json() as { ok?: boolean; errore?: string };
+        if (! res.ok) return { ok: false, errore: data.errore ?? 'Errore invio esito' };
+        return { ok: true };
+    } catch {
+        return { ok: false, errore: 'Errore di rete' };
+    }
+}
+
+/**
+ * DELETE /kiosk/pagamenti
+ * Annulla il pagamento pendente (guest rifiuta o timeout).
+ */
+export async function annullaPagamento(): Promise<void> {
+    try {
+        await fetch('/kiosk/pagamenti', {
+            method:  'DELETE',
+            headers: headers(),
+        });
+    } catch { /* best-effort */ }
+}
+
 // ── WebRTC — segnali dal chiosco verso il receptionist ─────────────────────
 
 /**

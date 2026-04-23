@@ -53,6 +53,13 @@ export default function Index({ prenotazioni, hotels, profilo, filtri, can }: Pr
     const isGestore = profilo === 'gestore_hotel';
     const Layout    = isGestore ? GestoreHotelLayout : ReceptionistLayout;
 
+    // Finestra di visibilità calendario per il Receptionist.
+    // Il backend (PrenotazioneService) applica min(giorni_visibilita_calendario) tra gli hotel
+    // per limitare la query. Qui specchiamo la stessa logica per il feedback UI.
+    const giorniVisibilita = !isGestore && hotels.length > 0
+        ? Math.min(...hotels.map((h) => h.giorni_visibilita_calendario))
+        : null;
+
     const [cerca,          setCerca]         = useState(filtri.cerca ?? '');
     const [dataDal,        setDataDal]       = useState(filtri.data_dal ?? '');
     const [dataAl,         setDataAl]        = useState(filtri.data_al ?? '');
@@ -206,6 +213,22 @@ export default function Index({ prenotazioni, hotels, profilo, filtri, can }: Pr
                         </button>
                     )}
                 </div>
+
+                {/* ── Nota visibilità calendario (solo Receptionist) ── */}
+                {giorniVisibilita !== null && (
+                    <div
+                        className="flex items-center gap-2 px-6 py-1.5 shrink-0 text-xs"
+                        style={{
+                            borderBottom:    '1px solid var(--color-border)',
+                            backgroundColor: 'rgba(59,130,246,0.04)',
+                            color:           'var(--color-text-muted)',
+                        }}
+                    >
+                        <span style={{ color: '#3b82f6', fontWeight: 500 }}>ℹ</span>
+                        Visibilità limitata: check-in negli ultimi 7 giorni e nei prossimi {giorniVisibilita} giorni.
+                        Il Gestore Hotel può modificare questo limite in <span style={{ color: '#3b82f6' }}>Configurazioni → Hotel</span>.
+                    </div>
+                )}
 
                 {/* ── Tabella ── */}
                 <div className="flex-1 overflow-auto">

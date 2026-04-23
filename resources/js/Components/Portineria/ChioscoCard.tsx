@@ -1,4 +1,4 @@
-import { ChioscoConStato, StatoChiosco } from '@/types';
+import { ChioscoConStato, StatoChiosco, UltimaPresenza } from '@/types';
 import BadgeStato from './BadgeStato';
 
 interface Props {
@@ -124,6 +124,8 @@ export default function ChioscoCard({ chiosco, isSelezionato, puoInteragire, onC
             <div className="flex items-center justify-between">
                 {/* Tipo e hardware */}
                 <div className="flex items-center gap-1.5" style={{ color: 'var(--color-text-muted)', fontSize: '10px' }}>
+                    {/* Presenza heartbeat dot */}
+                    <PresenzaDot presenza={chiosco.ultima_presenza ?? null} stato={chiosco.stato} />
                     <span className="uppercase font-mono" style={{ color: '#5c6380' }}>
                         {chiosco.tipo}
                     </span>
@@ -184,6 +186,35 @@ export default function ChioscoCard({ chiosco, isSelezionato, puoInteragire, onC
                 </div>
             </div>
         </button>
+    );
+}
+
+/**
+ * Piccolo dot di presenza heartbeat.
+ * Verde = online (heartbeat ricevuto < 120s fa)
+ * Grigio = offline/assente
+ * Con tooltip secondi_fa per debug rapido.
+ */
+function PresenzaDot({ presenza, stato }: { presenza: UltimaPresenza | null; stato: StatoChiosco }) {
+    if (stato === 'offline') return null; // non utile a mostrarlo quando lo stato è già offline
+
+    const online = presenza?.online ?? false;
+    const label = online
+        ? `Heartbeat ${presenza!.secondi_fa ?? '?'}s fa`
+        : 'Nessun heartbeat recente';
+
+    return (
+        <span
+            title={label}
+            style={{
+                display:         'inline-block',
+                width:           6,
+                height:          6,
+                borderRadius:    '50%',
+                backgroundColor: online ? '#22c55e' : '#5c6380',
+                flexShrink:      0,
+            }}
+        />
     );
 }
 

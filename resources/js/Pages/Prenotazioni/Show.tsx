@@ -6,6 +6,7 @@ import AssegnazioneCamere from '@/Components/Prenotazioni/AssegnazioneCamere';
 import SezioneDocumenti, { DocumentoItem } from '@/Components/Documenti/SezioneDocumenti';
 import ViewerDocumenti from '@/Components/Documenti/ViewerDocumenti';
 import ModalAcquisizione from '@/Components/Documenti/ModalAcquisizione';
+import ModalPagamentoPOS from '@/Components/Pagamenti/ModalPagamentoPOS';
 import { Camera, CameraConDisponibilita, Prenotazione, Hotel, Profilo } from '@/types';
 
 interface DocumentiCamera {
@@ -14,10 +15,32 @@ interface DocumentiCamera {
     documenti:   DocumentoItem[];
 }
 
+interface PagamentoItem {
+    id:                 string;
+    importo_richiesto:  number;
+    importo_effettivo:  number | null;
+    valuta:             string;
+    causale:            string | null;
+    esito:              string;
+    tipo_pos:           string;
+    data_operazione:    string | null;
+    created_at:         string;
+    chiosco:            { id: string; nome: string } | null;
+}
+
+interface ChioscoPOS {
+    id:            string;
+    nome:          string;
+    has_stampante: boolean;
+    has_pos:       boolean;
+    tipo_pos:      string | null;
+    stato:         string;
+}
+
 interface Props {
     prenotazione: Prenotazione & {
         hotel: Hotel;
-        pagamenti: { id: string; importo: number; esito: string; created_at: string }[];
+        pagamenti: PagamentoItem[];
         camere: Camera[];
     };
     profilo: Profilo;
@@ -27,15 +50,21 @@ interface Props {
     documenti: DocumentoItem[];
     puoUploadDocumenti: boolean;
     documentiCamere: DocumentiCamera[];
-    chioschi: Array<{ id: string; nome: string; has_stampante: boolean }>;
+    chioschi: ChioscoPOS[];
 }
 
 export default function Show({ prenotazione: pren, profilo, puoCancellare, motivoCancellazione, camereDisponibili, documenti, puoUploadDocumenti, documentiCamere, chioschi }: Props) {
     const isGestore = profilo === 'gestore_hotel';
     const Layout = isGestore ? GestoreHotelLayout : ReceptionistLayout;
 
-    const [modalAcquisizione, setModalAcquisizione] = useState(false);
+    const [modalAcquisizione,  setModalAcquisizione]  = useState(false);
+    const [modalPagamentoPOS,  setModalPagamentoPOS]  = useState(false);
     const [viewerCamereIndice, setViewerCamereIndice] = useState<{ cameraId: string; indice: number } | null>(null);
+
+    // Chioschi con POS hardware
+    const chioschiConPos = chioschi.filter(c => c.has_pos);
+    // Chioschi con POS E attualmente in sessione di parlato (unico contesto operativo per il POS, RH24)
+    const chioschiPOSPronti = chioschiConPos.filter(c => c.stato === 'in_parlato');
 
     const ospite = [pren.nome, pren.cognome].filter(Boolean).join(' ') || pren.gruppo || '—';
     const pax    = pren.pax ? `${pren.pax.adulti} adulti${pren.pax.ragazzi ? `, ${pren.pax.ragazzi} ragazzi` : ''}${pren.pax.bambini ? `, ${pren.pax.bambini} bambini` : ''}` : '—';
@@ -164,21 +193,54 @@ export default function Show({ prenotazione: pren, profilo, puoCancellare, motiv
                         <Card title="Pagamento">
                             <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
                                 <DataRow label="Stato"
-                                    value={
-                                        <PillPagamento tipo={pren.tipo_pagamento} />
-                                    } />
+                                    value={<PillPagamento tipo={pren.tipo_pagamento} />} />
                                 <DataRow label="Prezzo"
                                     value={pren.prezzo != null ? `€ ${Number(pren.prezzo).toFixed(2)}` : '—'} />
                             </dl>
+
+                            {/* Storico transazioni POS */}
                             {pren.pagamenti?.length > 0 && (
-                                <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--color-border)' }}>
-                                    <p className="text-xs mb-2" style={{ color: 'var(--color-text-muted)' }}>Transazioni POS</p>
-                                    <div className="space-y-1">
+                                <div className="mt-4 pt-3" style={{ borderTop: '1px solid var(--color-border)' }}>
+                                    <p className="text-xs font-semibold uppercase tracking-wider mb-3"
+                                        style={{ color: 'var(--color-text-muted)' }}>
+                                        Transazioni POS
+                                    </p>
+                                    <div className="space-y-2">
                                         {pren.pagamenti.map(p => (
-                                            <div key={p.id} className="flex justify-between text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-                                                <span>{formatDate(p.created_at)}</span>
-                                                <span>€ {Number(p.importo).toFixed(2)}</span>
-                                                <span style={{ color: p.esito === 'ok' ? '#22c55e' : '#ef4444' }}>{p.esito}</span>
+                                            <div key={p.id}
+                                                className="rounded-lg px-3 py-2"
+                                                style={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-2">
+                                                        <PillEsitoPOS esito={p.esito} />
+                                                        <span className="text-xs font-medium" style={{ color: 'var(--color-text-primary)' }}>
+                                                            € {Number(p.importo_richiesto).toFixed(2)}
+                                                        </span>
+                                                        {p.importo_effettivo != null && p.importo_effettivo !== p.importo_richiesto && (
+                                                            <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                                                                → € {Number(p.importo_effettivo).toFixed(2)}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <span className="text-xs font-mono" style={{ color: 'var(--color-text-muted)' }}>
+                                                        {formatDate(p.data_operazione ?? p.created_at)}
+                                                    </span>
+                                                </div>
+                                                {(p.causale || p.chiosco) && (
+                                                    <div className="flex items-center gap-2 mt-1">
+                                                        {p.causale && (
+                                                            <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                                                                {p.causale}
+                                                            </span>
+                                                        )}
+                                                        {p.chiosco && (
+                                                            <span className="ml-auto text-xs font-mono"
+                                                                style={{ color: 'var(--color-text-muted)' }}>
+                                                                {p.chiosco.nome}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </div>
                                         ))}
                                     </div>
@@ -254,6 +316,35 @@ export default function Show({ prenotazione: pren, profilo, puoCancellare, motiv
                                         Acquisisci documento da chiosco
                                     </button>
                                 )}
+                                {/* Pagamento POS remoto — gestore e receptionist */}
+                                {/* Mostrato solo se esiste almeno un chiosco con POS hardware */}
+                                {chioschiConPos.length > 0 && profilo !== 'receptionist_lite' && (
+                                    chioschiPOSPronti.length > 0 ? (
+                                        /* Contesto corretto: chiosco in parlato con POS */
+                                        <button
+                                            type="button"
+                                            onClick={() => setModalPagamentoPOS(true)}
+                                            className="block w-full text-center text-xs py-2 rounded transition-colors"
+                                            style={{ color: '#10b981', backgroundColor: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.25)' }}>
+                                            Pagamento POS remoto
+                                        </button>
+                                    ) : (
+                                        /* POS presente ma nessun chiosco in parlato — disabilitato con spiegazione */
+                                        <div className="w-full rounded px-3 py-2 text-xs"
+                                            style={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)', cursor: 'not-allowed' }}>
+                                            <div className="flex items-center gap-1.5 mb-0.5">
+                                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0 }}>
+                                                    <rect x="1" y="4" width="22" height="16" rx="2"/>
+                                                    <line x1="1" y1="10" x2="23" y2="10"/>
+                                                </svg>
+                                                <span>Pagamento POS remoto</span>
+                                            </div>
+                                            <p style={{ color: 'rgba(255,255,255,0.2)', fontSize: '10px', lineHeight: 1.4 }}>
+                                                Richiede un collegamento in parlato attivo con il chiosco
+                                            </p>
+                                        </div>
+                                    )
+                                )}
                             </div>
                         </Card>
                     </div>
@@ -266,6 +357,13 @@ export default function Show({ prenotazione: pren, profilo, puoCancellare, motiv
                     prenotazioneId={pren.id}
                     chioschi={chioschi}
                     onClose={() => setModalAcquisizione(false)}
+                />
+            )}
+            {modalPagamentoPOS && (
+                <ModalPagamentoPOS
+                    prenotazioneId={pren.id}
+                    chioschi={chioschiPOSPronti}
+                    onClose={() => setModalPagamentoPOS(false)}
                 />
             )}
             {viewerCamereIndice !== null && (() => {
@@ -344,6 +442,23 @@ function PillPagamento({ tipo }: { tipo: string }) {
                 border:          `1px solid ${isPagato ? 'rgba(34,197,94,0.3)' : 'rgba(245,158,11,0.3)'}`,
             }}>
             {isPagato ? 'Pagato' : 'Da pagare'}
+        </span>
+    );
+}
+
+function PillEsitoPOS({ esito }: { esito: string }) {
+    const cfg = {
+        ok:        { color: '#22c55e', bg: 'rgba(34,197,94,0.1)',   border: 'rgba(34,197,94,0.3)',   label: 'Riuscito'   },
+        ko:        { color: '#ef4444', bg: 'rgba(239,68,68,0.1)',   border: 'rgba(239,68,68,0.3)',   label: 'Fallito'    },
+        annullato: { color: '#64748b', bg: 'rgba(100,116,139,0.1)', border: 'rgba(100,116,139,0.3)', label: 'Annullato'  },
+        pending:   { color: '#f59e0b', bg: 'rgba(245,158,11,0.1)',  border: 'rgba(245,158,11,0.3)',  label: 'In attesa'  },
+        no_file:   { color: '#6366f1', bg: 'rgba(99,102,241,0.1)',  border: 'rgba(99,102,241,0.3)',  label: 'No file'    },
+    }[esito] ?? { color: '#64748b', bg: 'rgba(100,116,139,0.1)', border: 'rgba(100,116,139,0.3)', label: esito };
+
+    return (
+        <span className="inline-flex items-center rounded px-2 py-0.5 text-xs font-medium"
+            style={{ color: cfg.color, backgroundColor: cfg.bg, border: `1px solid ${cfg.border}` }}>
+            {cfg.label}
         </span>
     );
 }

@@ -42,7 +42,10 @@ class DemoSeeder extends Seeder
             'hotel_id'            => $hotel->id,
             'nome'                => 'Chiosco Ingresso',
             'tipo'                => TipoChiosco::Touch,
+            'interattivo'         => true,
+            'has_pos'             => true,
             'tipo_pos'            => TipoPOS::Ingenico,
+            'has_stampante'       => true,
             'attivo'              => true,
             'ip_address'          => '192.168.1.101',
         ]);
@@ -52,7 +55,10 @@ class DemoSeeder extends Seeder
             'hotel_id'            => $hotel->id,
             'nome'                => 'Chiosco Sala',
             'tipo'                => TipoChiosco::Analogico,
-            'tipo_pos'            => TipoPOS::MyPOS,
+            'interattivo'         => true,
+            'has_pos'             => false,
+            'tipo_pos'            => null,
+            'has_stampante'       => true,
             'attivo'              => true,
             'ip_address'          => '192.168.1.102',
         ]);

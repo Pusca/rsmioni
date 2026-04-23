@@ -119,6 +119,15 @@ export default function PortineriaIndex({ chioschi: chioschiIniziali, hotel_ids,
     const chioschiAttivi   = chioschi.filter((c) => !['offline', 'idle'].includes(c.stato)).length;
     const chioschiChiamata = chioschi.filter((c) => c.stato === 'in_chiamata').length;
 
+    // Limite sessioni concorrenti: minimo tra gli hotel presenti (coerente con il backend).
+    // 0 = nessun limite configurato.
+    const concorrentiMax = useMemo(() => {
+        const valori = chioschi
+            .map((c) => c.hotel?.chioschi_concorrenti_max)
+            .filter((v): v is number => typeof v === 'number' && v > 0);
+        return valori.length > 0 ? Math.min(...valori) : 0;
+    }, [chioschi]);
+
     return (
         <ReceptionistLayout>
             <Head title="Portineria" />
@@ -145,8 +154,15 @@ export default function PortineriaIndex({ chioschi: chioschiIniziali, hotel_ids,
                         </span>
                     )}
                     {chioschiAttivi > 0 && chioschiChiamata === 0 && (
-                        <span style={{ color: 'var(--color-text-muted)' }}>
-                            {chioschiAttivi} connession{chioschiAttivi > 1 ? 'i' : 'e'} attiv{chioschiAttivi > 1 ? 'e' : 'a'}
+                        <span style={{
+                            color: concorrentiMax > 0 && chioschiAttivi >= concorrentiMax
+                                ? '#f59e0b'
+                                : 'var(--color-text-muted)',
+                        }}>
+                            {concorrentiMax > 0
+                                ? `${chioschiAttivi}/${concorrentiMax} connession${chioschiAttivi !== 1 ? 'i' : 'e'} attiv${chioschiAttivi !== 1 ? 'e' : 'a'}`
+                                : `${chioschiAttivi} connession${chioschiAttivi !== 1 ? 'i' : 'e'} attiv${chioschiAttivi !== 1 ? 'e' : 'a'}`
+                            }
                         </span>
                     )}
                 </div>
