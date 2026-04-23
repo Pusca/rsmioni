@@ -215,7 +215,7 @@ export function useWebRtcChiosco({ chioscoId }: Options): ChioscoWebRtcResult {
                             setErrore({
                                 tipo: 'timeout_signaling',
                                 messaggio: 'Canale signaling non disponibile.',
-                                suggerimento: 'Reverb è in esecuzione? Riavvia con: php artisan reverb:start',
+                                suggerimento: 'Verifica che Pusher sia configurato correttamente (PUSHER_APP_KEY, cluster).',
                             });
                         }
                     });

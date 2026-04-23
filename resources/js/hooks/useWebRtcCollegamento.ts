@@ -167,7 +167,7 @@ export function useWebRtcCollegamento({ sessionId, tipo, attivo }: Options): Res
                             setErrore({
                                 tipo: 'timeout_signaling',
                                 messaggio: 'Canale signaling non disponibile.',
-                                suggerimento: 'Reverb è in esecuzione? Riavvia con: php artisan reverb:start',
+                                suggerimento: 'Verifica che Pusher sia configurato correttamente e il browser del chiosco sia aperto su /kiosk.',
                             });
                         }
                     });
@@ -262,8 +262,8 @@ export function useWebRtcCollegamento({ sessionId, tipo, attivo }: Options): Res
                             messaggio: 'Il chiosco non risponde al segnale.',
                             suggerimento:
                                 'Verifica che il browser del chiosco sia aperto su /kiosk, ' +
-                                'Reverb sia attivo (php artisan reverb:start), ' +
-                                'ed entrambi usino http://localhost.',
+                                'Pusher configurato, ' +
+                                'ed entrambi i browser aperti su /kiosk e /portineria.',
                         });
                     }
                 }, CHIOSCO_READY_TIMEOUT_MS);
