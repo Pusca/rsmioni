@@ -1,1 +1,0 @@
-import{t as e}from"./app-j8Epi-gI.js";var t=e();function n({children:e}){return(0,t.jsx)(`div`,{className:`w-screen h-screen overflow-hidden relative select-none`,style:{backgroundColor:`#0a0c12`,color:`#e8eaf2`},children:e})}export{n as t};

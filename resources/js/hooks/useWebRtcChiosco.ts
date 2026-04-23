@@ -161,9 +161,40 @@ export function useWebRtcChiosco({ chioscoId }: Options): ChioscoWebRtcResult {
             console.log('[WebRTC-K] RTCPeerConnection creata');
 
             // ── 2. Abbonamento Echo PRIMA di getUserMedia ───────────────────
-            //    Fix race condition: se l'offer arriva prima che getUserMedia
-            //    risolva, la processiamo comunque appena siamo pronti.
-            let offerPendente: RTCSessionDescriptionInit | null = null;
+            //    Fix race condition offer: se l'offer arriva prima di getUserMedia
+            //    la salviamo e la processiamo appena getUserMedia risolve.
+            //    Fix race condition ICE: i candidati che arrivano prima che la
+            //    remote description sia impostata vengono accodati e aggiunti
+            //    subito dopo setRemoteDescription.
+            let offerPendente:  RTCSessionDescriptionInit | null = null;
+            let iceQueue:       RTCIceCandidateInit[]            = [];
+            let remoteDescSet = false;
+
+            // Helper: riceve offer, crea answer, invia via signal.
+            // Dopo setRemoteDescription svuota la coda ICE pre-offer.
+            const processaOffer = async (
+                payload: RTCSessionDescriptionInit,
+                pcRef: RTCPeerConnection,
+            ) => {
+                await pcRef.setRemoteDescription(new RTCSessionDescription(payload));
+                remoteDescSet = true;
+
+                if (iceQueue.length > 0) {
+                    console.log(`[WebRTC-K] flush coda ICE: ${iceQueue.length} candidate`);
+                    for (const cand of iceQueue) {
+                        try { await pcRef.addIceCandidate(new RTCIceCandidate(cand)); } catch { /* ignore */ }
+                    }
+                    iceQueue = [];
+                }
+
+                const answer = await pcRef.createAnswer();
+                await pcRef.setLocalDescription(answer);
+                console.log('[WebRTC-K] answer inviata');
+                await inviaSignalChiosco(sessionId!, 'answer', {
+                    type: answer.type,
+                    sdp:  answer.sdp ?? '',
+                });
+            };
 
             if (typeof window !== 'undefined' && window.Echo) {
                 try {
@@ -189,12 +220,16 @@ export function useWebRtcChiosco({ chioscoId }: Options): ChioscoWebRtcResult {
                                     offerPendente = sig.payload as unknown as RTCSessionDescriptionInit;
                                 }
                             } else if (sig.tipo === 'ice-candidate' && sig.payload.candidate) {
-                                console.log('[WebRTC-K] ICE candidate ricevuto dal receptionist');
-                                await pc.addIceCandidate(
-                                    new RTCIceCandidate(
-                                        sig.payload.candidate as RTCIceCandidateInit,
-                                    ),
-                                );
+                                const cand = sig.payload.candidate as RTCIceCandidateInit;
+                                if (remoteDescSet) {
+                                    // Remote description già impostata: aggiungi subito
+                                    console.log('[WebRTC-K] ICE candidate ricevuto dal receptionist');
+                                    await pc.addIceCandidate(new RTCIceCandidate(cand));
+                                } else {
+                                    // Arrivato prima dell'offer: accoda
+                                    console.log('[WebRTC-K] ICE candidate accodato (pre-offer)');
+                                    iceQueue.push(cand);
+                                }
                             } else if (sig.tipo === 'sessione_chiusa') {
                                 console.log('[WebRTC-K] sessione_chiusa ricevuta');
                                 cleanup();
@@ -307,21 +342,6 @@ export function useWebRtcChiosco({ chioscoId }: Options): ChioscoWebRtcResult {
             }
 
             console.groupEnd();
-        };
-
-        // Helper: riceve offer, crea answer, invia via signal
-        const processaOffer = async (
-            payload: RTCSessionDescriptionInit,
-            pc: RTCPeerConnection,
-        ) => {
-            await pc.setRemoteDescription(new RTCSessionDescription(payload));
-            const answer = await pc.createAnswer();
-            await pc.setLocalDescription(answer);
-            console.log('[WebRTC-K] answer inviata');
-            await inviaSignalChiosco(sessionId!, 'answer', {
-                type: answer.type,
-                sdp:  answer.sdp ?? '',
-            });
         };
 
         avvia().catch(() => {

@@ -78,6 +78,10 @@ export function useWebRtcCollegamento({ sessionId, tipo, attivo }: Options): Res
         const needsMedia = tipo === 'chiaro';
 
         let readyTimeout: ReturnType<typeof setTimeout> | null = null;
+        // Coda ICE lato receptionist: i candidati del chiosco possono arrivare
+        // prima che l'answer imposti la remote description.
+        let iceQueueR:       RTCIceCandidateInit[] = [];
+        let remoteDescSetR = false;
 
         const tryCreateOffer = async () => {
             if (!mediaReady || !chioscoReady || offerSent || cancelled) return;
@@ -150,10 +154,23 @@ export function useWebRtcCollegamento({ sessionId, tipo, attivo }: Options): Res
                                         sig.payload as unknown as RTCSessionDescriptionInit,
                                     ),
                                 );
+                                remoteDescSetR = true;
+                                // Svuota coda ICE pre-answer
+                                if (iceQueueR.length > 0) {
+                                    console.log(`[WebRTC-C:${tipo}] flush coda ICE: ${iceQueueR.length} candidate`);
+                                    for (const cand of iceQueueR) {
+                                        try { await pc.addIceCandidate(new RTCIceCandidate(cand)); } catch { /* ignore */ }
+                                    }
+                                    iceQueueR = [];
+                                }
                             } else if (sig.tipo === 'ice-candidate' && sig.payload.candidate) {
-                                await pc.addIceCandidate(
-                                    new RTCIceCandidate(sig.payload.candidate as RTCIceCandidateInit),
-                                );
+                                const cand = sig.payload.candidate as RTCIceCandidateInit;
+                                if (remoteDescSetR) {
+                                    await pc.addIceCandidate(new RTCIceCandidate(cand));
+                                } else {
+                                    console.log(`[WebRTC-C:${tipo}] ICE candidate accodato (pre-answer)`);
+                                    iceQueueR.push(cand);
+                                }
                             } else if (sig.tipo === 'sessione_chiusa') {
                                 console.log(`[WebRTC-C:${tipo}] sessione_chiusa ricevuta`);
                             }
