@@ -161,6 +161,22 @@ export function classificaErroreCondivisione(err: unknown): ErroreMedia {
     };
 }
 
+/**
+ * SDP munging — Chrome 120+ regression fix.
+ *
+ * Chrome 120+ rifiuta `a=ssrc` lines con msid composto da due UUID separati
+ * da spazio (e.g. `a=ssrc:123 msid:<stream-id> <track-id>`).
+ * Queste righe sono ridondanti (l'msid è già dichiarato a livello m-section)
+ * e possono essere filtrate senza perdita di funzionalità.
+ *
+ * Applica PRIMA di setRemoteDescription sia per offer (lato chiosco)
+ * che per answer (lato receptionist).
+ */
+export const patchSdp = (sdp: string): string =>
+    sdp.split(/\r?\n/)
+        .filter(line => !(line.startsWith('a=ssrc:') && / msid:\S+ \S/.test(line)))
+        .join('\r\n');
+
 export const TIMEOUT_MSG: ErroreMedia = {
     tipo: 'timeout_signaling',
     messaggio: 'Il chiosco non risponde al segnale.',

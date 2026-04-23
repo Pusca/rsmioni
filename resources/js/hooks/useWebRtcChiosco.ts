@@ -3,6 +3,7 @@ import { inviaSignalChiosco, getSessioneCorrente } from '@/services/kioskApi';
 import {
     classificaErroreMedia,
     messaggioPeerFallito,
+    patchSdp,
     type ErroreMedia,
 } from '@/services/webrtcMedia';
 
@@ -177,7 +178,8 @@ export function useWebRtcChiosco({ chioscoId }: Options): ChioscoWebRtcResult {
                 pcRef: RTCPeerConnection,
             ) => {
                 console.log('[WebRTC-K] processaOffer — setRemoteDescription...', 'tipo:', payload.type, 'pc.signalingState:', pcRef.signalingState);
-                await pcRef.setRemoteDescription(new RTCSessionDescription(payload));
+                const patchedSdp = patchSdp(payload.sdp ?? '');
+                await pcRef.setRemoteDescription(new RTCSessionDescription({ ...payload, sdp: patchedSdp }));
                 remoteDescSet = true;
                 console.log('[WebRTC-K] setRemoteDescription OK — signalingState:', pcRef.signalingState);
 

@@ -4,6 +4,7 @@ import {
     classificaErroreMedia,
     classificaErroreCondivisione,
     messaggioPeerFallito,
+    patchSdp,
     TIMEOUT_MSG,
     type ErroreMedia,
 } from '@/services/webrtcMedia';
@@ -228,6 +229,8 @@ export function useWebRtcParlato({ sessionId, chioscoId, attivo }: Options): Res
         let chioscoReady = false;         // chiosco_ready ricevuto
 
         let readyTimeout: ReturnType<typeof setTimeout> | null = null;
+        let iceQueueP:       RTCIceCandidateInit[] = [];
+        let remoteDescSetP = false;
 
         // Funzione che crea e invia l'offer solo quando ENTRAMBE le condizioni sono soddisfatte
         const tryCreateOffer = async () => {
@@ -295,18 +298,27 @@ export function useWebRtcParlato({ sessionId, chioscoId, attivo }: Options): Res
                                 await tryCreateOffer();
                             } else if (sig.tipo === 'answer') {
                                 console.log('[WebRTC-R] answer ricevuta');
+                                const rawAns = sig.payload as unknown as RTCSessionDescriptionInit;
                                 await pc.setRemoteDescription(
-                                    new RTCSessionDescription(
-                                        sig.payload as unknown as RTCSessionDescriptionInit,
-                                    ),
+                                    new RTCSessionDescription({ ...rawAns, sdp: patchSdp(rawAns.sdp ?? '') }),
                                 );
+                                remoteDescSetP = true;
+                                if (iceQueueP.length > 0) {
+                                    console.log(`[WebRTC-R] flush coda ICE: ${iceQueueP.length} candidate`);
+                                    for (const cand of iceQueueP) {
+                                        try { await pc.addIceCandidate(new RTCIceCandidate(cand)); } catch { /* ignore */ }
+                                    }
+                                    iceQueueP = [];
+                                }
                             } else if (sig.tipo === 'ice-candidate' && sig.payload.candidate) {
-                                console.log('[WebRTC-R] ICE candidate ricevuto dal chiosco');
-                                await pc.addIceCandidate(
-                                    new RTCIceCandidate(
-                                        sig.payload.candidate as RTCIceCandidateInit,
-                                    ),
-                                );
+                                const cand = sig.payload.candidate as RTCIceCandidateInit;
+                                if (remoteDescSetP) {
+                                    console.log('[WebRTC-R] ICE candidate ricevuto dal chiosco');
+                                    await pc.addIceCandidate(new RTCIceCandidate(cand));
+                                } else {
+                                    console.log('[WebRTC-R] ICE candidate accodato (pre-answer)');
+                                    iceQueueP.push(cand);
+                                }
                             }
                         } catch { /* peer già chiuso o segnale malformato */ }
                     });

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { inviaSignalWebRtc } from '@/services/portineriaApi';
-import { classificaErroreMedia, messaggioPeerFallito, type ErroreMedia } from '@/services/webrtcMedia';
+import { classificaErroreMedia, messaggioPeerFallito, patchSdp, type ErroreMedia } from '@/services/webrtcMedia';
 
 /**
  * Gestisce il ciclo di vita WebRTC lato receptionist per
@@ -149,10 +149,9 @@ export function useWebRtcCollegamento({ sessionId, tipo, attivo }: Options): Res
                                 await tryCreateOffer();
                             } else if (sig.tipo === 'answer') {
                                 console.log(`[WebRTC-C:${tipo}] answer ricevuta`);
+                                const raw2 = sig.payload as unknown as RTCSessionDescriptionInit;
                                 await pc.setRemoteDescription(
-                                    new RTCSessionDescription(
-                                        sig.payload as unknown as RTCSessionDescriptionInit,
-                                    ),
+                                    new RTCSessionDescription({ ...raw2, sdp: patchSdp(raw2.sdp ?? '') }),
                                 );
                                 remoteDescSetR = true;
                                 // Svuota coda ICE pre-answer
