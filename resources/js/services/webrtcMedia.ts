@@ -166,32 +166,48 @@ export function classificaErroreCondivisione(err: unknown): ErroreMedia {
  *
  * Problemi noti risolti:
  *   1. `a=ssrc` / `a=ssrc-group` — deprecate in Unified Plan, Chrome 120+ le rifiuta.
- *   2. Codec FEC (`ulpfec`, `red`, `flexfec-03`) — alcune versioni Chrome/WebView le
- *      rifiutano con "Invalid SDP line". Rimozione sicura: la connessione funziona
- *      senza FEC, con qualità leggermente inferiore su reti degradate.
+ *   2. Codec bloccati (`ulpfec`, `red`, `flexfec-03`, `telephone-event`) — versioni
+ *      Chrome/WebView (es. Android WebView) le rifiutano con "Invalid SDP line".
+ *   3. RTX a cascata — quando rimuoviamo un codec (es. PT 117 = red), la riga RTX
+ *      `a=fmtp:118 apt=117` rimane e referenzia un PT non più in m= → SDP malformato.
+ *      Il passo di cascata rimuove automaticamente gli RTX orfani.
  *
  * Applica PRIMA di setRemoteDescription su ogni offer/answer ricevuto.
  *
- * Algoritmo in 3 passi:
- *   1. Identifica i payload type corrispondenti ai codec bloccati
- *   2. Filtra le righe a=ssrc*, a=rtpmap/fmtp/rtcp-fb dei PT bloccati
- *   3. Rimuove i PT bloccati dalle righe m=
+ * Algoritmo in 5 passi:
+ *   1. Costruisce mappa PT → nome codec
+ *   2. Identifica PT dei codec bloccati per nome
+ *   3. Cascata: blocca RTX il cui `apt` punta a un PT già bloccato
+ *   4. Filtra le righe a=ssrc*, a=rtpmap/fmtp/rtcp-fb dei PT bloccati
+ *   5. Rimuove i PT bloccati dalle righe m=
  */
-const BLOCKED_CODECS = /^(ulpfec|red|flexfec-03)$/i;
+const BLOCKED_CODEC_NAMES = /^(ulpfec|red|flexfec-03|telephone-event)$/i;
 
 export const patchSdp = (sdp: string): string => {
     const lines = sdp.split(/\r?\n/);
-    const blockedPt = new Set<string>();
 
-    // Passo 1: trova payload types dei codec bloccati
+    // Passo 1: mappa PT → nome codec
+    const ptToCodec = new Map<string, string>();
     for (const line of lines) {
         const m = line.match(/^a=rtpmap:(\d+) ([^/\s]+)/);
-        if (m && BLOCKED_CODECS.test(m[2])) {
-            blockedPt.add(m[1]);
+        if (m) ptToCodec.set(m[1], m[2]);
+    }
+
+    // Passo 2: PT dei codec bloccati per nome
+    const blockedPt = new Set<string>();
+    for (const [pt, codec] of ptToCodec) {
+        if (BLOCKED_CODEC_NAMES.test(codec)) blockedPt.add(pt);
+    }
+
+    // Passo 3: cascata RTX — blocca RTX il cui apt è già bloccato
+    for (const line of lines) {
+        const fmtp = line.match(/^a=fmtp:(\d+) apt=(\d+)/);
+        if (fmtp && blockedPt.has(fmtp[2])) {
+            blockedPt.add(fmtp[1]);
         }
     }
 
-    // Passo 2: filtra righe indesiderate
+    // Passo 4: filtra righe indesiderate
     const filtered = lines.filter(line => {
         if (line.startsWith('a=ssrc:') || line.startsWith('a=ssrc-group:')) return false;
         const attr = line.match(/^a=(?:rtpmap|fmtp|rtcp-fb):(\d+)/);
@@ -199,7 +215,7 @@ export const patchSdp = (sdp: string): string => {
         return true;
     });
 
-    // Passo 3: rimuovi PT bloccati dalla riga m=
+    // Passo 5: rimuovi PT bloccati dalla riga m=
     return filtered.map(line => {
         if (!line.startsWith('m=') || blockedPt.size === 0) return line;
         // formato: m=<media> <port> <proto> <pt1> <pt2> ...
