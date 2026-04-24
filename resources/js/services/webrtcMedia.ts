@@ -189,11 +189,14 @@ export function classificaErroreCondivisione(err: unknown): ErroreMedia {
  * universalmente supportati dalle WebView anche più datate e scartiamo tutto il resto.
  *
  * Consentiti:
- *   Video : VP8, VP9, H264  — supportati da ogni WebView dal 2014 in poi
+ *   Video : VP8, H264  — hardware-accelerated, supportati da ogni WebView
  *   Audio : opus, PCMU, PCMA, G722 — codec di base VoIP
  *
+ * VP9 escluso: la WebView rifiuta le sue fmtp lines (profile-id=2 = HDR 10-bit),
+ * inutili per una videochiamata. VP8 e H264 bastano ampiamente.
+ *
  * Rimossi automaticamente (non nell'elenco → esclusi):
- *   AV1, H265, ulpfec, red, flexfec-03, rtx, CN, telephone-event, …
+ *   VP9, AV1, H265, ulpfec, red, flexfec-03, rtx, CN, telephone-event, …
  *
  * Rimosse sempre (indipendentemente dal whitelist):
  *   a=ssrc / a=ssrc-group — deprecate in Unified Plan, Chrome 120+ le rifiuta
@@ -205,7 +208,7 @@ export function classificaErroreCondivisione(err: unknown): ErroreMedia {
  *   4. Rimuove i PT non consentiti dalle righe m=
  *      (PT statici senza a=rtpmap — es. PCMU=0 — vengono mantenuti per sicurezza)
  */
-const ALLOWED_CODEC_NAMES = /^(VP8|VP9|H264|opus|PCMU|PCMA|G722)$/i;
+const ALLOWED_CODEC_NAMES = /^(VP8|H264|opus|PCMU|PCMA|G722)$/i;
 
 export const patchSdp = (sdp: string): string => {
     const lines = sdp.split(/\r?\n/);
