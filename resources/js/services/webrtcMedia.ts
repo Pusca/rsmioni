@@ -162,20 +162,53 @@ export function classificaErroreCondivisione(err: unknown): ErroreMedia {
 }
 
 /**
- * SDP munging — Chrome 120+ regression fix.
+ * SDP munging — compatibilità Chrome/WebView (Unified Plan).
  *
- * Chrome 120+ rifiuta `a=ssrc` lines con msid composto da due UUID separati
- * da spazio (e.g. `a=ssrc:123 msid:<stream-id> <track-id>`).
- * Queste righe sono ridondanti (l'msid è già dichiarato a livello m-section)
- * e possono essere filtrate senza perdita di funzionalità.
+ * Problemi noti risolti:
+ *   1. `a=ssrc` / `a=ssrc-group` — deprecate in Unified Plan, Chrome 120+ le rifiuta.
+ *   2. Codec FEC (`ulpfec`, `red`, `flexfec-03`) — alcune versioni Chrome/WebView le
+ *      rifiutano con "Invalid SDP line". Rimozione sicura: la connessione funziona
+ *      senza FEC, con qualità leggermente inferiore su reti degradate.
  *
- * Applica PRIMA di setRemoteDescription sia per offer (lato chiosco)
- * che per answer (lato receptionist).
+ * Applica PRIMA di setRemoteDescription su ogni offer/answer ricevuto.
+ *
+ * Algoritmo in 3 passi:
+ *   1. Identifica i payload type corrispondenti ai codec bloccati
+ *   2. Filtra le righe a=ssrc*, a=rtpmap/fmtp/rtcp-fb dei PT bloccati
+ *   3. Rimuove i PT bloccati dalle righe m=
  */
-export const patchSdp = (sdp: string): string =>
-    sdp.split(/\r?\n/)
-        .filter(line => !line.startsWith('a=ssrc:') && !line.startsWith('a=ssrc-group:'))
-        .join('\r\n');
+const BLOCKED_CODECS = /^(ulpfec|red|flexfec-03)$/i;
+
+export const patchSdp = (sdp: string): string => {
+    const lines = sdp.split(/\r?\n/);
+    const blockedPt = new Set<string>();
+
+    // Passo 1: trova payload types dei codec bloccati
+    for (const line of lines) {
+        const m = line.match(/^a=rtpmap:(\d+) ([^/\s]+)/);
+        if (m && BLOCKED_CODECS.test(m[2])) {
+            blockedPt.add(m[1]);
+        }
+    }
+
+    // Passo 2: filtra righe indesiderate
+    const filtered = lines.filter(line => {
+        if (line.startsWith('a=ssrc:') || line.startsWith('a=ssrc-group:')) return false;
+        const attr = line.match(/^a=(?:rtpmap|fmtp|rtcp-fb):(\d+)/);
+        if (attr && blockedPt.has(attr[1])) return false;
+        return true;
+    });
+
+    // Passo 3: rimuovi PT bloccati dalla riga m=
+    return filtered.map(line => {
+        if (!line.startsWith('m=') || blockedPt.size === 0) return line;
+        // formato: m=<media> <port> <proto> <pt1> <pt2> ...
+        const parts = line.split(' ');
+        if (parts.length < 4) return line;
+        const cleanPts = parts.slice(3).filter(pt => !blockedPt.has(pt));
+        return [...parts.slice(0, 3), ...cleanPts].join(' ');
+    }).join('\r\n');
+};
 
 export const TIMEOUT_MSG: ErroreMedia = {
     tipo: 'timeout_signaling',
