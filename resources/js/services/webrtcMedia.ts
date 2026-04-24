@@ -181,7 +181,12 @@ export function classificaErroreCondivisione(err: unknown): ErroreMedia {
  *   4. Filtra le righe a=ssrc*, a=rtpmap/fmtp/rtcp-fb dei PT bloccati
  *   5. Rimuove i PT bloccati dalle righe m=
  */
-const BLOCKED_CODEC_NAMES = /^(ulpfec|red|flexfec-03|telephone-event)$/i;
+// Codec rifiutati dalla WebView del chiosco (Android WebView / Chrome vincolato).
+// rtx  = retransmission (non supportato)
+// CN   = Comfort Noise  (non supportato, PT statico 13)
+// ulpfec / red / flexfec-03 = Forward Error Correction (opzionale)
+// telephone-event = DTMF (non necessario per video/parlato)
+const BLOCKED_CODEC_NAMES = /^(ulpfec|red|flexfec-03|telephone-event|rtx|CN)$/i;
 
 export const patchSdp = (sdp: string): string => {
     const lines = sdp.split(/\r?\n/);
