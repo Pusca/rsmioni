@@ -226,6 +226,25 @@ export const patchSdp = (sdp: string): string => {
         if (ALLOWED_CODEC_NAMES.test(codec)) allowedPt.add(pt);
     }
 
+    // Passo 2b: Per H264, rimuovi varianti non-Baseline (Main 4dxx, High 64xx).
+    // La WebView rifiuta a=fmtp con profile-level-id=64xxxx/4dxxxx come "Invalid SDP line".
+    // Rimane solo Baseline (42xx = profile_idc 0x42), che è il profilo più compatibile.
+    // Se un PT H264 non ha a=fmtp con profile-level-id, viene mantenuto (default Baseline).
+    for (const line of lines) {
+        const fmtp = line.match(/^a=fmtp:(\d+) (.+)/);
+        if (!fmtp) continue;
+        const pt = fmtp[1];
+        if (!allowedPt.has(pt)) continue;
+        if (!/^H264$/i.test(ptToCodec.get(pt) ?? '')) continue;
+        const plid = fmtp[2].match(/profile-level-id=([0-9a-fA-F]{4,6})/i);
+        if (plid) {
+            const profileByte = parseInt(plid[1].slice(0, 2), 16);
+            if (profileByte !== 0x42) {
+                allowedPt.delete(pt); // rimuovi Main / High / altro
+            }
+        }
+    }
+
     // Passo 3: filtra righe
     const filtered = lines.filter(line => {
         // Rimuovi sempre le righe ssrc (deprecate in Unified Plan)
