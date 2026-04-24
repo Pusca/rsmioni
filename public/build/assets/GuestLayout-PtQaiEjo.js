@@ -1,0 +1,1 @@
+import{t as e}from"./app-pXuOi29k.js";var t=e();function n({children:e}){return(0,t.jsx)(`div`,{className:`min-h-screen flex items-center justify-center`,style:{backgroundColor:`var(--color-bg-primary)`},children:(0,t.jsx)(`div`,{className:`w-full max-w-md px-6`,children:e})})}export{n as t};

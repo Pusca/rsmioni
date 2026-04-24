@@ -181,52 +181,72 @@ export function classificaErroreCondivisione(err: unknown): ErroreMedia {
  *   4. Filtra le righe a=ssrc*, a=rtpmap/fmtp/rtcp-fb dei PT bloccati
  *   5. Rimuove i PT bloccati dalle righe m=
  */
-// Codec rifiutati dalla WebView del chiosco (Android WebView / Chrome vincolato).
-// rtx  = retransmission (non supportato)
-// CN   = Comfort Noise  (non supportato, PT statico 13)
-// ulpfec / red / flexfec-03 = Forward Error Correction (opzionale)
-// telephone-event = DTMF (non necessario per video/parlato)
-const BLOCKED_CODEC_NAMES = /^(ulpfec|red|flexfec-03|telephone-event|rtx|CN)$/i;
+/**
+ * SDP munging — whitelist dei codec compatibili con tutte le WebView.
+ *
+ * Strategia: invece di aggiungere codec alla blacklist ad ogni giro
+ * (ulpfec, red, rtx, CN, telephone-event, AV1, …), manteniamo solo i codec
+ * universalmente supportati dalle WebView anche più datate e scartiamo tutto il resto.
+ *
+ * Consentiti:
+ *   Video : VP8, VP9, H264  — supportati da ogni WebView dal 2014 in poi
+ *   Audio : opus, PCMU, PCMA, G722 — codec di base VoIP
+ *
+ * Rimossi automaticamente (non nell'elenco → esclusi):
+ *   AV1, H265, ulpfec, red, flexfec-03, rtx, CN, telephone-event, …
+ *
+ * Rimosse sempre (indipendentemente dal whitelist):
+ *   a=ssrc / a=ssrc-group — deprecate in Unified Plan, Chrome 120+ le rifiuta
+ *
+ * Algoritmo in 4 passi:
+ *   1. Costruisce mappa PT → nome codec da a=rtpmap
+ *   2. Calcola allowedPt: PT i cui codec sono in ALLOWED_CODEC_NAMES
+ *   3. Filtra le righe: rimuove ssrc* e tutte le a= per PT non consentiti
+ *   4. Rimuove i PT non consentiti dalle righe m=
+ *      (PT statici senza a=rtpmap — es. PCMU=0 — vengono mantenuti per sicurezza)
+ */
+const ALLOWED_CODEC_NAMES = /^(VP8|VP9|H264|opus|PCMU|PCMA|G722)$/i;
 
 export const patchSdp = (sdp: string): string => {
     const lines = sdp.split(/\r?\n/);
 
-    // Passo 1: mappa PT → nome codec
+    // Passo 1: mappa PT → nome codec (solo righe a=rtpmap esplicite)
     const ptToCodec = new Map<string, string>();
     for (const line of lines) {
         const m = line.match(/^a=rtpmap:(\d+) ([^/\s]+)/);
         if (m) ptToCodec.set(m[1], m[2]);
     }
 
-    // Passo 2: PT dei codec bloccati per nome
-    const blockedPt = new Set<string>();
+    // Passo 2: PT dei codec nella whitelist
+    const allowedPt = new Set<string>();
     for (const [pt, codec] of ptToCodec) {
-        if (BLOCKED_CODEC_NAMES.test(codec)) blockedPt.add(pt);
+        if (ALLOWED_CODEC_NAMES.test(codec)) allowedPt.add(pt);
     }
 
-    // Passo 3: cascata RTX — blocca RTX il cui apt è già bloccato
-    for (const line of lines) {
-        const fmtp = line.match(/^a=fmtp:(\d+) apt=(\d+)/);
-        if (fmtp && blockedPt.has(fmtp[2])) {
-            blockedPt.add(fmtp[1]);
-        }
-    }
-
-    // Passo 4: filtra righe indesiderate
+    // Passo 3: filtra righe
     const filtered = lines.filter(line => {
+        // Rimuovi sempre le righe ssrc (deprecate in Unified Plan)
         if (line.startsWith('a=ssrc:') || line.startsWith('a=ssrc-group:')) return false;
         const attr = line.match(/^a=(?:rtpmap|fmtp|rtcp-fb):(\d+)/);
-        if (attr && blockedPt.has(attr[1])) return false;
+        if (!attr) return true; // non è una riga codec → mantieni
+        const pt = attr[1];
+        // PT con a=rtpmap esplicito: mantieni solo se consentito
+        if (ptToCodec.has(pt)) return allowedPt.has(pt);
+        // PT statico senza a=rtpmap (es. PCMU=0, PCMA=8, G722=9): mantieni
         return true;
     });
 
-    // Passo 5: rimuovi PT bloccati dalla riga m=
+    // Passo 4: rimuovi PT non consentiti dalle righe m=
     return filtered.map(line => {
-        if (!line.startsWith('m=') || blockedPt.size === 0) return line;
-        // formato: m=<media> <port> <proto> <pt1> <pt2> ...
+        if (!line.startsWith('m=')) return line;
         const parts = line.split(' ');
         if (parts.length < 4) return line;
-        const cleanPts = parts.slice(3).filter(pt => !blockedPt.has(pt));
+        const cleanPts = parts.slice(3).filter(pt => {
+            // PT con rtpmap: consentito solo se in allowedPt
+            if (ptToCodec.has(pt)) return allowedPt.has(pt);
+            // PT statico senza rtpmap: consentito (PCMU=0, PCMA=8, G722=9)
+            return true;
+        });
         return [...parts.slice(0, 3), ...cleanPts].join(' ');
     }).join('\r\n');
 };
