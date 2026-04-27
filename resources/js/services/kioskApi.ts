@@ -342,10 +342,13 @@ export async function inviaSignalChiosco(
     payload: Record<string, unknown>,
 ): Promise<void> {
     try {
-        await fetch('/kiosk/webrtc/signal', {
+        const res = await fetch('/kiosk/webrtc/signal', {
             method: 'POST',
             headers: headers(),
             body: JSON.stringify({ session_id: sessionId, tipo, payload }),
         });
+        if (!res.ok) {
+            console.warn('[WebRTC-K] signal send failed:', res.status, tipo);
+        }
     } catch { /* best-effort, network error — ignora */ }
 }

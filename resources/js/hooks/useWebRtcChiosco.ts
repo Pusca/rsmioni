@@ -245,7 +245,20 @@ export function useWebRtcChiosco({ chioscoId }: Options): ChioscoWebRtcResult {
                                 console.log('[WebRTC-K] condivisione schermo terminata');
                                 setCondivisioneAttiva(false);
                             }
-                        } catch (e) { console.error('[WebRTC-K] signal handler error:', e); }
+                        } catch (e) {
+                            console.error('[WebRTC-K] signal handler error:', e);
+                            // Se l'offer è stata rifiutata (SDP invalido o setRemoteDescription fallita),
+                            // notifica l'utente e pulisci la sessione
+                            if (sig.tipo === 'offer' && !cancelled) {
+                                setStato('error');
+                                setErrore({
+                                    tipo: 'sconosciuto',
+                                    messaggio: 'SDP dell\'offerta non accettato.',
+                                    suggerimento: 'Aggiorna la pagina del chiosco e riprova il collegamento.',
+                                });
+                                cleanup();
+                            }
+                        }
                     });
 
                     webrtcChannel.error(() => {

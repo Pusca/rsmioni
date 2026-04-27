@@ -164,51 +164,26 @@ export function classificaErroreCondivisione(err: unknown): ErroreMedia {
 /**
  * SDP munging — compatibilità Chrome/WebView (Unified Plan).
  *
- * Problemi noti risolti:
- *   1. `a=ssrc` / `a=ssrc-group` — deprecate in Unified Plan, Chrome 120+ le rifiuta.
- *   2. Codec bloccati (`ulpfec`, `red`, `flexfec-03`, `telephone-event`) — versioni
- *      Chrome/WebView (es. Android WebView) le rifiutano con "Invalid SDP line".
- *   3. RTX a cascata — quando rimuoviamo un codec (es. PT 117 = red), la riga RTX
- *      `a=fmtp:118 apt=117` rimane e referenzia un PT non più in m= → SDP malformato.
- *      Il passo di cascata rimuove automaticamente gli RTX orfani.
+ * Strategia whitelist + rimozione totale fmtp video:
+ *   - Manteniamo solo codec universalmente supportati (VP8, H264, opus, G7xx)
+ *   - Rimuoviamo TUTTE le righe a=fmtp per codec VIDEO (VP8, H264):
+ *     la WebView rifiuta qualsiasi parametro fmtp video come "Invalid SDP line"
+ *     (profile-level-id=64001f, profile-id=2, apt=…, ecc.).
+ *     Senza fmtp, H264 default a Constrained Baseline — il profilo più compatibile.
+ *   - Le righe a=fmtp audio (opus, PCMU…) vengono mantenute.
+ *   - a=ssrc / a=ssrc-group sempre rimossi (deprecati in Unified Plan).
  *
  * Applica PRIMA di setRemoteDescription su ogni offer/answer ricevuto.
- *
- * Algoritmo in 5 passi:
- *   1. Costruisce mappa PT → nome codec
- *   2. Identifica PT dei codec bloccati per nome
- *   3. Cascata: blocca RTX il cui `apt` punta a un PT già bloccato
- *   4. Filtra le righe a=ssrc*, a=rtpmap/fmtp/rtcp-fb dei PT bloccati
- *   5. Rimuove i PT bloccati dalle righe m=
- */
-/**
- * SDP munging — whitelist dei codec compatibili con tutte le WebView.
- *
- * Strategia: invece di aggiungere codec alla blacklist ad ogni giro
- * (ulpfec, red, rtx, CN, telephone-event, AV1, …), manteniamo solo i codec
- * universalmente supportati dalle WebView anche più datate e scartiamo tutto il resto.
- *
- * Consentiti:
- *   Video : VP8, H264  — hardware-accelerated, supportati da ogni WebView
- *   Audio : opus, PCMU, PCMA, G722 — codec di base VoIP
- *
- * VP9 escluso: la WebView rifiuta le sue fmtp lines (profile-id=2 = HDR 10-bit),
- * inutili per una videochiamata. VP8 e H264 bastano ampiamente.
- *
- * Rimossi automaticamente (non nell'elenco → esclusi):
- *   VP9, AV1, H265, ulpfec, red, flexfec-03, rtx, CN, telephone-event, …
- *
- * Rimosse sempre (indipendentemente dal whitelist):
- *   a=ssrc / a=ssrc-group — deprecate in Unified Plan, Chrome 120+ le rifiuta
  *
  * Algoritmo in 4 passi:
  *   1. Costruisce mappa PT → nome codec da a=rtpmap
  *   2. Calcola allowedPt: PT i cui codec sono in ALLOWED_CODEC_NAMES
- *   3. Filtra le righe: rimuove ssrc* e tutte le a= per PT non consentiti
+ *   3. Filtra le righe: ssrc*, PT non-whitelist, fmtp video
  *   4. Rimuove i PT non consentiti dalle righe m=
- *      (PT statici senza a=rtpmap — es. PCMU=0 — vengono mantenuti per sicurezza)
  */
 const ALLOWED_CODEC_NAMES = /^(VP8|H264|opus|PCMU|PCMA|G722)$/i;
+/** Codec video: le loro a=fmtp vengono rimosse integralmente per compatibilità WebView */
+const VIDEO_CODEC_NAMES   = /^(VP8|H264)$/i;
 
 export const patchSdp = (sdp: string): string => {
     const lines = sdp.split(/\r?\n/);
@@ -226,25 +201,6 @@ export const patchSdp = (sdp: string): string => {
         if (ALLOWED_CODEC_NAMES.test(codec)) allowedPt.add(pt);
     }
 
-    // Passo 2b: Per H264, rimuovi varianti non-Baseline (Main 4dxx, High 64xx).
-    // La WebView rifiuta a=fmtp con profile-level-id=64xxxx/4dxxxx come "Invalid SDP line".
-    // Rimane solo Baseline (42xx = profile_idc 0x42), che è il profilo più compatibile.
-    // Se un PT H264 non ha a=fmtp con profile-level-id, viene mantenuto (default Baseline).
-    for (const line of lines) {
-        const fmtp = line.match(/^a=fmtp:(\d+) (.+)/);
-        if (!fmtp) continue;
-        const pt = fmtp[1];
-        if (!allowedPt.has(pt)) continue;
-        if (!/^H264$/i.test(ptToCodec.get(pt) ?? '')) continue;
-        const plid = fmtp[2].match(/profile-level-id=([0-9a-fA-F]{4,6})/i);
-        if (plid) {
-            const profileByte = parseInt(plid[1].slice(0, 2), 16);
-            if (profileByte !== 0x42) {
-                allowedPt.delete(pt); // rimuovi Main / High / altro
-            }
-        }
-    }
-
     // Passo 3: filtra righe
     const filtered = lines.filter(line => {
         // Rimuovi sempre le righe ssrc (deprecate in Unified Plan)
@@ -252,9 +208,16 @@ export const patchSdp = (sdp: string): string => {
         const attr = line.match(/^a=(?:rtpmap|fmtp|rtcp-fb):(\d+)/);
         if (!attr) return true; // non è una riga codec → mantieni
         const pt = attr[1];
-        // PT con a=rtpmap esplicito: mantieni solo se consentito
-        if (ptToCodec.has(pt)) return allowedPt.has(pt);
-        // PT statico senza a=rtpmap (es. PCMU=0, PCMA=8, G722=9): mantieni
+        if (ptToCodec.has(pt)) {
+            if (!allowedPt.has(pt)) return false; // codec non in whitelist
+            // Rimuovi a=fmtp per codec VIDEO: la WebView li rifiuta (profile params, apt, ecc.)
+            // H264 senza fmtp → Constrained Baseline di default (massima compatibilità)
+            if (line.startsWith('a=fmtp:') && VIDEO_CODEC_NAMES.test(ptToCodec.get(pt) ?? '')) {
+                return false;
+            }
+            return true;
+        }
+        // PT statico senza a=rtpmap (PCMU=0, PCMA=8, G722=9): mantieni
         return true;
     });
 

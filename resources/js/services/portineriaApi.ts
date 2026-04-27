@@ -102,11 +102,14 @@ export async function inviaSignalWebRtc(
     payload: Record<string, unknown>,
 ): Promise<void> {
     try {
-        await fetch('/portineria/webrtc/signal', {
+        const res = await fetch('/portineria/webrtc/signal', {
             method: 'POST',
             headers: headers(),
             body: JSON.stringify({ session_id: sessionId, tipo, payload }),
         });
+        if (!res.ok) {
+            console.warn('[WebRTC] signal send failed:', res.status, tipo);
+        }
     } catch { /* best-effort */ }
 }
 

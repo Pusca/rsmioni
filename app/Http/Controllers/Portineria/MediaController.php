@@ -11,6 +11,7 @@ use App\Services\PortineriaService;
 use App\Services\WebRtcSessionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Sessioni media per collegamento in chiaro e in nascosto.
@@ -78,8 +79,13 @@ class MediaController extends Controller
 
         try {
             broadcast(new WebRtcSessionCreata($chiosco->id, $sessionId, $request->tipo));
-        } catch (\Throwable) {
-            // Reverb non attivo — il chiosco non riceverà la notifica realtime
+        } catch (\Throwable $e) {
+            Log::error('[WebRTC] broadcast WebRtcSessionCreata fallito (media)', [
+                'chiosco_id' => $chiosco->id,
+                'session_id' => $sessionId,
+                'tipo'       => $request->tipo,
+                'error'      => $e->getMessage(),
+            ]);
         }
 
         return response()->json([
@@ -116,7 +122,12 @@ class MediaController extends Controller
                 [],
                 'receptionist',
             ));
-        } catch (\Throwable) { /* Reverb non attivo */ }
+        } catch (\Throwable $e) {
+            Log::error('[WebRTC] broadcast sessione_chiusa fallito (media)', [
+                'session_id' => $request->session_id,
+                'error'      => $e->getMessage(),
+            ]);
+        }
 
         $this->webRtcSession->chiudi($request->session_id);
 

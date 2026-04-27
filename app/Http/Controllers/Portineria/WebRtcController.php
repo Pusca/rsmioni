@@ -11,6 +11,7 @@ use App\Services\PortineriaService;
 use App\Services\WebRtcSessionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 /**
  * API WebRTC per il parlato receptionist ↔ chiosco.
@@ -77,9 +78,12 @@ class WebRtcController extends Controller
         // Notifica il browser del chiosco che c'è una nuova sessione WebRTC
         try {
             broadcast(new WebRtcSessionCreata($chiosco->id, $sessionId, 'parlato'));
-        } catch (\Throwable) {
-            // Reverb non attivo — il chiosco non riceverà la notifica realtime;
-            // in dev usa il demo toolbar per simulare, in prod Reverb deve essere attivo.
+        } catch (\Throwable $e) {
+            Log::error('[WebRTC] broadcast WebRtcSessionCreata fallito (parlato)', [
+                'chiosco_id' => $chiosco->id,
+                'session_id' => $sessionId,
+                'error'      => $e->getMessage(),
+            ]);
         }
 
         return response()->json([
@@ -111,8 +115,12 @@ class WebRtcController extends Controller
                 $request->payload,
                 'receptionist',
             ));
-        } catch (\Throwable) {
-            // Reverb non in esecuzione — in dev è normale
+        } catch (\Throwable $e) {
+            Log::error('[WebRTC] broadcast WebRtcSignal fallito', [
+                'session_id' => $request->session_id,
+                'tipo'       => $request->tipo,
+                'error'      => $e->getMessage(),
+            ]);
         }
 
         return response()->json(['ok' => true]);
@@ -145,7 +153,12 @@ class WebRtcController extends Controller
                 [],
                 'receptionist',
             ));
-        } catch (\Throwable) { /* Reverb non attivo */ }
+        } catch (\Throwable $e) {
+            Log::error('[WebRTC] broadcast sessione_chiusa fallito', [
+                'session_id' => $request->session_id,
+                'error'      => $e->getMessage(),
+            ]);
+        }
 
         // Poi elimina la sessione dalla Cache
         $this->webRtcSession->chiudi($request->session_id);

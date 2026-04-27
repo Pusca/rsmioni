@@ -319,6 +319,16 @@ export function useWebRtcParlato({ sessionId, chioscoId, attivo }: Options): Res
                                     console.log('[WebRTC-R] ICE candidate accodato (pre-answer)');
                                     iceQueueP.push(cand);
                                 }
+                            } else if (sig.tipo === 'sessione_chiusa') {
+                                console.log('[WebRTC-R] sessione_chiusa ricevuta');
+                                if (!cancelled) {
+                                    setStato('error');
+                                    setErrore({
+                                        tipo: 'connessione_interrotta',
+                                        messaggio: 'Il chiosco ha chiuso la connessione.',
+                                        suggerimento: 'Il collegamento è stato interrotto. Chiudi e riprova.',
+                                    });
+                                }
                             }
                         } catch { /* peer già chiuso o segnale malformato */ }
                     });

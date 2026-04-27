@@ -172,6 +172,14 @@ export function useWebRtcCollegamento({ sessionId, tipo, attivo }: Options): Res
                                 }
                             } else if (sig.tipo === 'sessione_chiusa') {
                                 console.log(`[WebRTC-C:${tipo}] sessione_chiusa ricevuta`);
+                                if (!cancelled) {
+                                    setStato('error');
+                                    setErrore({
+                                        tipo: 'connessione_interrotta',
+                                        messaggio: 'Il chiosco ha chiuso la connessione.',
+                                        suggerimento: 'Il collegamento è stato interrotto. Chiudi e riprova.',
+                                    });
+                                }
                             }
                         } catch { /* peer già chiuso o segnale malformato */ }
                     });
