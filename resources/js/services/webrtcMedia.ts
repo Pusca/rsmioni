@@ -210,9 +210,11 @@ export const patchSdp = (sdp: string): string => {
         const pt = attr[1];
         if (ptToCodec.has(pt)) {
             if (!allowedPt.has(pt)) return false; // codec non in whitelist
-            // Rimuovi a=fmtp per codec VIDEO: la WebView li rifiuta (profile params, apt, ecc.)
-            // H264 senza fmtp → Constrained Baseline di default (massima compatibilità)
-            if (line.startsWith('a=fmtp:') && VIDEO_CODEC_NAMES.test(ptToCodec.get(pt) ?? '')) {
+            // Rimuovi a=fmtp e a=rtcp-fb per codec VIDEO: la WebView li rifiuta
+            // (profile params, apt, nack pli, ecc. → "Invalid SDP line")
+            // H264 senza fmtp/rtcp-fb → Constrained Baseline di default (massima compatibilità)
+            if ((line.startsWith('a=fmtp:') || line.startsWith('a=rtcp-fb:')) &&
+                VIDEO_CODEC_NAMES.test(ptToCodec.get(pt) ?? '')) {
                 return false;
             }
             return true;
