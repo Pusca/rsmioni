@@ -156,6 +156,10 @@ export function useWebRtcChiosco({ chioscoId }: Options): ChioscoWebRtcResult {
 
             // ── 1. ICE servers + RTCPeerConnection ─────────────────────────
             const iceServers = await getIceServers();
+            const hasRelay = iceServers.some(s =>
+                (Array.isArray(s.urls) ? s.urls : [s.urls]).some(u => u.startsWith('turn:')));
+            console.log('[WebRTC-K] ICE servers:', iceServers.length, '| TURN:', hasRelay,
+                iceServers.map(s => Array.isArray(s.urls) ? s.urls[0] : s.urls));
             pc = new RTCPeerConnection({ iceServers });
             console.log('[WebRTC-K] RTCPeerConnection creata');
 
@@ -327,22 +331,27 @@ export function useWebRtcChiosco({ chioscoId }: Options): ChioscoWebRtcResult {
                 }
             };
 
+            pc.onicegatheringstatechange = () => {
+                console.log('[WebRTC-K] iceGatheringState:', pc?.iceGatheringState);
+            };
+            pc.oniceconnectionstatechange = () => {
+                console.log('[WebRTC-K] iceConnectionState:', pc?.iceConnectionState);
+            };
             pc.onconnectionstatechange = () => {
                 if (cancelled || !pc) return;
                 console.log('[WebRTC-K] connectionState:', pc.connectionState);
                 if (pc.connectionState === 'connected') {
                     console.log('[WebRTC-K] P2P connesso');
                     setStato('connected');
-                } else if (
-                    pc.connectionState === 'failed' ||
-                    pc.connectionState === 'disconnected'
-                ) {
+                } else if (pc.connectionState === 'failed') {
                     const errMedia = messaggioPeerFallito(pc.connectionState);
-                    console.warn('[WebRTC-K] P2P', pc.connectionState, '→', errMedia.tipo);
+                    console.warn('[WebRTC-K] P2P failed →', errMedia.tipo);
                     if (!cancelled) {
                         setStato('error');
                         setErrore(errMedia);
                     }
+                } else if (pc.connectionState === 'disconnected') {
+                    console.warn('[WebRTC-K] P2P disconnected (transient?)');
                 }
             };
 

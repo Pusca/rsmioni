@@ -265,6 +265,10 @@ export function useWebRtcParlato({ sessionId, chioscoId, attivo }: Options): Res
 
             // ── 1. ICE servers + RTCPeerConnection ─────────────────────────
             const iceServers = await getIceServers();
+            const hasRelay = iceServers.some(s =>
+                (Array.isArray(s.urls) ? s.urls : [s.urls]).some(u => u.startsWith('turn:')));
+            console.log('[WebRTC-R] ICE servers:', iceServers.length, '| TURN:', hasRelay,
+                iceServers.map(s => Array.isArray(s.urls) ? s.urls[0] : s.urls));
             const pc = new RTCPeerConnection({ iceServers });
             console.log('[WebRTC-R] RTCPeerConnection creata');
             pcRef.current = pc;
@@ -295,11 +299,12 @@ export function useWebRtcParlato({ sessionId, chioscoId, attivo }: Options): Res
                                 chioscoReady = true;
                                 await tryCreateOffer();
                             } else if (sig.tipo === 'answer') {
-                                console.log('[WebRTC-R] answer ricevuta');
+                                console.log('[WebRTC-R] answer ricevuta — chiamo setRemoteDescription');
                                 const rawAns = sig.payload as unknown as RTCSessionDescriptionInit;
                                 await pc.setRemoteDescription(
                                     new RTCSessionDescription({ ...rawAns, sdp: patchSdp(rawAns.sdp ?? '') }),
                                 );
+                                console.log('[WebRTC-R] setRemoteDescription(answer) OK — signalingState:', pc.signalingState);
                                 remoteDescSetP = true;
                                 if (iceQueueP.length > 0) {
                                     console.log(`[WebRTC-R] flush coda ICE: ${iceQueueP.length} candidate`);
@@ -400,20 +405,25 @@ export function useWebRtcParlato({ sessionId, chioscoId, attivo }: Options): Res
                 }
             };
 
+            pc.onicegatheringstatechange = () => {
+                console.log('[WebRTC-R] iceGatheringState:', pc.iceGatheringState);
+            };
+            pc.oniceconnectionstatechange = () => {
+                console.log('[WebRTC-R] iceConnectionState:', pc.iceConnectionState);
+            };
             pc.onconnectionstatechange = () => {
                 if (cancelled) return;
                 console.log('[WebRTC-R] connectionState:', pc.connectionState);
                 if (pc.connectionState === 'connected') {
                     console.log('[WebRTC-R] P2P connesso');
                     setStato('connected');
-                } else if (
-                    pc.connectionState === 'failed' ||
-                    pc.connectionState === 'disconnected'
-                ) {
+                } else if (pc.connectionState === 'failed') {
                     const errMedia = messaggioPeerFallito(pc.connectionState);
-                    console.warn('[WebRTC-R] P2P', pc.connectionState, '→', errMedia.tipo);
+                    console.warn('[WebRTC-R] P2P failed →', errMedia.tipo);
                     setStato('error');
                     setErrore(errMedia);
+                } else if (pc.connectionState === 'disconnected') {
+                    console.warn('[WebRTC-R] P2P disconnected (transient?)');
                 }
             };
 
