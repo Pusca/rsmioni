@@ -236,6 +236,31 @@ export const patchSdp = (sdp: string): string => {
     }).join('\r\n');
 };
 
+/**
+ * Fetcha i server ICE (STUN + TURN) dal backend.
+ * Il backend li ottiene da Metered.ca e li cacha 50 min.
+ * Fallback: solo STUN Google se la fetch fallisce.
+ */
+export async function getIceServers(): Promise<RTCIceServer[]> {
+    try {
+        const csrf = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '';
+        const res  = await fetch('/webrtc/ice-servers', {
+            headers: { 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' },
+        });
+        if (res.ok) {
+            const servers = await res.json() as RTCIceServer[];
+            console.log('[ICE] servers caricati da backend:', servers.length);
+            return servers;
+        }
+    } catch (e) {
+        console.warn('[ICE] fetch /webrtc/ice-servers fallita, uso STUN fallback', e);
+    }
+    return [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+    ];
+}
+
 export const TIMEOUT_MSG: ErroreMedia = {
     tipo: 'timeout_signaling',
     messaggio: 'Il chiosco non risponde al segnale.',

@@ -3,6 +3,7 @@ import { inviaSignalWebRtc } from '@/services/portineriaApi';
 import {
     classificaErroreMedia,
     classificaErroreCondivisione,
+    getIceServers,
     messaggioPeerFallito,
     patchSdp,
     TIMEOUT_MSG,
@@ -51,10 +52,6 @@ interface Result {
     clearErroreCondivisione: () => void;
 }
 
-const ICE_SERVERS: RTCIceServer[] = [
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' },
-];
 
 /**
  * Gestisce il ciclo di vita di una sessione WebRTC lato receptionist.
@@ -266,8 +263,9 @@ export function useWebRtcParlato({ sessionId, chioscoId, attivo }: Options): Res
             setErrore(null);
             console.group('[WebRTC-R] avvio sessione', sessionId);
 
-            // ── 1. RTCPeerConnection ────────────────────────────────────────
-            const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+            // ── 1. ICE servers + RTCPeerConnection ─────────────────────────
+            const iceServers = await getIceServers();
+            const pc = new RTCPeerConnection({ iceServers });
             console.log('[WebRTC-R] RTCPeerConnection creata');
             pcRef.current = pc;
 

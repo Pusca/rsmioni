@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { inviaSignalWebRtc } from '@/services/portineriaApi';
-import { classificaErroreMedia, messaggioPeerFallito, patchSdp, type ErroreMedia } from '@/services/webrtcMedia';
+import { classificaErroreMedia, getIceServers, messaggioPeerFallito, patchSdp, type ErroreMedia } from '@/services/webrtcMedia';
 
 /**
  * Gestisce il ciclo di vita WebRTC lato receptionist per
@@ -50,10 +50,6 @@ interface Result {
     errore: ErroreMedia | null;
 }
 
-const ICE_SERVERS: RTCIceServer[] = [
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' },
-];
 
 export function useWebRtcCollegamento({ sessionId, tipo, attivo }: Options): Result {
     const localVideoRef  = useRef<HTMLVideoElement | null>(null);
@@ -116,8 +112,9 @@ export function useWebRtcCollegamento({ sessionId, tipo, attivo }: Options): Res
             setErrore(null);
             console.group(`[WebRTC-C:${tipo}] avvio sessione`, sessionId);
 
-            // ── 1. RTCPeerConnection ─────────────────────────────────────────
-            const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+            // ── 1. ICE servers + RTCPeerConnection ──────────────────────────
+            const iceServers = await getIceServers();
+            const pc = new RTCPeerConnection({ iceServers });
             pcRef.current = pc;
 
             // Configura il transceiver video in base al tipo

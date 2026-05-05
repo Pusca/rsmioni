@@ -35,4 +35,13 @@ return [
         ],
     ],
 
+    // ── Metered.ca — TURN server per WebRTC ───────────────────────────────
+    // Credenziali da https://<app>.metered.live/o/dashboard
+    'metered' => [
+        'api_key'    => env('METERED_API_KEY'),
+        'app_name'   => env('METERED_APP_NAME', 'rsmioni'),
+        'username'   => env('METERED_TURN_USERNAME'),
+        'credential' => env('METERED_TURN_CREDENTIAL'),
+    ],
+
 ];

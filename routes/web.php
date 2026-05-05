@@ -29,6 +29,7 @@ use App\Http\Controllers\Portineria\StatoChioscoController;
 use App\Http\Controllers\Portineria\StampaController;
 use App\Http\Controllers\Portineria\MediaController;
 use App\Http\Controllers\Portineria\WebRtcController;
+use App\Http\Controllers\WebRtcIceServersController;
 use App\Http\Controllers\Prenotazioni\PrenotazioniController;
 use App\Http\Controllers\Regolamento\RegolamentoController;
 use Illuminate\Support\Facades\Route;
@@ -46,6 +47,11 @@ Route::middleware('guest')->group(function () {
 Route::post('/logout', [LogoutController::class, 'destroy'])
     ->middleware('auth')
     ->name('logout');
+
+// ICE servers (STUN + TURN) — accessibile a tutti i profili autenticati
+Route::get('/webrtc/ice-servers', [WebRtcIceServersController::class, 'index'])
+    ->middleware('auth')
+    ->name('webrtc.ice_servers');
 
 /*
 |--------------------------------------------------------------------------

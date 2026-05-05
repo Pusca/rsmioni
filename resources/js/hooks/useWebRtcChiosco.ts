@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { inviaSignalChiosco, getSessioneCorrente } from '@/services/kioskApi';
 import {
     classificaErroreMedia,
+    getIceServers,
     messaggioPeerFallito,
     patchSdp,
     type ErroreMedia,
@@ -42,10 +43,6 @@ export interface ChioscoWebRtcResult {
     condivisioneAttiva: boolean;
 }
 
-const ICE_SERVERS: RTCIceServer[] = [
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' },
-];
 
 /**
  * Gestisce il ciclo di vita WebRTC lato chiosco.
@@ -157,8 +154,9 @@ export function useWebRtcChiosco({ chioscoId }: Options): ChioscoWebRtcResult {
             setErrore(null);
             console.group('[WebRTC-K] avvio sessione', sessionId);
 
-            // ── 1. RTCPeerConnection ────────────────────────────────────────
-            pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+            // ── 1. ICE servers + RTCPeerConnection ─────────────────────────
+            const iceServers = await getIceServers();
+            pc = new RTCPeerConnection({ iceServers });
             console.log('[WebRTC-K] RTCPeerConnection creata');
 
             // ── 2. Abbonamento Echo PRIMA di getUserMedia ───────────────────
