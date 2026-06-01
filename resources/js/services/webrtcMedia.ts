@@ -162,18 +162,25 @@ export function classificaErroreCondivisione(err: unknown): ErroreMedia {
 }
 
 /**
- * SDP munging minimale — pulizia Unified Plan.
+ * SDP munging mirato — compatibilità WebView/browser strict.
  *
- * Rimuove solo le righe a=ssrc / a=ssrc-group (deprecate in Unified Plan,
- * possono causare "Invalid SDP line" su browser/WebView meno recenti).
+ * Rimuove solo ciò che causa "Invalid SDP line" su WebView:
+ *   1. a=ssrc / a=ssrc-group — deprecate in Unified Plan
+ *   2. a=rtcp-fb:XX nack pli — WebView le rifiuta esplicitamente
+ *   3. a=rtcp-fb:XX nack (senza sotto-tipo) — stessa famiglia, stesso problema
  *
- * Il resto dell'SDP viene preservato intatto: codec, fmtp, rtcp-fb, setup,
- * extmap, ecc. La negoziazione codec è gestita nativamente dai browser.
+ * Tutto il resto (fmtp, rtpmap, setup, extmap, codec, m= lines) resta intatto.
+ * I browser negoziano i codec nativamente.
  */
 export const patchSdp = (sdp: string): string => {
     return sdp
         .split(/\r?\n/)
-        .filter(line => !line.startsWith('a=ssrc:') && !line.startsWith('a=ssrc-group:'))
+        .filter(line => {
+            if (line.startsWith('a=ssrc:') || line.startsWith('a=ssrc-group:')) return false;
+            // Rimuovi "a=rtcp-fb:XX nack" e "a=rtcp-fb:XX nack pli" (WebView le rifiuta)
+            if (/^a=rtcp-fb:\d+ nack/.test(line)) return false;
+            return true;
+        })
         .join('\r\n');
 };
 
