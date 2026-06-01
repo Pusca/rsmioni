@@ -162,80 +162,19 @@ export function classificaErroreCondivisione(err: unknown): ErroreMedia {
 }
 
 /**
- * SDP munging — compatibilità Chrome/WebView (Unified Plan).
+ * SDP munging minimale — pulizia Unified Plan.
  *
- * Strategia whitelist + rimozione totale fmtp video:
- *   - Manteniamo solo codec universalmente supportati (VP8, H264, opus, G7xx)
- *   - Rimuoviamo TUTTE le righe a=fmtp per codec VIDEO (VP8, H264):
- *     la WebView rifiuta qualsiasi parametro fmtp video come "Invalid SDP line"
- *     (profile-level-id=64001f, profile-id=2, apt=…, ecc.).
- *     Senza fmtp, H264 default a Constrained Baseline — il profilo più compatibile.
- *   - Le righe a=fmtp audio (opus, PCMU…) vengono mantenute.
- *   - a=ssrc / a=ssrc-group sempre rimossi (deprecati in Unified Plan).
+ * Rimuove solo le righe a=ssrc / a=ssrc-group (deprecate in Unified Plan,
+ * possono causare "Invalid SDP line" su browser/WebView meno recenti).
  *
- * Applica PRIMA di setRemoteDescription su ogni offer/answer ricevuto.
- *
- * Algoritmo in 4 passi:
- *   1. Costruisce mappa PT → nome codec da a=rtpmap
- *   2. Calcola allowedPt: PT i cui codec sono in ALLOWED_CODEC_NAMES
- *   3. Filtra le righe: ssrc*, PT non-whitelist, fmtp video
- *   4. Rimuove i PT non consentiti dalle righe m=
+ * Il resto dell'SDP viene preservato intatto: codec, fmtp, rtcp-fb, setup,
+ * extmap, ecc. La negoziazione codec è gestita nativamente dai browser.
  */
-const ALLOWED_CODEC_NAMES = /^(VP8|H264|opus|PCMU|PCMA|G722)$/i;
-/** Codec video: le loro a=fmtp vengono rimosse integralmente per compatibilità WebView */
-const VIDEO_CODEC_NAMES   = /^(VP8|H264)$/i;
-
 export const patchSdp = (sdp: string): string => {
-    const lines = sdp.split(/\r?\n/);
-
-    // Passo 1: mappa PT → nome codec (solo righe a=rtpmap esplicite)
-    const ptToCodec = new Map<string, string>();
-    for (const line of lines) {
-        const m = line.match(/^a=rtpmap:(\d+) ([^/\s]+)/);
-        if (m) ptToCodec.set(m[1], m[2]);
-    }
-
-    // Passo 2: PT dei codec nella whitelist
-    const allowedPt = new Set<string>();
-    for (const [pt, codec] of ptToCodec) {
-        if (ALLOWED_CODEC_NAMES.test(codec)) allowedPt.add(pt);
-    }
-
-    // Passo 3: filtra righe
-    const filtered = lines.filter(line => {
-        // Rimuovi sempre le righe ssrc (deprecate in Unified Plan)
-        if (line.startsWith('a=ssrc:') || line.startsWith('a=ssrc-group:')) return false;
-        const attr = line.match(/^a=(?:rtpmap|fmtp|rtcp-fb):(\d+)/);
-        if (!attr) return true; // non è una riga codec → mantieni
-        const pt = attr[1];
-        if (ptToCodec.has(pt)) {
-            if (!allowedPt.has(pt)) return false; // codec non in whitelist
-            // Rimuovi a=fmtp e a=rtcp-fb per codec VIDEO: la WebView li rifiuta
-            // (profile params, apt, nack pli, ecc. → "Invalid SDP line")
-            // H264 senza fmtp/rtcp-fb → Constrained Baseline di default (massima compatibilità)
-            if ((line.startsWith('a=fmtp:') || line.startsWith('a=rtcp-fb:')) &&
-                VIDEO_CODEC_NAMES.test(ptToCodec.get(pt) ?? '')) {
-                return false;
-            }
-            return true;
-        }
-        // PT statico senza a=rtpmap (PCMU=0, PCMA=8, G722=9): mantieni
-        return true;
-    });
-
-    // Passo 4: rimuovi PT non consentiti dalle righe m=
-    return filtered.map(line => {
-        if (!line.startsWith('m=')) return line;
-        const parts = line.split(' ');
-        if (parts.length < 4) return line;
-        const cleanPts = parts.slice(3).filter(pt => {
-            // PT con rtpmap: consentito solo se in allowedPt
-            if (ptToCodec.has(pt)) return allowedPt.has(pt);
-            // PT statico senza rtpmap: consentito (PCMU=0, PCMA=8, G722=9)
-            return true;
-        });
-        return [...parts.slice(0, 3), ...cleanPts].join(' ');
-    }).join('\r\n');
+    return sdp
+        .split(/\r?\n/)
+        .filter(line => !line.startsWith('a=ssrc:') && !line.startsWith('a=ssrc-group:'))
+        .join('\r\n');
 };
 
 /**
@@ -268,6 +207,6 @@ export const TIMEOUT_MSG: ErroreMedia = {
     messaggio: 'Il chiosco non risponde al segnale.',
     suggerimento:
         'Verifica che: (1) il browser del chiosco sia aperto su /kiosk, ' +
-        '(2) Reverb sia attivo (php artisan reverb:start), ' +
+        '(2) Pusher sia configurato (VITE_PUSHER_APP_KEY nel .env), ' +
         '(3) entrambi i browser usino http://localhost (non IP di rete).',
 };
