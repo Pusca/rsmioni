@@ -1,6 +1,7 @@
 import { ReactNode, useEffect, useState } from 'react';
 import { usePage, Link, router } from '@inertiajs/react';
 import { SharedProps } from '@/types';
+import HotelSelector from '@/Components/HotelSelector';
 
 /**
  * Layout per il Gestore Hotel (Albergatore).
@@ -41,6 +42,9 @@ export default function GestoreHotelLayout({ children }: { children: ReactNode }
                     <span className="font-bold tracking-wide select-none" style={{ fontSize: '15px', color: 'var(--color-text-primary)' }}>
                         RS <span style={{ color: 'var(--color-parlato)' }}>Mioni</span>
                     </span>
+
+                    {/* Selettore hotel (visibile solo se multi-hotel) */}
+                    <HotelSelector />
 
                     <NavLink href="/prenotazioni" active={currentUrl.startsWith('/prenotazioni')}>
                         <CalendarIcon />

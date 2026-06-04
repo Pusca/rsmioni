@@ -1,6 +1,7 @@
 import { ReactNode, useEffect, useState } from 'react';
 import { usePage, Link, router } from '@inertiajs/react';
 import { SharedProps } from '@/types';
+import HotelSelector from '@/Components/HotelSelector';
 
 /**
  * Layout principale per Receptionist e Receptionist Lite.
@@ -47,6 +48,9 @@ export default function ReceptionistLayout({ children }: { children: ReactNode }
                     <span className="font-bold tracking-wide select-none" style={{ fontSize: '15px', color: 'var(--color-text-primary)' }}>
                         RS <span style={{ color: 'var(--color-parlato)' }}>Mioni</span>
                     </span>
+
+                    {/* Selettore hotel (visibile solo se multi-hotel) */}
+                    <HotelSelector />
 
                     {/* Portineria — sempre presente */}
                     <NavLink href="/portineria" active={isPortineria}>

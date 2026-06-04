@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Hotel;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -44,17 +45,44 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
+        $user = $request->user();
+
+        // Determina hotel corrente: da sessione o primo disponibile
+        $hotelCorrente = null;
+        $hotels = [];
+        if ($user) {
+            $hotelIds = $user->hotelIds();
+            $hotels = Hotel::whereIn('id', $hotelIds)
+                ->orderBy('nome')
+                ->get(['id', 'nome']);
+
+            $sessionHotelId = $request->session()->get('hotel_corrente_id');
+            if ($sessionHotelId && in_array($sessionHotelId, $hotelIds, true)) {
+                $hotelCorrente = $hotels->firstWhere('id', $sessionHotelId);
+            }
+            // Fallback: primo hotel disponibile
+            if (! $hotelCorrente && $hotels->isNotEmpty()) {
+                $hotelCorrente = $hotels->first();
+                $request->session()->put('hotel_corrente_id', $hotelCorrente->id);
+            }
+        }
+
         return [
             ...parent::share($request),
             'auth' => [
-                'utente' => $request->user() ? [
-                    'id'        => $request->user()->id,
-                    'username'  => $request->user()->username,
-                    'email'     => $request->user()->email,
-                    'profilo'   => $request->user()->profilo->value,
-                    'hotel_ids' => $request->user()->hotelIds(),
+                'utente' => $user ? [
+                    'id'        => $user->id,
+                    'username'  => $user->username,
+                    'email'     => $user->email,
+                    'profilo'   => $user->profilo->value,
+                    'hotel_ids' => $user->hotelIds(),
                 ] : null,
             ],
+            'hotels'        => $hotels,
+            'hotel_corrente' => $hotelCorrente ? [
+                'id'   => $hotelCorrente->id,
+                'nome' => $hotelCorrente->nome,
+            ] : null,
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),
                 'error'   => fn () => $request->session()->get('error'),

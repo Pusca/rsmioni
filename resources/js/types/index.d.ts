@@ -205,10 +205,18 @@ export interface HotelConfig {
 // Inertia shared props (passate dal middleware HandleInertiaRequests)
 // Deve estendere Record<string, unknown> per soddisfare il vincolo di usePage<T>.
 // ──────────────────────────────────────────────
+/** Hotel minimo condiviso nel selettore header */
+export interface HotelMinimo {
+    id: string;
+    nome: string;
+}
+
 export interface SharedProps extends Record<string, unknown> {
     auth: {
         utente: Utente | null;
     };
+    hotels: HotelMinimo[];
+    hotel_corrente: HotelMinimo | null;
     flash: {
         success?: string;
         error?: string;

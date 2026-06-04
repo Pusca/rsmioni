@@ -48,6 +48,11 @@ Route::post('/logout', [LogoutController::class, 'destroy'])
     ->middleware('auth')
     ->name('logout');
 
+// Selettore hotel corrente (sessione) — accessibile a tutti i profili autenticati
+Route::put('/hotel-corrente/{hotel}', [\App\Http\Controllers\HotelSelectionController::class, 'update'])
+    ->middleware('auth')
+    ->name('hotel.corrente');
+
 // ICE servers (STUN + TURN) — accessibile a tutti i profili autenticati
 Route::get('/webrtc/ice-servers', [WebRtcIceServersController::class, 'index'])
     ->middleware('auth')
