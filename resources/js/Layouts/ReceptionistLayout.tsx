@@ -126,7 +126,7 @@ export default function ReceptionistLayout({ children }: { children: ReactNode }
             )}
 
             {/* ── Contenuto principale ── */}
-            <main className="flex-1 overflow-hidden min-h-0">
+            <main className="flex-1 overflow-auto min-h-0">
                 {children}
             </main>
         </div>
