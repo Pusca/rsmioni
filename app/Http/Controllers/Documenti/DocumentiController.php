@@ -100,6 +100,23 @@ class DocumentiController extends Controller
         );
     }
 
+    // ── Conferma visualizzazione ─────────────────────────────────────────────
+
+    public function confermaVisualizzazione(Request $request, Documento $documento): JsonResponse
+    {
+        $utente = $request->user();
+        $this->verificaOwnershipDocumento($utente, $documento);
+
+        if (! $documento->visualizzato_at) {
+            $documento->update([
+                'visualizzato_at' => now(),
+                'visualizzato_da' => $utente->id,
+            ]);
+        }
+
+        return response()->json(['ok' => true]);
+    }
+
     // ── Eliminazione ─────────────────────────────────────────────────────────
 
     public function destroy(Request $request, Documento $documento): RedirectResponse

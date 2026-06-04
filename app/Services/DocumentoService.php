@@ -128,6 +128,7 @@ class DocumentoService
             'estensione'          => $documento->estensione,
             'inserito_da_profilo' => $documento->inserito_da_profilo->value,
             'created_at'          => $documento->created_at->toISOString(),
+            'visualizzato_at'     => $documento->visualizzato_at?->toISOString(),
             'puo_cancellare'      => $this->puoCancellare($utente, $documento),
             'puo_inviare'         => $this->puoInviare($utente, $documento),
             'puo_stampare'        => $this->puoStampare($utente, $documento),

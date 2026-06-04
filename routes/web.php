@@ -194,6 +194,7 @@ Route::middleware(['auth', 'role:gestore_hotel,receptionist'])
         Route::get('/documenti/{documento}/download',    [DocumentiController::class, 'download'])->name('documenti.download');
         Route::delete('/documenti/{documento}',          [DocumentiController::class, 'destroy'])->name('documenti.destroy');
         Route::post('/documenti/{documento}/invia',      [DocumentiController::class, 'invia'])->name('documenti.invia');
+        Route::put('/documenti/{documento}/visualizzato', [DocumentiController::class, 'confermaVisualizzazione'])->name('documenti.visualizzato');
     });
 
 /*

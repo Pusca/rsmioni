@@ -13,6 +13,7 @@ export interface DocumentoItem {
     estensione: 'pdf' | 'png' | 'jpg' | 'jpeg';
     inserito_da_profilo: Profilo;
     created_at: string;
+    visualizzato_at: string | null;
     puo_cancellare: boolean;
     puo_inviare: boolean;
     puo_stampare: boolean;
@@ -126,6 +127,20 @@ export default function SezioneDocumenti({
         router.delete(`/documenti/${id}`);
     };
 
+    const handleApriDocumento = (doc: DocumentoItem, indice: number) => {
+        setViewerIndice(indice);
+        // Segna come visualizzato (fire-and-forget)
+        if (!doc.visualizzato_at) {
+            fetch(`/documenti/${doc.id}/visualizzato`, {
+                method: 'PUT',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '',
+                    'Accept': 'application/json',
+                },
+            }).catch(() => {});
+        }
+    };
+
     const title = inlineTitle ?? 'Documenti allegati';
 
     return (
@@ -209,11 +224,20 @@ export default function SezioneDocumenti({
                                 )}
                             </div>
 
-                            {/* Data + profilo */}
+                            {/* Data + profilo + visualizzato */}
                             <div className="flex flex-col items-end gap-1 shrink-0">
-                                <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                                    {formatDate(doc.created_at)}
-                                </span>
+                                <div className="flex items-center gap-1.5">
+                                    {doc.visualizzato_at && (
+                                        <span className="rounded px-1 py-0.5 font-mono"
+                                            style={{ fontSize: '8px', color: '#22c55e', backgroundColor: 'rgba(34,197,94,0.08)' }}
+                                            title={`Visualizzato il ${formatDate(doc.visualizzato_at)}`}>
+                                            ✓ visto
+                                        </span>
+                                    )}
+                                    <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                                        {formatDate(doc.created_at)}
+                                    </span>
+                                </div>
                                 <span className="rounded px-1.5 py-0.5"
                                     style={{ fontSize: '9px', color: '#94a3b8', backgroundColor: 'rgba(0,0,0,0.04)' }}>
                                     {PROFILO_LABEL[doc.inserito_da_profilo] ?? doc.inserito_da_profilo}
@@ -225,7 +249,7 @@ export default function SezioneDocumenti({
                                 <button
                                     type="button"
                                     title="Apri"
-                                    onClick={() => setViewerIndice(documenti.indexOf(doc))}
+                                    onClick={() => handleApriDocumento(doc, documenti.indexOf(doc))}
                                     className="flex items-center justify-center rounded"
                                     style={{ width: '24px', height: '24px', color: 'var(--color-text-muted)' }}
                                     onMouseEnter={e => (e.currentTarget.style.color = '#60a5fa')}

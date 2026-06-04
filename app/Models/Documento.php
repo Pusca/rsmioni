@@ -26,6 +26,8 @@ class Documento extends Model
         'storage_path',
         'inserito_da',
         'inserito_da_profilo',
+        'visualizzato_at',
+        'visualizzato_da',
     ];
 
     protected function casts(): array
@@ -33,6 +35,7 @@ class Documento extends Model
         return [
             'contesto_tipo'      => ContestoDocumento::class,
             'inserito_da_profilo'=> Profilo::class,
+            'visualizzato_at'    => 'datetime',
         ];
     }
 
