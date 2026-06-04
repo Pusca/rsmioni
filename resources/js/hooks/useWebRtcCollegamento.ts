@@ -55,6 +55,10 @@ interface Result {
     remoteVideoRef: React.RefObject<HTMLVideoElement | null>;
     stato:  StatoCollegamento;
     errore: ErroreMedia | null;
+    /** Screen sharing (solo chiaro) */
+    condivisioneSchermo: boolean;
+    avviaCondivisione:   () => Promise<void>;
+    fermaCondivisione:   () => void;
 }
 
 
@@ -66,10 +70,55 @@ export function useWebRtcCollegamento({ sessionId, tipo, attivo, chioscoId, chio
     const channelRef      = useRef<EchoChannel | null>(null);
     const localStreamRef  = useRef<MediaStream | null>(null);
     const remoteStreamRef = useRef<MediaStream | null>(null);
+    const screenStreamRef = useRef<MediaStream | null>(null);
     const statoRef        = useRef<StatoCollegamento>('idle');
 
     const [stato,  setStato]  = useState<StatoCollegamento>('idle');
     const [errore, setErrore] = useState<ErroreMedia | null>(null);
+    const [condivisioneSchermo, setCondivisioneSchermo] = useState(false);
+
+    // ── Screen sharing (solo chiaro) ────────────────────────────────
+    const avviaCondivisione = async () => {
+        if (tipo !== 'chiaro' || !pcRef.current || !sessionId) return;
+        try {
+            const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+            const screenTrack = screenStream.getVideoTracks()[0];
+            if (!screenTrack) { screenStream.getTracks().forEach(t => t.stop()); return; }
+
+            const sender = pcRef.current.getSenders().find(s => s.track?.kind === 'video');
+            if (!sender) { screenStream.getTracks().forEach(t => t.stop()); return; }
+
+            await sender.replaceTrack(screenTrack);
+            screenStreamRef.current = screenStream;
+            if (localVideoRef.current) localVideoRef.current.srcObject = screenStream;
+            setCondivisioneSchermo(true);
+
+            inviaSignalWebRtc(sessionId, 'screen_share_started', {});
+
+            screenTrack.addEventListener('ended', () => fermaCondivisione());
+        } catch (err) {
+            // User cancelled the picker — not an error
+            console.log('[WebRTC-C:chiaro] screen share cancelled or failed:', err);
+        }
+    };
+
+    const fermaCondivisione = () => {
+        if (!pcRef.current || !sessionId) return;
+        screenStreamRef.current?.getTracks().forEach(t => t.stop());
+        screenStreamRef.current = null;
+
+        // Restore webcam track
+        const webcamTrack = localStreamRef.current?.getVideoTracks()[0];
+        const sender = pcRef.current.getSenders().find(s => s.track?.kind === 'video');
+        if (sender && webcamTrack) {
+            sender.replaceTrack(webcamTrack).catch(() => {});
+        }
+        if (localVideoRef.current && localStreamRef.current) {
+            localVideoRef.current.srcObject = localStreamRef.current;
+        }
+        setCondivisioneSchermo(false);
+        inviaSignalWebRtc(sessionId, 'screen_share_stopped', {});
+    };
 
     // Keep statoRef in sync
     const updateStato = (s: StatoCollegamento) => { statoRef.current = s; setStato(s); };
@@ -411,6 +460,11 @@ export function useWebRtcCollegamento({ sessionId, tipo, attivo, chioscoId, chio
                 remoteStreamRef.current = null;
             }
 
+            // Always stop screen share stream
+            screenStreamRef.current?.getTracks().forEach(t => t.stop());
+            screenStreamRef.current = null;
+            setCondivisioneSchermo(false);
+
             if (channelRef.current && typeof window !== 'undefined' && window.Echo) {
                 try { window.Echo.leave(`webrtc.${sessionId}`); } catch { /* ignore */ }
                 channelRef.current = null;
@@ -425,5 +479,5 @@ export function useWebRtcCollegamento({ sessionId, tipo, attivo, chioscoId, chio
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [attivo, sessionId, tipo]);
 
-    return { localVideoRef, remoteVideoRef, stato, errore };
+    return { localVideoRef, remoteVideoRef, stato, errore, condivisioneSchermo, avviaCondivisione, fermaCondivisione };
 }

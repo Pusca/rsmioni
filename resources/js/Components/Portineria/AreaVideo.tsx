@@ -338,6 +338,23 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
                                                 icon={<MicIcon />}
                                             />
                                         )}
+                                        {collegamento.stato === 'connected' && (
+                                            collegamento.condivisioneSchermo ? (
+                                                <AzioneBtn
+                                                    label="Ferma condivisione"
+                                                    color="#f59e0b"
+                                                    onClick={collegamento.fermaCondivisione}
+                                                    icon={<ScreenStopIcon />}
+                                                />
+                                            ) : (
+                                                <AzioneBtn
+                                                    label="Condividi schermo"
+                                                    color="#8b5cf6"
+                                                    onClick={collegamento.avviaCondivisione}
+                                                    icon={<ScreenIcon />}
+                                                />
+                                            )
+                                        )}
                                         <AzioneBtn
                                             label="Passa a nascosto"
                                             color="#eab308"

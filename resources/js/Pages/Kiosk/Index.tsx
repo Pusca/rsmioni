@@ -113,6 +113,7 @@ export default function KioskIndex({ chiosco, stato_iniziale, messaggio_attesa: 
                     localVideoRef={webrtc.localVideoRef}
                     remoteVideoRef={webrtc.remoteVideoRef}
                     stato={webrtc.stato}
+                    condivisioneAttiva={webrtc.condivisioneAttiva}
                 />
             ) : stato === 'in_chiamata' ? (
                 /* Chiamata in corso: attesa risposta receptionist */
@@ -1147,10 +1148,11 @@ function OfflineScreen({ chiosco }: { chiosco: Chiosco }) {
 // ── CollegamentoChiaroScreen ─────────────────────────────────────────────────
 
 interface CollegamentoChiaroScreenProps {
-    chiosco:        Chiosco;
-    localVideoRef:  React.RefObject<HTMLVideoElement | null>;
-    remoteVideoRef: React.RefObject<HTMLVideoElement | null>;
-    stato:          import('@/hooks/useWebRtcChiosco').StatoParlatoChiosco;
+    chiosco:            Chiosco;
+    localVideoRef:      React.RefObject<HTMLVideoElement | null>;
+    remoteVideoRef:     React.RefObject<HTMLVideoElement | null>;
+    stato:              import('@/hooks/useWebRtcChiosco').StatoParlatoChiosco;
+    condivisioneAttiva: boolean;
 }
 
 function CollegamentoChiaroScreen({
@@ -1158,6 +1160,7 @@ function CollegamentoChiaroScreen({
     localVideoRef,
     remoteVideoRef,
     stato,
+    condivisioneAttiva,
 }: CollegamentoChiaroScreenProps) {
     const isConnected = stato === 'connected';
 
@@ -1176,6 +1179,12 @@ function CollegamentoChiaroScreen({
                           style={{ backgroundColor: 'rgba(34,197,94,0.15)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.3)' }}>
                         CHIARO
                     </span>
+                    {condivisioneAttiva && (
+                        <span className="ml-1 px-1.5 py-0.5 rounded text-xs animate-pulse"
+                              style={{ backgroundColor: 'rgba(59,130,246,0.15)', color: '#3b82f6', border: '1px solid rgba(59,130,246,0.3)' }}>
+                            Schermo condiviso
+                        </span>
+                    )}
                 </div>
                 <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
                     {chiosco.nome}
@@ -1185,8 +1194,12 @@ function CollegamentoChiaroScreen({
             {/* Video receptionist (remoto) — principale */}
             <div className="flex-1 relative overflow-hidden">
                 <video ref={remoteVideoRef} autoPlay playsInline
-                       className="w-full h-full object-cover"
-                       style={{ display: isConnected ? 'block' : 'none' }} />
+                       className="w-full h-full"
+                       style={{
+                           display: isConnected ? 'block' : 'none',
+                           objectFit: condivisioneAttiva ? 'contain' : 'cover',
+                           backgroundColor: condivisioneAttiva ? '#000' : 'transparent',
+                       }} />
                 {!isConnected && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
                         <div className="rounded-full flex items-center justify-center"
@@ -1274,8 +1287,12 @@ function ParlatoScreen({
             {/* ── Video principale — receptionist (remoto) ── */}
             <div className="flex-1 relative overflow-hidden">
                 <video ref={remoteVideoRef} autoPlay playsInline
-                       className="w-full h-full object-cover"
-                       style={{ display: isConnected ? 'block' : 'none' }} />
+                       className="w-full h-full"
+                       style={{
+                           display: isConnected ? 'block' : 'none',
+                           objectFit: condivisioneAttiva ? 'contain' : 'cover',
+                           backgroundColor: condivisioneAttiva ? '#000' : 'transparent',
+                       }} />
 
                 {!isConnected && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 px-8">
