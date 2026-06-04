@@ -2,6 +2,8 @@ import { ReactNode, useEffect, useState } from 'react';
 import { usePage, Link, router } from '@inertiajs/react';
 import { SharedProps } from '@/types';
 import HotelSelector from '@/Components/HotelSelector';
+import { VideoCallProvider } from '@/contexts/VideoCallContext';
+import PipOverlay from '@/Components/PipOverlay';
 
 /**
  * Layout principale per Receptionist e Receptionist Lite.
@@ -29,6 +31,7 @@ export default function ReceptionistLayout({ children }: { children: ReactNode }
     const handleLogout = () => router.post('/logout');
 
     return (
+        <VideoCallProvider>
         <div className="flex flex-col h-screen overflow-hidden"
              style={{ backgroundColor: 'var(--color-bg-primary)' }}>
 
@@ -133,7 +136,11 @@ export default function ReceptionistLayout({ children }: { children: ReactNode }
             <main className="flex-1 overflow-auto min-h-0">
                 {children}
             </main>
+
+            {/* PiP video overlay — visibile solo fuori da portineria con chiamata attiva */}
+            <PipOverlay />
         </div>
+        </VideoCallProvider>
     );
 }
 

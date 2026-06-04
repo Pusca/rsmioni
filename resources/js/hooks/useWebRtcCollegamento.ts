@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { inviaSignalWebRtc } from '@/services/portineriaApi';
 import { classificaErroreMedia, getIceServers, messaggioPeerFallito, patchSdp, type ErroreMedia } from '@/services/webrtcMedia';
+import type { ParkedCall } from '@/contexts/VideoCallContext';
 
 /**
  * Gestisce il ciclo di vita WebRTC lato receptionist per
@@ -38,9 +39,15 @@ interface WebRtcSignalData {
 }
 
 interface Options {
-    sessionId: string | null;
-    tipo:      TipoCollegamento | null;
-    attivo:    boolean;
+    sessionId:    string | null;
+    tipo:         TipoCollegamento | null;
+    attivo:       boolean;
+    chioscoId?:   string | null;
+    chioscoNome?: string | null;
+    /** Park call to context instead of destroying on unmount. */
+    parkCall?:    ((call: ParkedCall) => void) | null;
+    /** Reclaim a previously parked call (returns null if none). */
+    reclaimCall?: (() => ParkedCall | null) | null;
 }
 
 interface Result {
@@ -51,19 +58,87 @@ interface Result {
 }
 
 
-export function useWebRtcCollegamento({ sessionId, tipo, attivo }: Options): Result {
+export function useWebRtcCollegamento({ sessionId, tipo, attivo, chioscoId, chioscoNome, parkCall, reclaimCall }: Options): Result {
     const localVideoRef  = useRef<HTMLVideoElement | null>(null);
     const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
 
-    const pcRef          = useRef<RTCPeerConnection | null>(null);
-    const channelRef     = useRef<EchoChannel | null>(null);
-    const localStreamRef = useRef<MediaStream | null>(null);
+    const pcRef           = useRef<RTCPeerConnection | null>(null);
+    const channelRef      = useRef<EchoChannel | null>(null);
+    const localStreamRef  = useRef<MediaStream | null>(null);
+    const remoteStreamRef = useRef<MediaStream | null>(null);
+    const statoRef        = useRef<StatoCollegamento>('idle');
 
     const [stato,  setStato]  = useState<StatoCollegamento>('idle');
     const [errore, setErrore] = useState<ErroreMedia | null>(null);
 
+    // Keep statoRef in sync
+    const updateStato = (s: StatoCollegamento) => { statoRef.current = s; setStato(s); };
+
     useEffect(() => {
         if (!attivo || !sessionId || !tipo) return;
+
+        // ── Check for parked call to resume ─────────────────────────
+        const parked = reclaimCall?.();
+        if (parked && parked.sessionId === sessionId) {
+            console.log(`[WebRTC-C:${tipo}] resuming parked call`);
+            pcRef.current = parked.pc;
+            localStreamRef.current = parked.localStream;
+            remoteStreamRef.current = parked.remoteStream;
+
+            if (localVideoRef.current && parked.localStream) {
+                localVideoRef.current.srcObject = parked.localStream;
+            }
+            if (remoteVideoRef.current) {
+                remoteVideoRef.current.srcObject = parked.remoteStream;
+            }
+
+            // Restore connectionState handler
+            parked.pc.onconnectionstatechange = () => {
+                console.log(`[WebRTC-C:${tipo}] connectionState:`, parked.pc.connectionState);
+                if (parked.pc.connectionState === 'connected') {
+                    updateStato('connected');
+                } else if (parked.pc.connectionState === 'failed' || parked.pc.connectionState === 'disconnected') {
+                    const errMedia = messaggioPeerFallito(parked.pc.connectionState);
+                    updateStato('error');
+                    setErrore(errMedia);
+                }
+            };
+
+            updateStato(parked.pc.connectionState === 'connected' ? 'connected' : 'connecting');
+
+            // Cleanup for resumed call
+            return () => {
+                // Same park-or-destroy logic as below
+                if (statoRef.current === 'connected' && parkCall && pcRef.current && remoteStreamRef.current && sessionId && chioscoId) {
+                    console.log(`[WebRTC-C:${tipo}] parking resumed call`);
+                    parkCall({
+                        pc: pcRef.current,
+                        localStream: localStreamRef.current,
+                        remoteStream: remoteStreamRef.current,
+                        sessionId,
+                        chioscoId,
+                        chioscoNome: chioscoNome ?? chioscoId,
+                        tipo,
+                    });
+                    pcRef.current = null;
+                    localStreamRef.current = null;
+                    remoteStreamRef.current = null;
+                } else {
+                    pcRef.current?.close();
+                    pcRef.current = null;
+                    localStreamRef.current?.getTracks().forEach(t => t.stop());
+                    localStreamRef.current = null;
+                }
+                if (localVideoRef.current)  localVideoRef.current.srcObject  = null;
+                if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+                updateStato('idle');
+                setErrore(null);
+            };
+        } else if (parked) {
+            // Parked call doesn't match current session — clean it up
+            try { parked.pc.close(); } catch { /* ignore */ }
+            parked.localStream?.getTracks().forEach(t => t.stop());
+        }
 
         let cancelled    = false;
         let offerSent    = false;
@@ -85,7 +160,7 @@ export function useWebRtcCollegamento({ sessionId, tipo, attivo }: Options): Res
             if (!pc) return;
 
             offerSent = true;
-            setStato('connecting');
+            updateStato('connecting');
 
             try {
                 const offer = await pc.createOffer();
@@ -97,7 +172,7 @@ export function useWebRtcCollegamento({ sessionId, tipo, attivo }: Options): Res
                 });
             } catch {
                 if (!cancelled) {
-                    setStato('error');
+                    updateStato('error');
                     setErrore({
                         tipo: 'sconosciuto',
                         messaggio: 'Errore nella creazione dell\'offerta WebRTC.',
@@ -108,7 +183,7 @@ export function useWebRtcCollegamento({ sessionId, tipo, attivo }: Options): Res
         };
 
         const avvia = async () => {
-            setStato('waiting_chiosco');
+            updateStato('waiting_chiosco');
             setErrore(null);
             console.group(`[WebRTC-C:${tipo}] avvio sessione`, sessionId);
 
@@ -170,7 +245,7 @@ export function useWebRtcCollegamento({ sessionId, tipo, attivo }: Options): Res
                             } else if (sig.tipo === 'sessione_chiusa') {
                                 console.log(`[WebRTC-C:${tipo}] sessione_chiusa ricevuta`);
                                 if (!cancelled) {
-                                    setStato('error');
+                                    updateStato('error');
                                     setErrore({
                                         tipo: 'connessione_interrotta',
                                         messaggio: 'Il chiosco ha chiuso la connessione.',
@@ -184,7 +259,7 @@ export function useWebRtcCollegamento({ sessionId, tipo, attivo }: Options): Res
                     ch.error(() => {
                         console.error(`[WebRTC-C:${tipo}] errore canale Echo`);
                         if (!cancelled) {
-                            setStato('error');
+                            updateStato('error');
                             setErrore({
                                 tipo: 'timeout_signaling',
                                 messaggio: 'Canale signaling non disponibile.',
@@ -221,7 +296,7 @@ export function useWebRtcCollegamento({ sessionId, tipo, attivo }: Options): Res
                     const errMedia = classificaErroreMedia(err);
                     console.error('[WebRTC-C:chiaro] getUserMedia fallito:', errMedia.tipo);
                     if (!cancelled) {
-                        setStato('error');
+                        updateStato('error');
                         setErrore(errMedia);
                     }
                     pc.close();
@@ -236,12 +311,13 @@ export function useWebRtcCollegamento({ sessionId, tipo, attivo }: Options): Res
 
             // ── 4. Remote stream (video dal chiosco) ─────────────────────────
             const remoteStream = new MediaStream();
+            remoteStreamRef.current = remoteStream;
             if (remoteVideoRef.current) {
                 remoteVideoRef.current.srcObject = remoteStream;
             }
             pc.ontrack = (e) => {
                 remoteStream.addTrack(e.track);
-                if (!cancelled) setStato('connected');
+                if (!cancelled) updateStato('connected');
                 console.log(`[WebRTC-C:${tipo}] remote track ricevuto:`, e.track.kind);
             };
 
@@ -259,11 +335,11 @@ export function useWebRtcCollegamento({ sessionId, tipo, attivo }: Options): Res
                 if (cancelled) return;
                 console.log(`[WebRTC-C:${tipo}] connectionState:`, pc.connectionState);
                 if (pc.connectionState === 'connected') {
-                    setStato('connected');
+                    updateStato('connected');
                 } else if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
                     const errMedia = messaggioPeerFallito(pc.connectionState);
                     console.warn(`[WebRTC-C:${tipo}] P2P`, pc.connectionState);
-                    setStato('error');
+                    updateStato('error');
                     setErrore(errMedia);
                 }
             };
@@ -277,7 +353,7 @@ export function useWebRtcCollegamento({ sessionId, tipo, attivo }: Options): Res
                 readyTimeout = setTimeout(() => {
                     if (!cancelled && !chioscoReady) {
                         console.warn(`[WebRTC-C:${tipo}] timeout: chiosco non risponde`);
-                        setStato('error');
+                        updateStato('error');
                         setErrore({
                             tipo: 'timeout_signaling',
                             messaggio: 'Il chiosco non risponde al segnale.',
@@ -295,7 +371,7 @@ export function useWebRtcCollegamento({ sessionId, tipo, attivo }: Options): Res
 
         avvia().catch(() => {
             if (!cancelled) {
-                setStato('error');
+                updateStato('error');
                 setErrore({
                     tipo: 'sconosciuto',
                     messaggio: 'Errore imprevisto nell\'avvio del collegamento.',
@@ -309,21 +385,41 @@ export function useWebRtcCollegamento({ sessionId, tipo, attivo }: Options): Res
 
             if (readyTimeout) { clearTimeout(readyTimeout); readyTimeout = null; }
 
-            pcRef.current?.close();
-            pcRef.current = null;
+            // Park the call if it's connected and parkCall is available
+            if (statoRef.current === 'connected' && parkCall && pcRef.current && remoteStreamRef.current && sessionId && chioscoId) {
+                console.log(`[WebRTC-C:${tipo}] parking call for PiP`);
+                parkCall({
+                    pc: pcRef.current,
+                    localStream: localStreamRef.current,
+                    remoteStream: remoteStreamRef.current,
+                    sessionId,
+                    chioscoId,
+                    chioscoNome: chioscoNome ?? chioscoId,
+                    tipo: tipo!,
+                });
+                // Transfer ownership — don't destroy
+                pcRef.current = null;
+                localStreamRef.current = null;
+                remoteStreamRef.current = null;
+            } else {
+                // Normal cleanup — destroy everything
+                pcRef.current?.close();
+                pcRef.current = null;
+
+                localStreamRef.current?.getTracks().forEach(t => t.stop());
+                localStreamRef.current = null;
+                remoteStreamRef.current = null;
+            }
 
             if (channelRef.current && typeof window !== 'undefined' && window.Echo) {
                 try { window.Echo.leave(`webrtc.${sessionId}`); } catch { /* ignore */ }
                 channelRef.current = null;
             }
 
-            localStreamRef.current?.getTracks().forEach(t => t.stop());
-            localStreamRef.current = null;
-
             if (localVideoRef.current)  localVideoRef.current.srcObject  = null;
             if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
 
-            setStato('idle');
+            updateStato('idle');
             setErrore(null);
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps

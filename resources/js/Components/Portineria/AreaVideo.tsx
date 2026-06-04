@@ -12,6 +12,7 @@ import {
 import { useWebRtcParlato } from '@/hooks/useWebRtcParlato';
 import { useWebRtcCollegamento, type StatoCollegamento } from '@/hooks/useWebRtcCollegamento';
 import type { ErroreMedia, TipoErroreMedia } from '@/services/webrtcMedia';
+import { useVideoCall } from '@/contexts/VideoCallContext';
 
 interface Props {
     chiosco: ChioscoConStato | null;
@@ -30,6 +31,9 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
     const [mediaSessionTipo, setMediaSessionTipo] = useState<TipoCollegamento | null>(null);
 
     const isRL = profilo === 'receptionist_lite';
+
+    // PiP context — park/reclaim video calls across navigation
+    const { parkCall, reclaimCall } = useVideoCall();
 
     // Resetta sessioni quando cambia il chiosco selezionato
     const prevChioscoId = useRef<string | undefined>(undefined);
@@ -55,6 +59,10 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
         sessionId: mediaSessionId,
         tipo:      mediaSessionTipo,
         attivo:    (chiosco?.stato === 'in_chiaro' || chiosco?.stato === 'in_nascosto') && mediaSessionId !== null,
+        chioscoId: chiosco?.id ?? null,
+        chioscoNome: chiosco?.nome ?? null,
+        parkCall,
+        reclaimCall,
     });
 
     // ── Helper: chiudi sessione media attiva (chiaro/nascosto) ─────────────
