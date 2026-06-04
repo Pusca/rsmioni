@@ -27,7 +27,7 @@ export default function GestoreHotelLayout({ children }: { children: ReactNode }
 
             {/* ── Header ── */}
             <header
-                className="flex items-center justify-between px-4 shrink-0 border-b"
+                className="flex items-center justify-between px-4 shrink-0 border-b shadow-header"
                 style={{
                     backgroundColor: 'var(--color-header)',
                     borderColor:     'var(--color-border)',
@@ -38,7 +38,7 @@ export default function GestoreHotelLayout({ children }: { children: ReactNode }
                 <div className="flex items-center gap-5">
 
                     {/* Logo */}
-                    <span className="font-bold tracking-wide select-none" style={{ fontSize: '15px', color: '#fff' }}>
+                    <span className="font-bold tracking-wide select-none" style={{ fontSize: '15px', color: 'var(--color-text-primary)' }}>
                         RS <span style={{ color: 'var(--color-parlato)' }}>Mioni</span>
                     </span>
 
@@ -142,7 +142,7 @@ function NavLink({
             className="flex items-center gap-1.5 text-sm px-2 rounded transition-colors"
             style={{
                 color:           active ? 'var(--color-text-primary)' : 'var(--color-text-muted)',
-                backgroundColor: active ? 'rgba(255,255,255,0.06)' : 'transparent',
+                backgroundColor: active ? 'var(--color-bg-hover)' : 'transparent',
                 fontWeight:      active ? 500 : 400,
                 borderBottom:    active ? '2px solid var(--color-parlato)' : '2px solid transparent',
                 borderRadius:    active ? '4px 4px 0 0' : '4px',

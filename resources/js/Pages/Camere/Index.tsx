@@ -127,7 +127,7 @@ function CameraRow({
     ].filter(Boolean).join(' · ') || '—';
 
     return (
-        <tr style={{ backgroundColor: even ? 'transparent' : 'rgba(255,255,255,0.015)', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+        <tr style={{ backgroundColor: even ? 'transparent' : 'rgba(0,0,0,0.015)', borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
             <td className="px-4 py-2.5 font-medium whitespace-nowrap" style={{ color: 'var(--color-text-primary)' }}>
                 {c.nome}
             </td>

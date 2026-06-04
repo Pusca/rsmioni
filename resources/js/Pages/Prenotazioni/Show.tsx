@@ -110,7 +110,7 @@ export default function Show({ prenotazione: pren, profilo, puoCancellare, motiv
                         <Link
                             href={`/prenotazioni/${pren.id}/edit`}
                             className="px-4 py-2 rounded text-sm font-medium transition-colors"
-                            style={{ backgroundColor: 'rgba(255,255,255,0.06)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)' }}
+                            style={{ backgroundColor: 'rgba(0,0,0,0.06)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)' }}
                         >
                             Modifica
                         </Link>
@@ -123,7 +123,7 @@ export default function Show({ prenotazione: pren, profilo, puoCancellare, motiv
                                 Cancella
                             </button>
                         ) : motivoCancellazione ? (
-                            <span className="text-xs px-3 py-1.5 rounded" style={{ color: 'var(--color-text-muted)', backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid var(--color-border)' }}>
+                            <span className="text-xs px-3 py-1.5 rounded" style={{ color: 'var(--color-text-muted)', backgroundColor: 'rgba(0,0,0,0.03)', border: '1px solid var(--color-border)' }}>
                                 {motivoCancellazione}
                             </span>
                         ) : null}
@@ -209,7 +209,7 @@ export default function Show({ prenotazione: pren, profilo, puoCancellare, motiv
                                         {pren.pagamenti.map(p => (
                                             <div key={p.id}
                                                 className="rounded-lg px-3 py-2"
-                                                style={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                                style={{ backgroundColor: 'rgba(0,0,0,0.02)', border: '1px solid rgba(0,0,0,0.05)' }}>
                                                 <div className="flex items-center justify-between">
                                                     <div className="flex items-center gap-2">
                                                         <PillEsitoPOS esito={p.esito} />
@@ -331,7 +331,7 @@ export default function Show({ prenotazione: pren, profilo, puoCancellare, motiv
                                     ) : (
                                         /* POS presente ma nessun chiosco in parlato — disabilitato con spiegazione */
                                         <div className="w-full rounded px-3 py-2 text-xs"
-                                            style={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)', cursor: 'not-allowed' }}>
+                                            style={{ backgroundColor: 'rgba(0,0,0,0.02)', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)', cursor: 'not-allowed' }}>
                                             <div className="flex items-center gap-1.5 mb-0.5">
                                                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0 }}>
                                                     <rect x="1" y="4" width="22" height="16" rx="2"/>
@@ -339,7 +339,7 @@ export default function Show({ prenotazione: pren, profilo, puoCancellare, motiv
                                                 </svg>
                                                 <span>Pagamento POS remoto</span>
                                             </div>
-                                            <p style={{ color: 'rgba(255,255,255,0.2)', fontSize: '10px', lineHeight: 1.4 }}>
+                                            <p style={{ color: 'rgba(0,0,0,0.2)', fontSize: '10px', lineHeight: 1.4 }}>
                                                 Richiede un collegamento in parlato attivo con il chiosco
                                             </p>
                                         </div>
@@ -425,7 +425,7 @@ function ActionBtn({ href, children }: { href: string; children: React.ReactNode
         <Link
             href={href}
             className="block w-full text-center text-xs py-2 rounded transition-colors"
-            style={{ color: 'var(--color-text-muted)', backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid var(--color-border)' }}
+            style={{ color: 'var(--color-text-muted)', backgroundColor: 'rgba(0,0,0,0.03)', border: '1px solid var(--color-border)' }}
         >
             {children}
         </Link>
@@ -499,9 +499,9 @@ function DocumentiReadOnly({ documenti, onApri }: { documenti: DocumentoItem[]; 
             {documenti.map((doc, idx) => (
                 <div key={doc.id}
                     className="flex items-center gap-3 rounded px-3 py-1.5"
-                    style={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                    style={{ backgroundColor: 'rgba(0,0,0,0.02)', border: '1px solid rgba(0,0,0,0.05)' }}>
                     <span className="rounded px-1.5 py-0.5 font-mono font-bold shrink-0"
-                        style={{ fontSize: '9px', color: doc.estensione === 'pdf' ? '#f87171' : '#60a5fa', backgroundColor: 'rgba(255,255,255,0.06)' }}>
+                        style={{ fontSize: '9px', color: doc.estensione === 'pdf' ? '#f87171' : '#60a5fa', backgroundColor: 'rgba(0,0,0,0.06)' }}>
                         {doc.estensione === 'pdf' ? 'PDF' : 'IMG'}
                     </span>
                     <span className="flex-1 text-xs truncate" style={{ color: 'var(--color-text-secondary)' }}>

@@ -181,8 +181,8 @@ export default function Collaudo({ chiosco, collaudi }: Props) {
                                 return (
                                     <tr key={test.key}
                                         style={{
-                                            borderBottom: '1px solid rgba(255,255,255,0.04)',
-                                            backgroundColor: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)',
+                                            borderBottom: '1px solid rgba(0,0,0,0.04)',
+                                            backgroundColor: i % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.01)',
                                         }}>
                                         <Td>
                                             <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>
@@ -236,7 +236,7 @@ export default function Collaudo({ chiosco, collaudi }: Props) {
                                 </label>
                                 <select value={esito} onChange={e => setEsito(e.target.value as typeof esito)}
                                     className="w-full rounded-lg px-3 py-2 text-sm"
-                                    style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}>
+                                    style={{ backgroundColor: 'rgba(0,0,0,0.04)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}>
                                     <option value="superato">Superato — tutti i requisiti soddisfatti</option>
                                     <option value="parziale">Parziale — alcuni test non superati</option>
                                     <option value="fallito">Fallito — collaudo non superato</option>
@@ -251,7 +251,7 @@ export default function Collaudo({ chiosco, collaudi }: Props) {
                                 rows={3}
                                 placeholder="Eventuali osservazioni, anomalie riscontrate, interventi effettuati…"
                                 className="w-full rounded-lg px-3 py-2 text-sm resize-none"
-                                style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}
+                                style={{ backgroundColor: 'rgba(0,0,0,0.04)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}
                             />
                         </div>
                         <div className="flex justify-end">
@@ -286,8 +286,8 @@ export default function Collaudo({ chiosco, collaudi }: Props) {
                                 {collaudi.map((c, i) => (
                                     <tr key={c.id}
                                         style={{
-                                            borderBottom: '1px solid rgba(255,255,255,0.04)',
-                                            backgroundColor: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)',
+                                            borderBottom: '1px solid rgba(0,0,0,0.04)',
+                                            backgroundColor: i % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.01)',
                                         }}>
                                         <Td><span className="font-mono">{c.created_at}</span></Td>
                                         <Td>
@@ -336,7 +336,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 function ConfigRow({ label, value, color }: { label: string; value: string; color?: string }) {
     return (
-        <div className="flex items-center justify-between py-1 border-b" style={{ borderColor: 'rgba(255,255,255,0.04)' }}>
+        <div className="flex items-center justify-between py-1 border-b" style={{ borderColor: 'rgba(0,0,0,0.04)' }}>
             <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{label}</span>
             <span className="text-xs font-medium" style={{ color: color ?? 'var(--color-text-secondary)' }}>{value}</span>
         </div>

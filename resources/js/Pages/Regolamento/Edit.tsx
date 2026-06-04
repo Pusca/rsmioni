@@ -105,7 +105,7 @@ export default function RegolamentoEdit({ regola, contenuti, lingue_hotel, hotel
                                     onClick={() => setLinguaAttiva(l)}
                                     className="px-3 py-1.5 rounded text-xs font-medium transition-colors"
                                     style={{
-                                        backgroundColor: linguaAttiva === l ? 'rgba(255,255,255,0.08)' : 'transparent',
+                                        backgroundColor: linguaAttiva === l ? 'rgba(0,0,0,0.08)' : 'transparent',
                                         color:           linguaAttiva === l ? 'var(--color-text-primary)' : 'var(--color-text-muted)',
                                         border:          `1px solid ${linguaAttiva === l ? 'var(--color-border)' : 'transparent'}`,
                                     }}>

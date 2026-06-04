@@ -78,7 +78,7 @@ export default function ViewerDocumenti({ documenti, indiceIniziale = 0, onClose
         >
             {/* ── Barra superiore ── */}
             <div className="shrink-0 flex items-center justify-between px-5 py-3"
-                style={{ backgroundColor: '#0a0c12', borderBottom: '1px solid #1a1d27' }}>
+                style={{ backgroundColor: 'var(--color-bg-secondary)', borderBottom: '1px solid var(--color-border)' }}>
 
                 <div className="flex items-center gap-3">
                     {/* Navigazione */}
@@ -204,7 +204,7 @@ export default function ViewerDocumenti({ documenti, indiceIniziale = 0, onClose
 
             {/* ── Barra inferiore: metadati ── */}
             <div className="shrink-0 flex items-center justify-between px-5 py-2"
-                style={{ backgroundColor: '#0a0c12', borderTop: '1px solid #1a1d27' }}>
+                style={{ backgroundColor: 'var(--color-bg-secondary)', borderTop: '1px solid var(--color-border)' }}>
                 <div className="flex items-center gap-4 text-xs" style={{ color: 'var(--color-text-muted)' }}>
                     <span>Caricato da: {PROFILO_LABEL[doc.inserito_da_profilo] ?? doc.inserito_da_profilo}</span>
                     <span>·</span>

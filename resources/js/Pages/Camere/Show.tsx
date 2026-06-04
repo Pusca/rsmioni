@@ -57,7 +57,7 @@ export default function CameraShow({ camera: c, puoCancellare, documenti, puoUpl
                     <div className="flex items-center gap-2">
                         <Link href={`/camere/${c.id}/edit`}
                             className="px-4 py-2 rounded text-sm font-medium"
-                            style={{ backgroundColor: 'rgba(255,255,255,0.06)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)' }}>
+                            style={{ backgroundColor: 'rgba(0,0,0,0.06)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)' }}>
                             Modifica
                         </Link>
                         {puoCancellare ? (
@@ -68,7 +68,7 @@ export default function CameraShow({ camera: c, puoCancellare, documenti, puoUpl
                             </button>
                         ) : (
                             <span className="text-xs px-3 py-1.5 rounded"
-                                style={{ color: 'var(--color-text-muted)', backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid var(--color-border)' }}>
+                                style={{ color: 'var(--color-text-muted)', backgroundColor: 'rgba(0,0,0,0.03)', border: '1px solid var(--color-border)' }}>
                                 Ha prenotazioni attive
                             </span>
                         )}
@@ -185,7 +185,7 @@ function ActionBtn({ href, children }: { href: string; children: React.ReactNode
     return (
         <Link href={href}
             className="block w-full text-center text-xs py-2 rounded"
-            style={{ color: 'var(--color-text-muted)', backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid var(--color-border)' }}>
+            style={{ color: 'var(--color-text-muted)', backgroundColor: 'rgba(0,0,0,0.03)', border: '1px solid var(--color-border)' }}>
             {children}
         </Link>
     );

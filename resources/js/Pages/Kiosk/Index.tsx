@@ -201,7 +201,7 @@ function PagamentoPOSScreen({ chiosco, importo, valuta, causale, tipoPOS }: Paga
         <div className="w-full h-full flex flex-col" style={{ backgroundColor: '#050710' }}>
             {/* Status bar */}
             <div className="shrink-0 flex items-center justify-between px-4 py-2"
-                style={{ backgroundColor: '#080a12', borderBottom: '1px solid #1a1d27' }}>
+                style={{ backgroundColor: 'var(--color-bg-primary)', borderBottom: '1px solid var(--color-border)' }}>
                 <div className="flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full"
                         style={{ backgroundColor: fase === 'ok' ? '#22c55e' : fase === 'ko' ? '#ef4444' : '#10b981' }} />
@@ -296,9 +296,9 @@ function PagamentoPOSScreen({ chiosco, importo, valuta, causale, tipoPOS }: Paga
                                 disabled={elaborando}
                                 className="rounded-xl px-6 py-2 text-sm"
                                 style={{
-                                    color:           '#5c6380',
-                                    border:          '1px solid #2e3348',
-                                    backgroundColor: '#0d1020',
+                                    color:           'var(--color-text-muted)',
+                                    border:          '1px solid var(--color-border)',
+                                    backgroundColor: 'var(--color-bg-secondary)',
                                     cursor:          elaborando ? 'default' : 'pointer',
                                 }}>
                                 Annulla
@@ -370,7 +370,7 @@ function PagamentoPOSScreen({ chiosco, importo, valuta, causale, tipoPOS }: Paga
                 {fase === 'annullato' && (
                     <div className="flex flex-col items-center gap-6 text-center">
                         <div className="rounded-full flex items-center justify-center"
-                            style={{ width: 96, height: 96, backgroundColor: 'rgba(92,99,128,0.08)', border: '2px solid #2e3348' }}>
+                            style={{ width: 96, height: 96, backgroundColor: 'rgba(92,99,128,0.08)', border: '2px solid var(--color-border)' }}>
                             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#5c6380" strokeWidth="1.5">
                                 <circle cx="12" cy="12" r="10"/>
                                 <line x1="15" y1="9" x2="9" y2="15"/>
@@ -378,7 +378,7 @@ function PagamentoPOSScreen({ chiosco, importo, valuta, causale, tipoPOS }: Paga
                             </svg>
                         </div>
                         <div>
-                            <p className="text-xl font-light" style={{ color: '#5c6380' }}>
+                            <p className="text-xl font-light" style={{ color: 'var(--color-text-muted)' }}>
                                 Operazione annullata
                             </p>
                             <p className="text-sm mt-1" style={{ color: '#3a3f55' }}>
@@ -505,7 +505,7 @@ function StampaScreen({ chiosco, titolo }: StampaScreenProps) {
         <div className="w-full h-full flex flex-col" style={{ backgroundColor: '#050710' }}>
             {/* Status bar */}
             <div className="shrink-0 flex items-center justify-between px-4 py-2"
-                style={{ backgroundColor: '#080a12', borderBottom: '1px solid #1a1d27' }}>
+                style={{ backgroundColor: 'var(--color-bg-primary)', borderBottom: '1px solid var(--color-border)' }}>
                 <div className="flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full"
                         style={{ backgroundColor: fase === 'errore' ? '#ef4444' : fase === 'completata' ? '#22c55e' : '#7c3aed' }} />
@@ -554,7 +554,7 @@ function StampaScreen({ chiosco, titolo }: StampaScreenProps) {
                         {fase === 'stampa' && (
                             <button onClick={handleAnnullaStampa}
                                 className="rounded-xl px-6 py-2 text-sm"
-                                style={{ color: '#5c6380', border: '1px solid #2e3348', backgroundColor: '#0d1020' }}>
+                                style={{ color: 'var(--color-text-muted)', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-bg-secondary)' }}>
                                 Annulla
                             </button>
                         )}
@@ -711,7 +711,7 @@ function AcquisizioneScreen({ chiosco, titolo, onCompletata, onAnnulla }: Acquis
         <div className="w-full h-full flex flex-col" style={{ backgroundColor: '#050710' }}>
             {/* Status bar */}
             <div className="shrink-0 flex items-center justify-between px-4 py-2"
-                style={{ backgroundColor: '#080a12', borderBottom: '1px solid #1a1d27' }}>
+                style={{ backgroundColor: 'var(--color-bg-primary)', borderBottom: '1px solid var(--color-border)' }}>
                 <div className="flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#3b82f6' }} />
                     <span className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
@@ -734,7 +734,7 @@ function AcquisizioneScreen({ chiosco, titolo, onCompletata, onAnnulla }: Acquis
                 {(fase === 'preview' || fase === 'uploading') && (
                     <div className="relative rounded-2xl overflow-hidden shadow-2xl"
                         style={{ width: '480px', maxWidth: '90vw', aspectRatio: '4/3',
-                                 backgroundColor: '#0a0c12', border: '2px solid rgba(59,130,246,0.3)' }}>
+                                 backgroundColor: 'var(--color-bg-primary)', border: '2px solid rgba(59,130,246,0.3)' }}>
                         {/* Video live */}
                         <video ref={videoRef} autoPlay playsInline muted
                             className="w-full h-full object-cover"
@@ -816,7 +816,7 @@ function AcquisizioneScreen({ chiosco, titolo, onCompletata, onAnnulla }: Acquis
                         <>
                             <button onClick={handleAnnullaGuest}
                                 className="rounded-xl px-6 py-3 text-sm"
-                                style={{ color: '#5c6380', border: '1px solid #2e3348', backgroundColor: '#0d1020' }}>
+                                style={{ color: 'var(--color-text-muted)', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-bg-secondary)' }}>
                                 Annulla
                             </button>
                             <button onClick={handleCattura}
@@ -830,7 +830,7 @@ function AcquisizioneScreen({ chiosco, titolo, onCompletata, onAnnulla }: Acquis
                         <>
                             <button onClick={handleRiprendi}
                                 className="rounded-xl px-6 py-3 text-sm"
-                                style={{ color: '#5c6380', border: '1px solid #2e3348', backgroundColor: '#0d1020' }}>
+                                style={{ color: 'var(--color-text-muted)', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-bg-secondary)' }}>
                                 Riprendi
                             </button>
                             <button onClick={handleInvia}
@@ -886,12 +886,12 @@ function AttesoScreen({ chiosco, onChiama, loading }: AttesoScreenProps) {
                          width: '480px', height: '360px',
                          maxWidth: '80vw', maxHeight: '60vh',
                          backgroundColor: '#060810',
-                         border: '1px solid #1a1d27',
+                         border: '1px solid var(--color-border)',
                      }}>
-                    <div className="text-center" style={{ color: '#2e3348' }}>
+                    <div className="text-center" style={{ color: 'var(--color-text-muted)' }}>
                         <div className="mb-3">
                             <svg width="56" height="56" viewBox="0 0 24 24" fill="none"
-                                 stroke="#2e3348" strokeWidth="1" className="mx-auto">
+                                 stroke="var(--color-border)" strokeWidth="1" className="mx-auto">
                                 <path d="M15 10l4.553-2.069A1 1 0 0121 8.87v6.26a1 1 0 01-1.447.894L15 14M4 6h8a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V8a2 2 0 012-2z" />
                             </svg>
                         </div>
@@ -953,9 +953,9 @@ function AttesoScreen({ chiosco, onChiama, loading }: AttesoScreenProps) {
                                 disabled={loading}
                                 className="mt-6 rounded-lg px-4 py-2 text-xs font-mono transition-all"
                                 style={{
-                                    color:           '#5c6380',
-                                    border:          '1px solid #2e3348',
-                                    backgroundColor: '#0d1020',
+                                    color:           'var(--color-text-muted)',
+                                    border:          '1px solid var(--color-border)',
+                                    backgroundColor: 'var(--color-bg-secondary)',
                                     cursor:          loading ? 'not-allowed' : 'pointer',
                                 }}
                             >
@@ -1119,14 +1119,14 @@ function OfflineScreen({ chiosco }: { chiosco: Chiosco }) {
                      width:           72,
                      height:          72,
                      backgroundColor: 'rgba(92,99,128,0.08)',
-                     border:          '2px solid #2e3348',
+                     border:          '2px solid var(--color-border)',
                  }}>
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#5c6380" strokeWidth="1.5">
                     <path d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
                 </svg>
             </div>
             <div className="text-center">
-                <p className="text-lg font-light" style={{ color: '#5c6380' }}>
+                <p className="text-lg font-light" style={{ color: 'var(--color-text-muted)' }}>
                     Chiosco non connesso
                 </p>
                 <p className="text-sm mt-1" style={{ color: '#3a3f55' }}>
@@ -1165,7 +1165,7 @@ function CollegamentoChiaroScreen({
         <div className="w-full h-full flex flex-col" style={{ backgroundColor: '#050710' }}>
             {/* Status bar */}
             <div className="shrink-0 flex items-center justify-between px-4 py-2"
-                 style={{ backgroundColor: '#080a12', borderBottom: '1px solid #1a1d27' }}>
+                 style={{ backgroundColor: 'var(--color-bg-primary)', borderBottom: '1px solid var(--color-border)' }}>
                 <div className="flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full"
                           style={{ backgroundColor: isConnected ? '#22c55e' : '#5c6380' }} />
@@ -1206,7 +1206,7 @@ function CollegamentoChiaroScreen({
                 {/* Miniatura video chiosco (locale) */}
                 <div className="absolute bottom-4 right-4 rounded-xl overflow-hidden shadow-xl"
                      style={{ width: '160px', height: '120px',
-                              backgroundColor: '#0a0c12',
+                              backgroundColor: 'var(--color-bg-primary)',
                               border: '1px solid rgba(34,197,94,0.3)' }}>
                     <video ref={localVideoRef} autoPlay playsInline muted
                            className="w-full h-full object-cover" />
@@ -1246,7 +1246,7 @@ function ParlatoScreen({
 
             {/* ── Status bar ── */}
             <div className="shrink-0 flex items-center justify-between px-4 py-2"
-                 style={{ backgroundColor: '#080a12', borderBottom: '1px solid #1a1d27' }}>
+                 style={{ backgroundColor: 'var(--color-bg-primary)', borderBottom: '1px solid var(--color-border)' }}>
                 <div className="flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full"
                           style={{ backgroundColor: isConnected ? '#3b82f6'
@@ -1313,7 +1313,7 @@ function ParlatoScreen({
                 {/* Video locale (chiosco) — miniatura in basso a destra */}
                 <div className="absolute bottom-4 right-4 rounded-xl overflow-hidden shadow-xl"
                      style={{ width: '160px', height: '120px',
-                              backgroundColor: '#0a0c12',
+                              backgroundColor: 'var(--color-bg-primary)',
                               border: '1px solid rgba(59,130,246,0.3)' }}>
                     <video ref={localVideoRef} autoPlay playsInline muted
                            className="w-full h-full object-cover" />

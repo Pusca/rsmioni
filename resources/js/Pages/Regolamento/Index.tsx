@@ -79,7 +79,7 @@ export default function RegolamentoIndex({ regole, hotels, hotel_id, profilo }: 
                         </h1>
                         {/* Completamento */}
                         <div className="flex items-center gap-2">
-                            <div className="w-24 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }}>
+                            <div className="w-24 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(0,0,0,0.08)' }}>
                                 <div className="h-full rounded-full transition-all"
                                     style={{ width: `${totale ? (valorizzate / totale) * 100 : 0}%`, backgroundColor: '#22c55e' }} />
                             </div>
@@ -166,8 +166,8 @@ function RegolaRow({
 
     return (
         <tr style={{
-            backgroundColor: even ? 'transparent' : 'rgba(255,255,255,0.015)',
-            borderBottom:    '1px solid rgba(255,255,255,0.04)',
+            backgroundColor: even ? 'transparent' : 'rgba(0,0,0,0.015)',
+            borderBottom:    '1px solid rgba(0,0,0,0.04)',
         }}>
             {/* Nome regola */}
             <td className="px-4 py-3" style={{ width: '220px', minWidth: '160px' }}>

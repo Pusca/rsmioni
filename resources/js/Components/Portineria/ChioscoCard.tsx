@@ -15,9 +15,9 @@ function borderColorForStato(stato: StatoChiosco): string {
         case 'in_chiaro':        return '#22c55e';
         case 'in_nascosto':      return '#eab308';
         case 'in_parlato':       return '#3b82f6';
-        case 'messaggio_attesa': return '#5c6380';
+        case 'messaggio_attesa': return 'var(--color-text-muted)';
         case 'idle':             return '#22c55e';
-        default:                 return '#2e3348';
+        default:                 return '#9ba3c0';
     }
 }
 
@@ -27,10 +27,10 @@ function previewOverlay(stato: StatoChiosco) {
         case 'offline':
             return (
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5c6380" strokeWidth="1.5">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-muted)" strokeWidth="1.5">
                         <path d="M18.364 18.364A9 9 0 0 0 5.636 5.636m12.728 12.728A9 9 0 0 1 5.636 5.636m12.728 12.728L5.636 5.636" />
                     </svg>
-                    <span style={{ fontSize: '9px', color: '#5c6380' }}>OFFLINE</span>
+                    <span style={{ fontSize: '9px', color: 'var(--color-text-muted)' }}>OFFLINE</span>
                 </div>
             );
         case 'in_chiamata':
@@ -58,7 +58,7 @@ function previewOverlay(stato: StatoChiosco) {
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={stato === 'in_chiaro' ? '#22c55e' : stato === 'in_parlato' ? '#3b82f6' : '#eab308'} strokeWidth="1.5">
                         <path d="M15 10l4.553-2.069A1 1 0 0121 8.87v6.26a1 1 0 01-1.447.894L15 14M4 6h8a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V8a2 2 0 012-2z" />
                     </svg>
-                    <span style={{ fontSize: '8px', color: '#5c6380' }}>VIDEO M2</span>
+                    <span style={{ fontSize: '8px', color: 'var(--color-text-muted)' }}>VIDEO M2</span>
                 </div>
             );
         case 'messaggio_attesa':
@@ -73,7 +73,7 @@ function previewOverlay(stato: StatoChiosco) {
         default: // idle
             return (
                 <div className="absolute inset-0 flex items-center justify-center">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2e3348" strokeWidth="1.5">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-border)" strokeWidth="1.5">
                         <path d="M15 10l4.553-2.069A1 1 0 0121 8.87v6.26a1 1 0 01-1.447.894L15 14M4 6h8a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V8a2 2 0 012-2z" />
                     </svg>
                 </div>
@@ -93,7 +93,7 @@ export default function ChioscoCard({ chiosco, isSelezionato, puoInteragire, onC
             onClick={onClick}
             className="w-full text-left rounded-lg border transition-all"
             style={{
-                backgroundColor: isSelezionato ? '#1a2035' : 'var(--color-bg-card)',
+                backgroundColor: isSelezionato ? 'var(--color-bg-hover)' : 'var(--color-bg-card)',
                 borderColor,
                 borderWidth:    isSelezionato || isAttivo ? '2px' : '1px',
                 padding:        '10px',
@@ -116,7 +116,7 @@ export default function ChioscoCard({ chiosco, isSelezionato, puoInteragire, onC
 
             {/* Video preview */}
             <div className="relative rounded mb-2 overflow-hidden"
-                 style={{ aspectRatio: '16/9', backgroundColor: '#080a12' }}>
+                 style={{ aspectRatio: '16/9', backgroundColor: 'var(--color-bg-primary)' }}>
                 {previewOverlay(chiosco.stato)}
             </div>
 
@@ -126,12 +126,12 @@ export default function ChioscoCard({ chiosco, isSelezionato, puoInteragire, onC
                 <div className="flex items-center gap-1.5" style={{ color: 'var(--color-text-muted)', fontSize: '10px' }}>
                     {/* Presenza heartbeat dot */}
                     <PresenzaDot presenza={chiosco.ultima_presenza ?? null} stato={chiosco.stato} />
-                    <span className="uppercase font-mono" style={{ color: '#5c6380' }}>
+                    <span className="uppercase font-mono" style={{ color: 'var(--color-text-muted)' }}>
                         {chiosco.tipo}
                     </span>
                     {chiosco.has_pos && (
                         <span title={`POS: ${chiosco.tipo_pos ?? '?'}`}
-                              style={{ fontSize: '10px', color: chiosco.stato === 'offline' ? '#5c6380' : '#9ba3c0' }}>
+                              style={{ fontSize: '10px', color: chiosco.stato === 'offline' ? 'var(--color-text-muted)' : 'var(--color-text-secondary)' }}>
                             POS
                         </span>
                     )}
@@ -211,7 +211,7 @@ function PresenzaDot({ presenza, stato }: { presenza: UltimaPresenza | null; sta
                 width:           6,
                 height:          6,
                 borderRadius:    '50%',
-                backgroundColor: online ? '#22c55e' : '#5c6380',
+                backgroundColor: online ? '#22c55e' : 'var(--color-text-muted)',
                 flexShrink:      0,
             }}
         />

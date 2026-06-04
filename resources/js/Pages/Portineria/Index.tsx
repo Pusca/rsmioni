@@ -169,7 +169,7 @@ export default function PortineriaIndex({ chioschi: chioschiIniziali, hotel_ids,
 
                 {/* Demo toolbar toggle */}
                 <div className="flex items-center gap-2">
-                    <span style={{ color: '#5c6380' }}>
+                    <span style={{ color: 'var(--color-text-muted)' }}>
                         {chioschi.length} chiosco{chioschi.length !== 1 ? 'i' : ''}
                         {' · '}
                         {hotel_ids.length} hotel
@@ -179,8 +179,8 @@ export default function PortineriaIndex({ chioschi: chioschiIniziali, hotel_ids,
                         className="rounded px-2 py-0.5 font-mono"
                         style={{
                             fontSize: '10px',
-                            color: '#5c6380',
-                            border: '1px solid #2e3348',
+                            color: 'var(--color-text-muted)',
+                            border: '1px solid var(--color-border)',
                         }}
                     >
                         DEMO {bannerDemo ? '▲' : '▼'}
@@ -193,12 +193,12 @@ export default function PortineriaIndex({ chioschi: chioschiIniziali, hotel_ids,
                 <div
                     className="flex items-center gap-2 px-4 py-2 shrink-0 flex-wrap"
                     style={{
-                        backgroundColor: '#0d1020',
-                        borderBottom:    '1px solid #2e3348',
+                        backgroundColor: 'var(--color-bg-secondary)',
+                        borderBottom:    '1px solid var(--color-border)',
                         fontSize:        '11px',
                     }}
                 >
-                    <span style={{ color: '#5c6380' }}>
+                    <span style={{ color: 'var(--color-text-muted)' }}>
                         Demo: imposta stato su {chioscoSelezionato?.nome ?? chioschi[0]?.nome ?? '—'}
                     </span>
                     {DEMO_STATI.map(({ label, stato, color }) => (
@@ -219,7 +219,7 @@ export default function PortineriaIndex({ chioschi: chioschiIniziali, hotel_ids,
                     <button
                         onClick={handleDemoReset}
                         className="rounded px-2 py-0.5 font-mono ml-auto"
-                        style={{ fontSize: '10px', color: '#5c6380', border: '1px solid #2e3348' }}
+                        style={{ fontSize: '10px', color: 'var(--color-text-muted)', border: '1px solid var(--color-border)' }}
                     >
                         Reset tutti
                     </button>
@@ -298,7 +298,7 @@ function GrigliaChioschi({ chioschi, selezioneId, puoInteragire, onCardClick }: 
                 <div key={nomeHotel} className="mb-4">
                     {mostraHeader && (
                         <div className="text-xs uppercase tracking-widest mb-2 px-1 font-semibold"
-                             style={{ color: '#5c6380', letterSpacing: '0.08em' }}>
+                             style={{ color: 'var(--color-text-muted)', letterSpacing: '0.08em' }}>
                             {nomeHotel}
                         </div>
                     )}

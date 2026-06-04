@@ -115,7 +115,7 @@ export default function ChioscoEdit({ chiosco, hotels, mode }: Props) {
                             <Field label="Hotel" error={errors.hotel_id} required>
                                 <select value={form.hotel_id} onChange={e => set('hotel_id', e.target.value)}
                                     className="w-full rounded-lg px-3 py-2 text-sm"
-                                    style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}>
+                                    style={{ backgroundColor: 'rgba(0,0,0,0.04)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}>
                                     {hotels.map(h => (
                                         <option key={h.id} value={h.id}>{h.nome}</option>
                                     ))}
@@ -131,7 +131,7 @@ export default function ChioscoEdit({ chiosco, hotels, mode }: Props) {
                             <Field label="Tipo" error={errors.tipo} required>
                                 <select value={form.tipo} onChange={e => set('tipo', e.target.value)}
                                     className="w-full rounded-lg px-3 py-2 text-sm"
-                                    style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}>
+                                    style={{ backgroundColor: 'rgba(0,0,0,0.04)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}>
                                     <option value="touch">Touch (touchscreen)</option>
                                     <option value="analogico">Analogico (campanello fisico)</option>
                                 </select>
@@ -164,11 +164,11 @@ export default function ChioscoEdit({ chiosco, hotels, mode }: Props) {
                         />
 
                         {form.has_pos && (
-                            <div className="space-y-4 mt-2 pt-4" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                            <div className="space-y-4 mt-2 pt-4" style={{ borderTop: '1px solid rgba(0,0,0,0.06)' }}>
                                 <Field label="Tipo POS" error={errors.tipo_pos}>
                                     <select value={form.tipo_pos ?? 'ingenico'} onChange={e => set('tipo_pos', e.target.value)}
                                         className="w-full rounded-lg px-3 py-2 text-sm"
-                                        style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}>
+                                        style={{ backgroundColor: 'rgba(0,0,0,0.04)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}>
                                         <option value="ingenico">Ingenico</option>
                                         <option value="mypos">MyPOS</option>
                                     </select>
@@ -271,7 +271,7 @@ function TextInput({ value, onChange, placeholder, required }: {
         <input type="text" value={value ?? ''} onChange={e => onChange(e.target.value)}
             placeholder={placeholder} required={required}
             className="w-full rounded-lg px-3 py-2 text-sm"
-            style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}
+            style={{ backgroundColor: 'rgba(0,0,0,0.04)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}
         />
     );
 }
@@ -291,8 +291,8 @@ function Toggle({ label, descrizione, value, onChange }: {
                 className="shrink-0 rounded-full transition-colors"
                 style={{
                     width: 40, height: 22,
-                    backgroundColor: value ? '#3b82f6' : 'rgba(255,255,255,0.1)',
-                    border: '1px solid rgba(255,255,255,0.15)',
+                    backgroundColor: value ? '#3b82f6' : 'rgba(0,0,0,0.1)',
+                    border: '1px solid rgba(0,0,0,0.15)',
                     position: 'relative',
                 }}>
                 <span className="absolute top-0.5 transition-all rounded-full"

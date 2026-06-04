@@ -109,8 +109,8 @@ export default function MessaggioAttesaModal({
                         disabled={!testo.trim() || isLoading}
                         className="flex-1 rounded-lg text-sm py-2 font-medium transition-colors"
                         style={{
-                            backgroundColor: testo.trim() && !isLoading ? '#9ba3c0' : '#2e3348',
-                            color:           testo.trim() && !isLoading ? '#0f1117' : '#5c6380',
+                            backgroundColor: testo.trim() && !isLoading ? 'var(--color-text-secondary)' : 'var(--color-border)',
+                            color:           testo.trim() && !isLoading ? 'var(--color-text-primary)' : 'var(--color-text-muted)',
                         }}
                     >
                         {isLoading ? 'Invio...' : 'Imposta messaggio'}

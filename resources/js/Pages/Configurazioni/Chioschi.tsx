@@ -82,8 +82,8 @@ export default function ChioschiConfig({ chioschi, hotels }: Props) {
                                 {chioschi.map((c, i) => (
                                     <tr key={c.id}
                                         style={{
-                                            backgroundColor: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)',
-                                            borderBottom: '1px solid rgba(255,255,255,0.04)',
+                                            backgroundColor: i % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.01)',
+                                            borderBottom: '1px solid rgba(0,0,0,0.04)',
                                         }}>
                                         <Td>
                                             <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>

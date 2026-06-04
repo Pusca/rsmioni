@@ -147,7 +147,7 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
     return (
         <div
             className="flex flex-col h-full"
-            style={{ backgroundColor: '#080a12' }}
+            style={{ backgroundColor: 'var(--color-bg-primary)' }}
         >
             {/* ── Nessuna selezione ── */}
             {!chiosco && <NessunaSeleziona />}
@@ -158,7 +158,7 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
                     {/* Header area video */}
                     <div
                         className="flex items-center justify-between px-4 py-2.5 shrink-0 border-b"
-                        style={{ borderColor: '#1a1d27', backgroundColor: '#0c0f18' }}
+                        style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-primary)' }}
                     >
                         <div className="flex items-center gap-3">
                             <BadgeStato stato={chiosco.stato} size="md" />
@@ -184,7 +184,7 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
                         {chiosco.stato === 'offline' && (
                             <div className="text-center">
                                 <div className="mx-auto mb-3 rounded-full flex items-center justify-center"
-                                     style={{ width: 64, height: 64, backgroundColor: 'rgba(92,99,128,0.1)', border: '2px solid #2e3348' }}>
+                                     style={{ width: 64, height: 64, backgroundColor: 'rgba(92,99,128,0.1)', border: '2px solid var(--color-border)' }}>
                                     <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#5c6380" strokeWidth="1.5">
                                         <path d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
                                     </svg>
@@ -265,7 +265,7 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
                                 {isRL ? (
                                     /* RL: solo documentativo — nessuna azione consentita */
                                     <div className="rounded-lg border px-4 py-3 text-center"
-                                         style={{ borderColor: '#2e3348', backgroundColor: 'rgba(92,99,128,0.06)' }}>
+                                         style={{ borderColor: 'var(--color-border)', backgroundColor: 'rgba(92,99,128,0.06)' }}>
                                         <p className="text-xs" style={{ color: '#5c6380' }}>
                                             Solo visualizzazione · la risposta spetta al Receptionist
                                         </p>
@@ -314,7 +314,7 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
                                 {isRL ? (
                                     /* RL: solo visualizzazione — nessuna azione consentita in in_chiaro */
                                     <div className="rounded-lg border px-4 py-3 text-center"
-                                         style={{ borderColor: '#2e3348', backgroundColor: 'rgba(92,99,128,0.06)' }}>
+                                         style={{ borderColor: 'var(--color-border)', backgroundColor: 'rgba(92,99,128,0.06)' }}>
                                         <p className="text-xs" style={{ color: '#5c6380' }}>
                                             Solo visualizzazione · nessuna azione consentita
                                         </p>
@@ -467,7 +467,7 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
                         {chiosco.stato === 'messaggio_attesa' && (
                             <div className="w-full flex flex-col items-center gap-4 max-w-sm">
                                 <div className="rounded-xl border p-5 w-full text-center"
-                                     style={{ borderColor: '#2e3348', backgroundColor: 'rgba(155,163,192,0.06)' }}>
+                                     style={{ borderColor: 'var(--color-border)', backgroundColor: 'rgba(155,163,192,0.06)' }}>
                                     <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#9ba3c0" strokeWidth="1.5"
                                          className="mx-auto mb-3">
                                         <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
@@ -486,7 +486,7 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
                                 {isRL ? (
                                     /* RL: solo visualizzazione — gestione messaggio non consentita */
                                     <div className="rounded-lg border px-4 py-3 text-center"
-                                         style={{ borderColor: '#2e3348', backgroundColor: 'rgba(92,99,128,0.06)' }}>
+                                         style={{ borderColor: 'var(--color-border)', backgroundColor: 'rgba(92,99,128,0.06)' }}>
                                         <p className="text-xs" style={{ color: '#5c6380' }}>
                                             Solo visualizzazione · gestione messaggio non consentita
                                         </p>
@@ -538,7 +538,7 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
 function NessunaSeleziona() {
     return (
         <div className="flex-1 flex flex-col items-center justify-center gap-3">
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#2e3348" strokeWidth="1.5">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--color-border)" strokeWidth="1.5">
                 <rect x="2" y="3" width="20" height="14" rx="2" />
                 <path d="M8 21h8M12 17v4" />
             </svg>
@@ -637,7 +637,7 @@ function CollegamentoView({
                             width:           '100px',
                             height:          '72px',
                             backgroundColor: '#050710',
-                            border:          '1px solid #1a1d27',
+                            border:          '1px solid var(--color-border)',
                         }}
                     >
                         <video
@@ -812,7 +812,7 @@ function ParlatoView({ localVideoRef, remoteVideoRef, stato, errore, condivision
                         width:           '100px',
                         height:          '72px',
                         backgroundColor: '#050710',
-                        border:          '1px solid #1a1d27',
+                        border:          '1px solid var(--color-border)',
                     }}
                 >
                     <video
@@ -875,8 +875,8 @@ function AzioneBtn({ label, color, onClick, loading, icon }: AzioneBtnProps) {
                 padding:         '8px 14px',
                 fontSize:        '12px',
                 color:           loading ? '#5c6380' : color,
-                backgroundColor: loading ? '#1a1d27' : `${color}18`,
-                border:          `1px solid ${loading ? '#2e3348' : color + '50'}`,
+                backgroundColor: loading ? 'var(--color-bg-secondary)' : `${color}18`,
+                border:          `1px solid ${loading ? 'var(--color-border)' : color + '50'}`,
                 cursor:          loading ? 'not-allowed' : 'pointer',
                 whiteSpace:      'nowrap',
             }}

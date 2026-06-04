@@ -23,7 +23,7 @@ export default function SelezioneChiosco({ chioschi, errors }: Props) {
             <Head title="Seleziona Chiosco" />
 
             <div className="text-center mb-8">
-                <h1 className="text-3xl font-bold text-white tracking-tight">
+                <h1 className="text-3xl font-bold tracking-tight" style={{ color: 'var(--color-text-primary)' }}>
                     RS <span style={{ color: 'var(--color-parlato)' }}>Mioni</span>
                 </h1>
                 <p className="mt-2 text-sm" style={{ color: 'var(--color-text-muted)' }}>

@@ -22,7 +22,7 @@ export default function Login({ errors }: Props) {
             <Head title="Accedi" />
 
             <div className="text-center mb-8">
-                <h1 className="text-3xl font-bold text-white tracking-tight">
+                <h1 className="text-3xl font-bold tracking-tight" style={{ color: 'var(--color-text-primary)' }}>
                     RS <span style={{ color: 'var(--color-parlato)' }}>Mioni</span>
                 </h1>
                 <p className="mt-2 text-sm" style={{ color: 'var(--color-text-muted)' }}>
@@ -40,7 +40,7 @@ export default function Login({ errors }: Props) {
                 {/* Errore generale */}
                 {errors?.generale && (
                     <div className="text-sm px-3 py-2 rounded"
-                         style={{ backgroundColor: '#3b0d0d', color: '#f87171', border: '1px solid #7f1d1d' }}>
+                         style={{ backgroundColor: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca' }}>
                         {errors.generale}
                     </div>
                 )}

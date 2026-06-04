@@ -162,7 +162,7 @@ export default function SezioneDocumenti({
                     {title}
                     {documenti.length > 0 && (
                         <span className="ml-2 rounded px-1.5 py-0.5 font-mono"
-                            style={{ fontSize: '10px', backgroundColor: 'rgba(255,255,255,0.06)', color: 'var(--color-text-muted)' }}>
+                            style={{ fontSize: '10px', backgroundColor: 'rgba(0,0,0,0.06)', color: 'var(--color-text-muted)' }}>
                             {documenti.length}
                         </span>
                     )}
@@ -175,11 +175,11 @@ export default function SezioneDocumenti({
                     {documenti.map(doc => (
                         <div key={doc.id}
                             className="flex items-start gap-3 rounded px-3 py-2"
-                            style={{ backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                            style={{ backgroundColor: 'rgba(0,0,0,0.03)', border: '1px solid rgba(0,0,0,0.05)' }}>
 
                             {/* Ext badge */}
                             <span className="rounded px-1.5 py-0.5 font-mono font-bold shrink-0 mt-0.5"
-                                style={{ fontSize: '9px', color: EXT_COLOR[doc.estensione] ?? '#94a3b8', backgroundColor: 'rgba(255,255,255,0.06)' }}>
+                                style={{ fontSize: '9px', color: EXT_COLOR[doc.estensione] ?? '#94a3b8', backgroundColor: 'rgba(0,0,0,0.06)' }}>
                                 {EXT_LABEL[doc.estensione] ?? doc.estensione.toUpperCase()}
                             </span>
 
@@ -215,7 +215,7 @@ export default function SezioneDocumenti({
                                     {formatDate(doc.created_at)}
                                 </span>
                                 <span className="rounded px-1.5 py-0.5"
-                                    style={{ fontSize: '9px', color: '#94a3b8', backgroundColor: 'rgba(255,255,255,0.04)' }}>
+                                    style={{ fontSize: '9px', color: '#94a3b8', backgroundColor: 'rgba(0,0,0,0.04)' }}>
                                     {PROFILO_LABEL[doc.inserito_da_profilo] ?? doc.inserito_da_profilo}
                                 </span>
                             </div>

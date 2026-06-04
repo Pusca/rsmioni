@@ -71,7 +71,7 @@ export default function ModalInvioDocumento({ documentoId, titoloDocumento, onCl
         >
             <div
                 className="w-full max-w-md rounded-xl p-6 shadow-2xl"
-                style={{ backgroundColor: '#0d1020', border: '1px solid #1a1d27' }}
+                style={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)' }}
             >
                 {/* Intestazione */}
                 <div className="flex items-center justify-between mb-5">
@@ -146,7 +146,7 @@ export default function ModalInvioDocumento({ documentoId, titoloDocumento, onCl
 
                         {/* Nota link temporaneo */}
                         <p className="text-xs rounded px-3 py-2"
-                            style={{ color: '#94a3b8', backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                            style={{ color: '#94a3b8', backgroundColor: 'rgba(0,0,0,0.03)', border: '1px solid rgba(0,0,0,0.06)' }}>
                             Il destinatario riceverà un link temporaneo valido 48 ore.
                             Il documento non viene allegato all'email.
                         </p>

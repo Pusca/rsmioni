@@ -8,7 +8,7 @@ import { ReactNode } from 'react';
 export default function KioskLayout({ children }: { children: ReactNode }) {
     return (
         <div className="w-screen h-screen overflow-hidden relative select-none"
-             style={{ backgroundColor: '#0a0c12', color: '#e8eaf2' }}>
+             style={{ backgroundColor: 'var(--color-bg-primary)', color: 'var(--color-text-primary)' }}>
             {children}
         </div>
     );

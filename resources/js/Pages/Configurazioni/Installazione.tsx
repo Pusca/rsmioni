@@ -180,7 +180,7 @@ export default function InstallazionePage({
                             {prog.completate}/{prog.totale} voci completate ({prog.percentuale}%)
                         </span>
                     </div>
-                    <div className="rounded-full overflow-hidden" style={{ height: 6, backgroundColor: 'rgba(255,255,255,0.06)' }}>
+                    <div className="rounded-full overflow-hidden" style={{ height: 6, backgroundColor: 'rgba(0,0,0,0.06)' }}>
                         <div
                             className="h-full rounded-full transition-all duration-500"
                             style={{
@@ -271,7 +271,7 @@ export default function InstallazionePage({
                                             cursor:          'pointer',
                                         }}>
                                         <span className="w-2.5 h-2.5 rounded-full shrink-0"
-                                            style={{ backgroundColor: stato === s.value ? s.color : '#2e3348' }} />
+                                            style={{ backgroundColor: stato === s.value ? s.color : 'var(--color-border)' }} />
                                         <span className="text-sm font-medium"
                                             style={{ color: stato === s.value ? s.color : 'var(--color-text-muted)' }}>
                                             {s.label}
@@ -361,7 +361,7 @@ export default function InstallazionePage({
                                             key={voce.key}
                                             className="flex items-start gap-4 px-5 py-4"
                                             style={{
-                                                borderBottom: isLast ? 'none' : '1px solid rgba(255,255,255,0.04)',
+                                                borderBottom: isLast ? 'none' : '1px solid rgba(0,0,0,0.04)',
                                                 backgroundColor: isChecked ? 'rgba(34,197,94,0.02)' : 'transparent',
                                             }}>
 
@@ -374,7 +374,7 @@ export default function InstallazionePage({
                                                             width:           18,
                                                             height:          18,
                                                             backgroundColor: isChecked ? 'rgba(34,197,94,0.15)' : 'rgba(92,99,128,0.15)',
-                                                            border:          `1px solid ${isChecked ? 'rgba(34,197,94,0.5)' : '#2e3348'}`,
+                                                            border:          `1px solid ${isChecked ? 'rgba(34,197,94,0.5)' : 'var(--color-border)'}`,
                                                         }}>
                                                         {isChecked && (
                                                             <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="#22c55e" strokeWidth="2">
@@ -391,7 +391,7 @@ export default function InstallazionePage({
                                                         width:           18,
                                                         height:          18,
                                                         backgroundColor: isChecked ? '#22c55e' : 'transparent',
-                                                        border:          `2px solid ${isChecked ? '#22c55e' : '#2e3348'}`,
+                                                        border:          `2px solid ${isChecked ? '#22c55e' : 'var(--color-border)'}`,
                                                         cursor:          'pointer',
                                                     }}>
                                                     {isChecked && (
@@ -447,7 +447,7 @@ export default function InstallazionePage({
                         placeholder="Note libere: anomalie riscontrate, configurazioni particolari, riferimenti tecnici…"
                         className="w-full rounded-lg px-4 py-3 text-sm resize-none"
                         style={{
-                            backgroundColor: 'rgba(255,255,255,0.03)',
+                            backgroundColor: 'rgba(0,0,0,0.03)',
                             border:          '1px solid var(--color-border)',
                             color:           'var(--color-text-primary)',
                             outline:         'none',
@@ -486,7 +486,7 @@ export default function InstallazionePage({
 function DatiRow({ label, children }: { label: string; children: React.ReactNode }) {
     return (
         <div className="flex items-start justify-between gap-4 text-sm py-1"
-            style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+            style={{ borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
             <span className="shrink-0" style={{ color: 'var(--color-text-muted)' }}>{label}</span>
             <span style={{ color: 'var(--color-text-primary)', textAlign: 'right' }}>{children}</span>
         </div>

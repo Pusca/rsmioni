@@ -235,7 +235,7 @@ export default function ModalPagamentoPOS({ prenotazioneId, chioschi, onClose }:
                                         onChange={e => setChioscoId(e.target.value)}
                                         disabled={fase === 'invio'}
                                         className="w-full rounded-lg px-3 py-2 text-sm"
-                                        style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}>
+                                        style={{ backgroundColor: 'rgba(0,0,0,0.04)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}>
                                         {chioschiConPos.map(c => (
                                             <option key={c.id} value={c.id}>
                                                 {c.nome} — {c.tipo_pos ?? 'POS'}
@@ -247,7 +247,7 @@ export default function ModalPagamentoPOS({ prenotazioneId, chioschi, onClose }:
 
                             {chioschiConPos.length === 1 && (
                                 <div className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm"
-                                    style={{ backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid var(--color-border)' }}>
+                                    style={{ backgroundColor: 'rgba(0,0,0,0.03)', border: '1px solid var(--color-border)' }}>
                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2">
                                         <rect x="1" y="4" width="22" height="16" rx="2"/>
                                         <line x1="1" y1="10" x2="23" y2="10"/>
@@ -279,7 +279,7 @@ export default function ModalPagamentoPOS({ prenotazioneId, chioschi, onClose }:
                                         disabled={fase === 'invio'}
                                         required
                                         className="w-full rounded-lg pl-8 pr-3 py-2 text-sm"
-                                        style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}
+                                        style={{ backgroundColor: 'rgba(0,0,0,0.04)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}
                                     />
                                 </div>
                             </div>
@@ -297,7 +297,7 @@ export default function ModalPagamentoPOS({ prenotazioneId, chioschi, onClose }:
                                     maxLength={255}
                                     disabled={fase === 'invio'}
                                     className="w-full rounded-lg px-3 py-2 text-sm"
-                                    style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}
+                                    style={{ backgroundColor: 'rgba(0,0,0,0.04)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}
                                 />
                             </div>
 
@@ -321,7 +321,7 @@ export default function ModalPagamentoPOS({ prenotazioneId, chioschi, onClose }:
                                     {fase === 'invio' ? (
                                         <span className="flex items-center gap-2">
                                             <span className="w-3.5 h-3.5 rounded-full border-2 border-t-transparent animate-spin"
-                                                style={{ borderColor: 'rgba(255,255,255,0.4)', borderTopColor: '#fff' }} />
+                                                style={{ borderColor: 'rgba(0,0,0,0.4)', borderTopColor: '#fff' }} />
                                             Invio…
                                         </span>
                                     ) : 'Avvia pagamento'}
@@ -468,7 +468,7 @@ export default function ModalPagamentoPOS({ prenotazioneId, chioschi, onClose }:
                                 </button>
                                 <button onClick={() => { setFase('form'); setErrore(null); }}
                                     className="px-4 py-2 rounded-lg text-sm font-medium"
-                                    style={{ backgroundColor: 'rgba(255,255,255,0.06)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)' }}>
+                                    style={{ backgroundColor: 'rgba(0,0,0,0.06)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)' }}>
                                     Riprova
                                 </button>
                             </div>

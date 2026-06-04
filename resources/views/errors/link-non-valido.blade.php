@@ -7,8 +7,8 @@
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            background: #080b14;
-            color: #9ba3c0;
+            background: #f5f6fa;
+            color: #5c6380;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -18,18 +18,19 @@
         .card {
             text-align: center;
             padding: 48px 40px;
-            border: 1px solid #1a1d27;
+            border: 1px solid #d1d5e0;
             border-radius: 12px;
-            background: #0d1020;
+            background: #ffffff;
             max-width: 400px;
             width: 90%;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
         }
         .icon {
             font-size: 40px;
             margin-bottom: 20px;
         }
         h1 {
-            color: #e2e8f0;
+            color: #1a1d2b;
             font-size: 18px;
             font-weight: 600;
             margin: 0 0 8px;

@@ -59,7 +59,7 @@ export default function HotelConfig({ hotels, lingue_disponibili }: Props) {
                             <button key={h.id} onClick={() => setHotelIdx(i)}
                                 className="px-3 py-1 rounded text-xs font-medium"
                                 style={{
-                                    backgroundColor: i === hotelIdx ? 'rgba(59,130,246,0.12)' : 'rgba(255,255,255,0.04)',
+                                    backgroundColor: i === hotelIdx ? 'rgba(59,130,246,0.12)' : 'rgba(0,0,0,0.04)',
                                     border:          `1px solid ${i === hotelIdx ? 'rgba(59,130,246,0.4)' : 'var(--color-border)'}`,
                                     color:           i === hotelIdx ? '#60a5fa' : 'var(--color-text-muted)',
                                 }}>
@@ -131,7 +131,7 @@ function HotelForm({ hotel, lingue_disponibili }: { hotel: HotelData; lingue_dis
                 <Field label="Lingua default" error={errors.lingua_default} required>
                     <select value={form.lingua_default} onChange={e => set('lingua_default', e.target.value)}
                         className="w-full rounded-lg px-3 py-2 text-sm"
-                        style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}>
+                        style={{ backgroundColor: 'rgba(0,0,0,0.04)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}>
                         {Object.entries(lingue_disponibili).map(([codice, nome]) => (
                             <option key={codice} value={codice}>{nome} ({codice})</option>
                         ))}
@@ -145,7 +145,7 @@ function HotelForm({ hotel, lingue_disponibili }: { hotel: HotelData; lingue_dis
                                 <button key={codice} type="button" onClick={() => toggleLingua(codice)}
                                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
                                     style={{
-                                        backgroundColor: attiva ? 'rgba(59,130,246,0.12)' : 'rgba(255,255,255,0.03)',
+                                        backgroundColor: attiva ? 'rgba(59,130,246,0.12)' : 'rgba(0,0,0,0.03)',
                                         border:          `1px solid ${attiva ? 'rgba(59,130,246,0.4)' : 'var(--color-border)'}`,
                                         color:           attiva ? '#60a5fa' : 'var(--color-text-muted)',
                                     }}>
@@ -201,7 +201,7 @@ function HotelForm({ hotel, lingue_disponibili }: { hotel: HotelData; lingue_dis
                         <input type="time" value={form.checkout_ora}
                             onChange={e => set('checkout_ora', e.target.value)}
                             className="rounded-lg px-3 py-2 text-sm"
-                            style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }} />
+                            style={{ backgroundColor: 'rgba(0,0,0,0.04)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }} />
                     </Field>
                 )}
             </Section>
@@ -302,7 +302,7 @@ function Input({ value, onChange, required }: {
         <input type="text" value={value} onChange={e => onChange(e.target.value)}
             required={required}
             className="w-full rounded-lg px-3 py-2 text-sm"
-            style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}
+            style={{ backgroundColor: 'rgba(0,0,0,0.04)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}
         />
     );
 }
@@ -315,7 +315,7 @@ function NumberInput({ value, onChange, min, max }: {
             onChange={e => onChange(e.target.value === '' ? '' : Number(e.target.value))}
             min={min} max={max}
             className="w-full rounded-lg px-3 py-2 text-sm"
-            style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}
+            style={{ backgroundColor: 'rgba(0,0,0,0.04)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}
         />
     );
 }
@@ -335,8 +335,8 @@ function Toggle({ label, descrizione, value, onChange }: {
                 className="shrink-0 rounded-full transition-colors"
                 style={{
                     width: 40, height: 22,
-                    backgroundColor: value ? '#3b82f6' : 'rgba(255,255,255,0.1)',
-                    border: '1px solid rgba(255,255,255,0.15)',
+                    backgroundColor: value ? '#3b82f6' : 'rgba(0,0,0,0.1)',
+                    border: '1px solid rgba(0,0,0,0.15)',
                     position: 'relative',
                 }}>
                 <span className="absolute top-0.5 transition-all rounded-full"

@@ -397,7 +397,7 @@ export default function DiagnosticaPage({ chiosco, diagnostica: iniziale }: Prop
 
                 {/* Note tecniche */}
                 <div className="rounded-lg px-4 py-3"
-                    style={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid var(--color-border)' }}>
+                    style={{ backgroundColor: 'rgba(0,0,0,0.02)', border: '1px solid var(--color-border)' }}>
                     <p className="text-xs" style={{ color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
                         <strong>Presenza vs Stato:</strong> il heartbeat (TTL 120s) misura se il browser del chiosco è attivo.
                         Lo stato Portineria (TTL 300s) è la macchina a stati della sessione receptionist.

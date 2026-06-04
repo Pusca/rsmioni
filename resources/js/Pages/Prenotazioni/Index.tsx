@@ -298,7 +298,7 @@ export default function Index({ prenotazioni, hotels, profilo, filtri, can }: Pr
                                         preserveState
                                         className="px-2.5 py-1 rounded"
                                         style={{
-                                            backgroundColor: link.active ? 'var(--color-parlato)' : 'rgba(255,255,255,0.04)',
+                                            backgroundColor: link.active ? 'var(--color-parlato)' : 'rgba(0,0,0,0.04)',
                                             color:           link.active ? '#fff' : 'var(--color-text-muted)',
                                             border:          '1px solid var(--color-border)',
                                         }}
@@ -335,8 +335,8 @@ function RowPrenotazione({
 
     return (
         <tr style={{
-            backgroundColor: even ? 'transparent' : 'rgba(255,255,255,0.015)',
-            borderBottom:    '1px solid rgba(255,255,255,0.04)',
+            backgroundColor: even ? 'transparent' : 'rgba(0,0,0,0.015)',
+            borderBottom:    '1px solid rgba(0,0,0,0.04)',
         }}>
             {/* Check-in */}
             <td className="px-4 py-2.5 whitespace-nowrap font-mono" style={{ color: 'var(--color-text-secondary)' }}>
