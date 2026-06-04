@@ -180,7 +180,11 @@ export function useWebRtcChiosco({ chioscoId }: Options): ChioscoWebRtcResult {
                 pcRef: RTCPeerConnection,
             ) => {
                 console.log('[WebRTC-K] processaOffer — setRemoteDescription...', 'tipo:', payload.type, 'pc.signalingState:', pcRef.signalingState);
-                const patchedSdp = patchSdp(payload.sdp ?? '');
+                const rawSdp = payload.sdp ?? '';
+                console.log('[WebRTC-K] SDP ricevuto (prime 500 char):', rawSdp.substring(0, 500));
+                console.log('[WebRTC-K] SDP lunghezza:', rawSdp.length, '| righe:', rawSdp.split(/\r?\n/).length);
+                const patchedSdp = patchSdp(rawSdp);
+                console.log('[WebRTC-K] SDP dopo patch lunghezza:', patchedSdp.length, '| righe:', patchedSdp.split(/\r?\n/).length);
                 await pcRef.setRemoteDescription(new RTCSessionDescription({ ...payload, sdp: patchedSdp }));
                 remoteDescSet = true;
                 console.log('[WebRTC-K] setRemoteDescription OK — signalingState:', pcRef.signalingState);

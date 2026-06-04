@@ -90,7 +90,7 @@ export function useWebRtcCollegamento({ sessionId, tipo, attivo }: Options): Res
             try {
                 const offer = await pc.createOffer();
                 await pc.setLocalDescription(offer);
-                console.log(`[WebRTC-C:${tipo}] offer inviata`);
+                console.log(`[WebRTC-C:${tipo}] offer generata — lunghezza SDP:`, (offer.sdp ?? '').length, '| righe:', (offer.sdp ?? '').split(/\r?\n/).length);
                 await inviaSignalWebRtc(sessionId, 'offer', {
                     type: offer.type,
                     sdp:  offer.sdp ?? '',
