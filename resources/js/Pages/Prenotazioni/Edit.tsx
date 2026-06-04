@@ -44,6 +44,7 @@ export default function Edit({ prenotazione, hotels, profilo, oggi }: Props) {
                     onSubmit={(form) => {
                         form.transform((data) => ({
                             codice:             data.codice || null,
+                            codice_chiave:      data.codice_chiave || null,
                             nome:               data.nome || null,
                             cognome:            data.cognome || null,
                             gruppo:             data.gruppo || null,
@@ -58,7 +59,6 @@ export default function Edit({ prenotazione, hotels, profilo, oggi }: Props) {
                             documento_identita: data.documento_identita,
                             prezzo:             data.prezzo ? parseFloat(data.prezzo) : null,
                             overbooking:        data.overbooking,
-                            checkin_confermato: data.checkin_confermato ?? false,
                         }));
                         form.patch(`/prenotazioni/${prenotazione.id}`);
                     }}

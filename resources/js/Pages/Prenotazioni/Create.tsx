@@ -39,6 +39,7 @@ export default function Create({ hotels, profilo, oggi }: Props) {
                         form.transform((data) => ({
                             hotel_id:           data.hotel_id,
                             codice:             data.codice || null,
+                            codice_chiave:      data.codice_chiave || null,
                             nome:               data.nome || null,
                             cognome:            data.cognome || null,
                             gruppo:             data.gruppo || null,
