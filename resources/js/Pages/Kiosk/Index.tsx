@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Head } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import KioskLayout from '@/Layouts/KioskLayout';
 import { Chiosco, StatoChiosco } from '@/types';
 import { useWebRtcChiosco } from '@/hooks/useWebRtcChiosco';
@@ -871,6 +871,12 @@ interface AttesoScreenProps {
 }
 
 function AttesoScreen({ chiosco, onChiama, loading }: AttesoScreenProps) {
+    const handleLogout = () => {
+        if (confirm('Disconnettere il chiosco?')) {
+            router.post('/logout');
+        }
+    };
+
     return (
         <>
             {/* Indicatore connessione — top left */}
@@ -878,6 +884,21 @@ function AttesoScreen({ chiosco, onChiama, loading }: AttesoScreenProps) {
                 <span className="w-2 h-2 rounded-full" style={{ backgroundColor: 'var(--color-ok)' }} />
                 <span style={{ color: 'var(--color-text-muted)' }}>Connesso</span>
             </div>
+
+            {/* Logout — top right, discreto */}
+            <button
+                onClick={handleLogout}
+                className="absolute top-3 right-3 z-10 rounded p-1.5 transition-opacity"
+                style={{ color: 'var(--color-text-muted)', opacity: 0.3 }}
+                onMouseEnter={e => (e.currentTarget.style.opacity = '0.8')}
+                onMouseLeave={e => (e.currentTarget.style.opacity = '0.3')}
+                title="Disconnetti chiosco"
+            >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M18.36 6.64a9 9 0 1 1-12.73 0" />
+                    <line x1="12" y1="2" x2="12" y2="12" />
+                </svg>
+            </button>
 
             {/* Area principale */}
             <div className="w-full h-full flex flex-col items-center justify-center">
