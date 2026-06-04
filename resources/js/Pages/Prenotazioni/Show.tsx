@@ -107,14 +107,34 @@ export default function Show({ prenotazione: pren, profilo, puoCancellare, motiv
 
                     {/* Azioni header */}
                     <div className="flex items-center gap-2">
-                        <Link
-                            href={`/prenotazioni/${pren.id}/edit`}
-                            className="px-4 py-2 rounded text-sm font-medium transition-colors"
-                            style={{ backgroundColor: 'rgba(0,0,0,0.06)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)' }}
-                        >
-                            Modifica
-                        </Link>
-                        {puoCancellare ? (
+                        {!pren.checkin_confermato && (
+                            <button
+                                onClick={() => {
+                                    if (confirm('Confermare il check-in? La prenotazione diventerà non modificabile.')) {
+                                        router.put(`/prenotazioni/${pren.id}/conferma-checkin`);
+                                    }
+                                }}
+                                className="px-4 py-2 rounded text-sm font-medium transition-colors"
+                                style={{ backgroundColor: 'rgba(34,197,94,0.1)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.3)' }}
+                            >
+                                Conferma check-in
+                            </button>
+                        )}
+                        {!pren.checkin_confermato && (
+                            <Link
+                                href={`/prenotazioni/${pren.id}/edit`}
+                                className="px-4 py-2 rounded text-sm font-medium transition-colors"
+                                style={{ backgroundColor: 'rgba(0,0,0,0.06)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)' }}
+                            >
+                                Modifica
+                            </Link>
+                        )}
+                        {pren.checkin_confermato && (
+                            <span className="text-xs px-3 py-1.5 rounded" style={{ color: '#22c55e', backgroundColor: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.25)' }}>
+                                Check-in confermato
+                            </span>
+                        )}
+                        {puoCancellare && !pren.checkin_confermato ? (
                             <button
                                 onClick={handleDelete}
                                 className="px-4 py-2 rounded text-sm font-medium transition-colors"
@@ -122,7 +142,7 @@ export default function Show({ prenotazione: pren, profilo, puoCancellare, motiv
                             >
                                 Cancella
                             </button>
-                        ) : motivoCancellazione ? (
+                        ) : motivoCancellazione && !pren.checkin_confermato ? (
                             <span className="text-xs px-3 py-1.5 rounded" style={{ color: 'var(--color-text-muted)', backgroundColor: 'rgba(0,0,0,0.03)', border: '1px solid var(--color-border)' }}>
                                 {motivoCancellazione}
                             </span>

@@ -216,13 +216,18 @@ class PrenotazioniController extends Controller
 
     // ── Modifica ──────────────────────────────────────────────────────────────
 
-    public function edit(Request $request, string $id): Response
+    public function edit(Request $request, string $id): Response|RedirectResponse
     {
         $user = $request->user();
         $pren = Prenotazione::with('hotel')->findOrFail($id);
 
         if (! $this->service->accessoConsentito($user, $pren)) {
             abort(403);
+        }
+
+        if ($pren->checkin_confermato) {
+            return redirect()->route('prenotazioni.show', $pren->id)
+                ->with('error', 'Prenotazione con check-in confermato: non modificabile.');
         }
 
         $hotelIds = $user->hotelIds();
@@ -246,6 +251,10 @@ class PrenotazioniController extends Controller
             abort(403);
         }
 
+        if ($pren->checkin_confermato) {
+            return back()->withErrors(['checkin' => 'Prenotazione con check-in confermato: non modificabile.']);
+        }
+
         $validated = $request->validate([
             'codice'             => ['nullable', 'string', 'max:100'],
             'codice_chiave'      => ['nullable', 'string', 'max:100'],
@@ -261,7 +270,6 @@ class PrenotazioniController extends Controller
             'documento_identita' => ['required', Rule::enum(StatoDocumentoIdentita::class)],
             'prezzo'             => ['nullable', 'numeric', 'min:0', 'max:999999'],
             'overbooking'        => ['boolean'],
-            'checkin_confermato' => ['boolean'],
         ], [
             'check_out.after' => 'Il check-out deve essere successivo al check-in.',
         ]);
@@ -290,11 +298,30 @@ class PrenotazioniController extends Controller
             'documento_identita' => $validated['documento_identita'],
             'prezzo'             => $validated['prezzo'] ?? null,
             'overbooking'        => $overbooking,
-            'checkin_confermato' => (bool) ($validated['checkin_confermato'] ?? $pren->checkin_confermato),
         ]);
 
         return redirect()->route('prenotazioni.show', $pren->id)
             ->with('success', 'Prenotazione aggiornata.');
+    }
+
+    // ── Conferma check-in ───────────────────────────────────────────────────
+
+    public function confermaCheckin(Request $request, string $id): RedirectResponse
+    {
+        $user = $request->user();
+        $pren = Prenotazione::findOrFail($id);
+
+        if (! $this->service->accessoConsentito($user, $pren)) {
+            abort(403);
+        }
+
+        $pren->update([
+            'checkin_confermato'    => true,
+            'checkin_confermato_at' => now(),
+        ]);
+
+        return redirect()->route('prenotazioni.show', $pren->id)
+            ->with('success', 'Check-in confermato.');
     }
 
     // ── Cancellazione ─────────────────────────────────────────────────────────

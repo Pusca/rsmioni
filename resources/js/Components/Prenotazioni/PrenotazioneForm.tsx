@@ -20,7 +20,6 @@ export interface FormValues {
     documento_identita: StatoDocumentoIdentita | '';
     prezzo: string;
     overbooking: boolean;
-    checkin_confermato?: boolean;
 }
 
 interface Props {
@@ -53,7 +52,6 @@ function buildDefaults(prenotazione?: Props['prenotazione'], hotels?: HotelConfi
             documento_identita: prenotazione.documento_identita,
             prezzo:             prenotazione.prezzo != null ? String(prenotazione.prezzo) : '',
             overbooking:        prenotazione.overbooking,
-            checkin_confermato: prenotazione.checkin_confermato,
         };
     }
     return {
@@ -231,22 +229,6 @@ export default function PrenotazioneForm({ hotels, profilo, oggi, prenotazione, 
                         </span>
                     </label>
                     {errors.overbooking && <ErrorText>{errors.overbooking}</ErrorText>}
-                </FormSection>
-            )}
-
-            {/* ── Check-in confermato (solo edit) ── */}
-            {isEdit && (
-                <FormSection label="Stato check-in">
-                    <label className="flex items-center gap-3 cursor-pointer select-none" style={{ color: 'var(--color-text-secondary)' }}>
-                        <input
-                            type="checkbox"
-                            checked={data.checkin_confermato ?? false}
-                            onChange={e => setData('checkin_confermato', e.target.checked)}
-                            className="w-4 h-4 rounded"
-                            style={{ accentColor: '#22c55e' }}
-                        />
-                        <span className="text-sm">Check-in confermato</span>
-                    </label>
                 </FormSection>
             )}
 

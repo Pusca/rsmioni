@@ -99,6 +99,10 @@ Route::middleware(['auth', 'role:gestore_hotel,receptionist'])
     ->group(function () {
         Route::resource('prenotazioni', PrenotazioniController::class);
 
+        // Conferma check-in (rende la prenotazione read-only)
+        Route::put('/prenotazioni/{prenotazione}/conferma-checkin', [PrenotazioniController::class, 'confermaCheckin'])
+            ->name('prenotazioni.conferma-checkin');
+
         // Assegnazione camere a una prenotazione
         Route::put('/prenotazioni/{prenotazione}/camere', [PrenotazioneCamereController::class, 'update'])
             ->name('prenotazioni.camere.update');
