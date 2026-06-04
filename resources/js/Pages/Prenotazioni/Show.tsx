@@ -143,6 +143,7 @@ export default function Show({ prenotazione: pren, profilo, puoCancellare, motiv
                                 <DataRow label="Ospiti"    value={pax} />
                                 <DataRow label="Check-in confermato"
                                     value={pren.checkin_confermato ? <span style={{ color: '#22c55e' }}>✓ Sì</span> : '—'} />
+                                <DataRow label="Codice chiave" value={pren.codice_chiave ?? '—'} />
                             </dl>
                         </Card>
 

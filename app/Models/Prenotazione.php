@@ -21,6 +21,7 @@ class Prenotazione extends Model
     protected $fillable = [
         'hotel_id',
         'codice',
+        'codice_chiave',
         'check_in',
         'check_out',
         'pax',

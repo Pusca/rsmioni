@@ -130,6 +130,7 @@ export interface Prenotazione {
     id: string;
     hotel_id: string;
     codice: string | null;
+    codice_chiave: string | null;
     check_in: string;
     check_out: string | null;
     pax: PaxDettaglio;

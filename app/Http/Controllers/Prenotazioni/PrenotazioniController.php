@@ -159,6 +159,7 @@ class PrenotazioniController extends Controller
         $validated = $request->validate([
             'hotel_id'           => ['required', 'uuid', Rule::in($hotelIds)],
             'codice'             => ['nullable', 'string', 'max:100'],
+            'codice_chiave'      => ['nullable', 'string', 'max:100'],
             'nome'               => ['nullable', 'string', 'max:200'],
             'cognome'            => ['nullable', 'string', 'max:200'],
             'gruppo'             => ['nullable', 'string', 'max:200'],
@@ -189,6 +190,7 @@ class PrenotazioniController extends Controller
         $pren = Prenotazione::create([
             'hotel_id'            => $validated['hotel_id'],
             'codice'              => $validated['codice'] ?? null,
+            'codice_chiave'       => $validated['codice_chiave'] ?? null,
             'nome'                => $validated['nome'] ?? null,
             'cognome'             => $validated['cognome'] ?? null,
             'gruppo'              => $validated['gruppo'] ?? null,
@@ -246,6 +248,7 @@ class PrenotazioniController extends Controller
 
         $validated = $request->validate([
             'codice'             => ['nullable', 'string', 'max:100'],
+            'codice_chiave'      => ['nullable', 'string', 'max:100'],
             'nome'               => ['nullable', 'string', 'max:200'],
             'cognome'            => ['nullable', 'string', 'max:200'],
             'gruppo'             => ['nullable', 'string', 'max:200'],
@@ -272,6 +275,7 @@ class PrenotazioniController extends Controller
 
         $pren->update([
             'codice'             => $validated['codice'] ?? null,
+            'codice_chiave'      => $validated['codice_chiave'] ?? null,
             'nome'               => $validated['nome'] ?? null,
             'cognome'            => $validated['cognome'] ?? null,
             'gruppo'             => $validated['gruppo'] ?? null,

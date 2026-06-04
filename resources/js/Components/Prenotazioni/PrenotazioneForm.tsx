@@ -7,6 +7,7 @@ import { HotelConfig, TipoPagamento, StatoDocumentoIdentita, Prenotazione, Profi
 export interface FormValues {
     hotel_id: string;
     codice: string;
+    codice_chiave: string;
     nome: string;
     cognome: string;
     gruppo: string;
@@ -39,6 +40,7 @@ function buildDefaults(prenotazione?: Props['prenotazione'], hotels?: HotelConfi
         return {
             hotel_id:           prenotazione.hotel_id,
             codice:             prenotazione.codice ?? '',
+            codice_chiave:      prenotazione.codice_chiave ?? '',
             nome:               prenotazione.nome ?? '',
             cognome:            prenotazione.cognome ?? '',
             gruppo:             prenotazione.gruppo ?? '',
@@ -57,6 +59,7 @@ function buildDefaults(prenotazione?: Props['prenotazione'], hotels?: HotelConfi
     return {
         hotel_id:           hotels?.[0]?.id ?? '',
         codice:             '',
+        codice_chiave:      '',
         nome:               '',
         cognome:            '',
         gruppo:             '',
@@ -117,7 +120,13 @@ export default function PrenotazioneForm({ hotels, profilo, oggi, prenotazione, 
                         />
                     </div>
                     <div>
-                        {/* spacer */}
+                        <FieldLabel>Codice chiave</FieldLabel>
+                        <Input
+                            value={data.codice_chiave}
+                            onChange={v => setData('codice_chiave', v)}
+                            placeholder="es. 1234"
+                            error={errors.codice_chiave}
+                        />
                     </div>
                 </div>
                 <div className="grid grid-cols-3 gap-4">
