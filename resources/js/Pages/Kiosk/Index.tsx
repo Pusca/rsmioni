@@ -94,6 +94,7 @@ export default function KioskIndex({ chiosco, stato_iniziale, messaggio_attesa: 
                 <AcquisizioneScreen
                     chiosco={chiosco}
                     titolo={acquisizione.titolo}
+                    fronteRetro={acquisizione.fronte_retro}
                     onCompletata={annullaAcquisizione}
                     onAnnulla={annullaAcquisizione}
                 />
@@ -615,13 +616,15 @@ function StampaScreen({ chiosco, titolo }: StampaScreenProps) {
 interface AcquisizioneScreenProps {
     chiosco:       Chiosco;
     titolo:        string | null;
+    fronteRetro:   boolean;
     onCompletata:  () => void;
     onAnnulla:     () => void;
 }
 
 type FaseAcquisizione = 'preview' | 'uploading' | 'completata' | 'errore';
+type LatoAcquisizione = 'fronte' | 'retro';
 
-function AcquisizioneScreen({ chiosco, titolo, onCompletata, onAnnulla }: AcquisizioneScreenProps) {
+function AcquisizioneScreen({ chiosco, titolo, fronteRetro, onCompletata, onAnnulla }: AcquisizioneScreenProps) {
     const videoRef   = useRef<HTMLVideoElement>(null);
     const canvasRef  = useRef<HTMLCanvasElement>(null);
     const streamRef  = useRef<MediaStream | null>(null);
@@ -629,7 +632,8 @@ function AcquisizioneScreen({ chiosco, titolo, onCompletata, onAnnulla }: Acquis
 
     const [fase,    setFase]    = useState<FaseAcquisizione>('preview');
     const [errore,  setErrore]  = useState<string | null>(null);
-    const [snapshot, setSnapshot] = useState<string | null>(null); // data-URL anteprima
+    const [snapshot, setSnapshot] = useState<string | null>(null);
+    const [lato,    setLato]    = useState<LatoAcquisizione>(fronteRetro ? 'fronte' : 'fronte');
 
     // Avvio webcam
     useEffect(() => {
@@ -683,19 +687,31 @@ function AcquisizioneScreen({ chiosco, titolo, onCompletata, onAnnulla }: Acquis
         setFase('uploading');
         canvas.toBlob(async (blob) => {
             if (! blob) { setFase('errore'); setErrore('Errore nella creazione dell\'immagine.'); return; }
-            const result = await uploadDocumentoAcquisito(blob);
+
+            const isLastStep = !fronteRetro || lato === 'retro';
+            const result = await uploadDocumentoAcquisito(blob, fronteRetro ? {
+                lato,
+                parziale: lato === 'fronte',
+            } : undefined);
+
             if (! mountedRef.current) return;
             if (result.ok) {
-                setFase('completata');
-                // Stop webcam
-                streamRef.current?.getTracks().forEach(t => t.stop());
-                setTimeout(() => { if (mountedRef.current) onCompletata(); }, 2_000);
+                if (isLastStep) {
+                    setFase('completata');
+                    streamRef.current?.getTracks().forEach(t => t.stop());
+                    setTimeout(() => { if (mountedRef.current) onCompletata(); }, 2_000);
+                } else {
+                    // Fronte inviato, passa al retro
+                    setLato('retro');
+                    setSnapshot(null);
+                    setFase('preview');
+                }
             } else {
                 setFase('errore');
                 setErrore(result.errore ?? 'Errore upload');
             }
         }, 'image/jpeg', 0.92);
-    }, [onCompletata]);
+    }, [onCompletata, fronteRetro, lato]);
 
     const handleRiprendi = () => {
         setSnapshot(null);
@@ -707,6 +723,10 @@ function AcquisizioneScreen({ chiosco, titolo, onCompletata, onAnnulla }: Acquis
         streamRef.current?.getTracks().forEach(t => t.stop());
         await onAnnulla();
     };
+
+    const latoLabel    = fronteRetro ? (lato === 'fronte' ? 'FRONTE' : 'RETRO') : null;
+    const stepLabel    = fronteRetro ? (lato === 'fronte' ? '1/2' : '2/2') : null;
+    const confirmLabel = fronteRetro && lato === 'fronte' ? 'Conferma fronte' : 'Invia documento';
 
     return (
         <div className="w-full h-full flex flex-col" style={{ backgroundColor: '#050710' }}>
@@ -722,6 +742,12 @@ function AcquisizioneScreen({ chiosco, titolo, onCompletata, onAnnulla }: Acquis
                         <span className="ml-1 px-1.5 py-0.5 rounded text-xs font-mono"
                             style={{ backgroundColor: 'rgba(59,130,246,0.12)', color: '#3b82f6', border: '1px solid rgba(59,130,246,0.25)' }}>
                             {titolo}
+                        </span>
+                    )}
+                    {latoLabel && (
+                        <span className="ml-1 px-1.5 py-0.5 rounded text-xs font-mono uppercase"
+                            style={{ backgroundColor: 'rgba(245,158,11,0.12)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.25)' }}>
+                            {latoLabel} ({stepLabel})
                         </span>
                     )}
                 </div>
@@ -767,7 +793,9 @@ function AcquisizioneScreen({ chiosco, titolo, onCompletata, onAnnulla }: Acquis
                                 <polyline points="20 6 9 17 4 12"/>
                             </svg>
                         </div>
-                        <p className="text-xl font-light" style={{ color: '#22c55e' }}>Documento acquisito</p>
+                        <p className="text-xl font-light" style={{ color: '#22c55e' }}>
+                            {fronteRetro ? 'Documento acquisito (fronte e retro)' : 'Documento acquisito'}
+                        </p>
                         <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
                             Document acquired successfully
                         </p>
@@ -798,16 +826,26 @@ function AcquisizioneScreen({ chiosco, titolo, onCompletata, onAnnulla }: Acquis
                 {fase === 'preview' && ! snapshot && (
                     <div className="text-center space-y-2">
                         <p className="text-base font-light" style={{ color: 'var(--color-text-primary)' }}>
-                            Inquadrare il documento e premere <strong>Cattura</strong>
+                            {fronteRetro
+                                ? (lato === 'fronte'
+                                    ? <>Inquadrare il <strong>fronte</strong> del documento e premere <strong>Cattura</strong></>
+                                    : <>Inquadrare il <strong>retro</strong> del documento e premere <strong>Cattura</strong></>)
+                                : <>Inquadrare il documento e premere <strong>Cattura</strong></>
+                            }
                         </p>
                         <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
-                            Frame your document and tap <strong>Capture</strong>
+                            {fronteRetro
+                                ? (lato === 'fronte'
+                                    ? <>Frame the <strong>front</strong> of your document and tap <strong>Capture</strong></>
+                                    : <>Frame the <strong>back</strong> of your document and tap <strong>Capture</strong></>)
+                                : <>Frame your document and tap <strong>Capture</strong></>
+                            }
                         </p>
                     </div>
                 )}
                 {fase === 'preview' && snapshot && (
                     <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                        Verificare l'immagine. Se corretta, premere <strong>Invia</strong>.
+                        Verificare l'immagine. Se corretta, premere <strong>{fronteRetro && lato === 'fronte' ? 'Conferma fronte' : 'Invia'}</strong>.
                     </p>
                 )}
 
@@ -837,7 +875,7 @@ function AcquisizioneScreen({ chiosco, titolo, onCompletata, onAnnulla }: Acquis
                             <button onClick={handleInvia}
                                 className="rounded-xl px-8 py-3 text-sm font-medium transition-all active:scale-95"
                                 style={{ backgroundColor: '#22c55e', color: '#fff', border: 'none', cursor: 'pointer' }}>
-                                Invia documento
+                                {confirmLabel}
                             </button>
                         </>
                     )}

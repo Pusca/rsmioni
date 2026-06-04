@@ -120,6 +120,7 @@ export interface AcquisizionePendenteResult {
     titolo:           string | null;
     lingua:           string | null;
     tipo_documento:   string | null;
+    fronte_retro:     boolean;
 }
 
 /**
@@ -140,6 +141,7 @@ export async function getAcquisizionePendente(): Promise<AcquisizionePendenteRes
             titolo:          data.titolo          ?? null,
             lingua:          data.lingua          ?? null,
             tipo_documento:  data.tipo_documento  ?? null,
+            fronte_retro:    (data as any).fronte_retro ?? false,
         };
     } catch {
         return null;
@@ -150,10 +152,15 @@ export async function getAcquisizionePendente(): Promise<AcquisizionePendenteRes
  * POST /kiosk/acquisizioni
  * Carica l'immagine catturata dalla webcam del chiosco.
  */
-export async function uploadDocumentoAcquisito(file: Blob): Promise<{ ok: boolean; errore?: string }> {
+export async function uploadDocumentoAcquisito(
+    file: Blob,
+    options?: { lato?: 'fronte' | 'retro'; parziale?: boolean },
+): Promise<{ ok: boolean; errore?: string }> {
     try {
         const formData = new FormData();
         formData.append('file', file, 'acquisizione.jpg');
+        if (options?.lato) formData.append('lato', options.lato);
+        if (options?.parziale) formData.append('parziale', '1');
 
         const res = await fetch('/kiosk/acquisizioni', {
             method:  'POST',

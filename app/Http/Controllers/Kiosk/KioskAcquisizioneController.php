@@ -44,6 +44,7 @@ class KioskAcquisizioneController extends Controller
             'titolo'          => $payload['titolo'],
             'lingua'          => $payload['lingua'],
             'tipo_documento'  => $payload['tipo_documento'],
+            'fronte_retro'    => $payload['fronte_retro'] ?? false,
         ]);
     }
 
@@ -62,10 +63,17 @@ class KioskAcquisizioneController extends Controller
         }
 
         $request->validate([
-            'file' => ['required', 'file', 'mimes:png,jpg,jpeg', 'max:10240'],
+            'file'     => ['required', 'file', 'mimes:png,jpg,jpeg', 'max:10240'],
+            'lato'     => ['nullable', 'string', 'in:fronte,retro'],
+            'parziale' => ['nullable', 'boolean'],
         ]);
 
-        $utente = $request->user();
+        $utente   = $request->user();
+        $lato     = $request->input('lato');
+        $parziale = (bool) $request->input('parziale', false);
+
+        $titoloBase = $payload['titolo'] ?? 'Documento acquisito';
+        $titolo     = $lato ? "{$titoloBase} ({$lato})" : $titoloBase;
 
         $this->documentoService->upload(
             file:              $request->file('file'),
@@ -73,14 +81,16 @@ class KioskAcquisizioneController extends Controller
             contestoId:        $payload['prenotazione_id'],
             inseritoDa:        $utente->id,
             inseritoDaProfilo: $utente->profilo->value,
-            titolo:            $payload['titolo'] ?? 'Documento acquisito',
+            titolo:            $titolo,
             lingua:            $payload['lingua'],
             tipoDocumento:     $payload['tipo_documento'],
         );
 
-        // Rimuove la richiesta pendente e segnala il completamento al receptionist
-        Cache::forget("acquisizione_pendente:chiosco_{$chioscoId}");
-        Cache::put("acquisizione_completata:chiosco_{$chioscoId}", true, self::TTL_COMPLETATA);
+        // Se parziale (es. fronte di fronte/retro), non segnalare completamento
+        if (! $parziale) {
+            Cache::forget("acquisizione_pendente:chiosco_{$chioscoId}");
+            Cache::put("acquisizione_completata:chiosco_{$chioscoId}", true, self::TTL_COMPLETATA);
+        }
 
         return response()->json(['ok' => true]);
     }

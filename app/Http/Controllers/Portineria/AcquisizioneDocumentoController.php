@@ -35,6 +35,7 @@ class AcquisizioneDocumentoController extends Controller
             'titolo'          => ['nullable', 'string', 'max:255'],
             'lingua'          => ['nullable', 'string', 'size:2'],
             'tipo_documento'  => ['nullable', 'string', 'max:100'],
+            'fronte_retro'    => ['boolean'],
         ]);
 
         $utente   = $request->user();
@@ -58,6 +59,7 @@ class AcquisizioneDocumentoController extends Controller
             'titolo'          => $validated['titolo']         ?? null,
             'lingua'          => $validated['lingua']         ?? null,
             'tipo_documento'  => $validated['tipo_documento'] ?? null,
+            'fronte_retro'    => (bool) ($validated['fronte_retro'] ?? false),
             'triggered_da'    => $utente->id,
             'created_at'      => now()->toISOString(),
         ], self::TTL_PENDENTE);

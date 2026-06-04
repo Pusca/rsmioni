@@ -43,6 +43,7 @@ export default function ModalAcquisizione({ prenotazioneId, chioschi, onClose }:
     const [titolo,        setTitolo]        = useState('');
     const [tipoDocumento, setTipoDocumento] = useState('');
     const [lingua,        setLingua]        = useState('');
+    const [fronteRetro,   setFronteRetro]   = useState(false);
     const [erroreMsg,     setErroreMsg]     = useState<string | null>(null);
 
     const pollingRef  = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -79,6 +80,7 @@ export default function ModalAcquisizione({ prenotazioneId, chioschi, onClose }:
                     titolo:          titolo || null,
                     lingua:          lingua || null,
                     tipo_documento:  tipoDocumento || null,
+                    fronte_retro:    fronteRetro,
                 }),
             });
 
@@ -268,10 +270,27 @@ export default function ModalAcquisizione({ prenotazioneId, chioschi, onClose }:
                             </div>
                         </div>
 
+                        {/* Fronte/Retro */}
+                        <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                            <input
+                                type="checkbox"
+                                checked={fronteRetro}
+                                onChange={e => setFronteRetro(e.target.checked)}
+                                className="w-4 h-4 rounded"
+                                style={{ accentColor: '#3b82f6' }}
+                            />
+                            <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                                Acquisisci fronte e retro
+                            </span>
+                        </label>
+
                         {/* Note operative */}
                         <p className="text-xs rounded px-3 py-2"
                             style={{ color: '#94a3b8', backgroundColor: 'rgba(0,0,0,0.03)', border: '1px solid rgba(0,0,0,0.06)' }}>
-                            Il chiosco selezionato mostrerà la schermata di acquisizione. Il guest inquadrerà il documento con la webcam e catturerà l'immagine.
+                            {fronteRetro
+                                ? 'Il chiosco guiderà il guest a catturare prima il fronte e poi il retro del documento.'
+                                : 'Il chiosco selezionato mostrerà la schermata di acquisizione. Il guest inquadrerà il documento con la webcam e catturerà l\'immagine.'
+                            }
                         </p>
 
                         {/* Azioni */}
