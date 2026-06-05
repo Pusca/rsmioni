@@ -116,6 +116,7 @@ class KioskWebRtcController extends Controller
 
         $signals = $this->webRtcSession->preleva($sessionId, 'chiosco');
 
-        return response()->json(['signals' => $signals]);
+        return response()->json(['signals' => $signals])
+            ->header('Cache-Control', 'no-store, no-cache, must-revalidate');
     }
 }

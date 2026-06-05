@@ -67,8 +67,9 @@ export async function pollSignalsChiosco(
     sessionId: string,
 ): Promise<WebRtcSignalData[]> {
     try {
-        const res = await fetch(`/kiosk/webrtc/${sessionId}/poll`, {
+        const res = await fetch(`/kiosk/webrtc/${sessionId}/poll?_t=${Date.now()}`, {
             headers: { 'Accept': 'application/json' },
+            cache: 'no-store',
         });
         if (!res.ok) return [];
         const data = await res.json() as { signals: WebRtcSignalData[] };

@@ -213,6 +213,6 @@ export const TIMEOUT_MSG: ErroreMedia = {
     messaggio: 'Il chiosco non risponde al segnale.',
     suggerimento:
         'Verifica che: (1) il browser del chiosco sia aperto su /kiosk, ' +
-        '(2) Pusher sia configurato (VITE_PUSHER_APP_KEY nel .env), ' +
+        '(2) entrambi i dispositivi abbiano connessione internet stabile, ' +
         '(3) il sito sia servito tramite HTTPS.',
 };

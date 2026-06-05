@@ -200,8 +200,9 @@ export async function pollSignalsWebRtc(
     sessionId: string,
 ): Promise<WebRtcSignalData[]> {
     try {
-        const res = await fetch(`/portineria/webrtc/${sessionId}/poll`, {
+        const res = await fetch(`/portineria/webrtc/${sessionId}/poll?_t=${Date.now()}`, {
             headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': getCsrfToken() },
+            cache: 'no-store',
         });
         if (!res.ok) return [];
         const data = await res.json() as { signals: WebRtcSignalData[] };
