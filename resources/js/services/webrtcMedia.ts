@@ -164,10 +164,9 @@ export function classificaErroreCondivisione(err: unknown): ErroreMedia {
 /**
  * SDP munging mirato — compatibilità WebView/browser strict.
  *
- * Rimuove solo ciò che causa "Invalid SDP line" su WebView:
+ * Rimuove ciò che causa "Invalid SDP line" su WebView:
  *   1. a=ssrc / a=ssrc-group — deprecate in Unified Plan
- *   2. a=rtcp-fb:XX nack pli — WebView le rifiuta esplicitamente
- *   3. a=rtcp-fb:XX nack (senza sotto-tipo) — stessa famiglia, stesso problema
+ *   2. a=rtcp-fb con nack (qualsiasi payload type, anche *, con o senza sotto-tipo)
  *
  * Tutto il resto (fmtp, rtpmap, setup, extmap, codec, m= lines) resta intatto.
  * I browser negoziano i codec nativamente.
@@ -177,8 +176,8 @@ export const patchSdp = (sdp: string): string => {
         .split(/\r?\n/)
         .filter(line => {
             if (line.startsWith('a=ssrc:') || line.startsWith('a=ssrc-group:')) return false;
-            // Rimuovi "a=rtcp-fb:XX nack" e "a=rtcp-fb:XX nack pli" (WebView le rifiuta)
-            if (/^a=rtcp-fb:\d+ nack/.test(line)) return false;
+            // Rimuovi qualsiasi "a=rtcp-fb:... nack..." — WebView rifiuta nack / nack pli / nack rpsi
+            if (/^a=rtcp-fb:\S+\s+nack/i.test(line)) return false;
             return true;
         })
         .join('\r\n');
