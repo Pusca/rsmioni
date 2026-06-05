@@ -162,99 +162,25 @@ export function classificaErroreCondivisione(err: unknown): ErroreMedia {
 }
 
 /**
- * SDP munging — compatibilità WebView/browser strict.
+ * SDP passthrough — nessun munging.
  *
- * Approccio WHITELIST: tiene solo i codec video sicuri per WebView:
- *   - VP8 (universale)
- *   - H264 Constrained Baseline (profile-level-id 42xx)
+ * STORIA: in passato questa funzione manipolava l'SDP a stringa (whitelist
+ * codec, rimozione a=ssrc / a=ssrc-group / a=rtcp-fb nack) per accontentare una
+ * presunta "WebView" severa. Ma il chiosco gira su Chrome/Edge desktop come il
+ * receptionist: tra due browser moderni la negoziazione nativa produce sempre
+ * SDP valido e compatibile, e NON serve alcun munging.
  *
- * Rimuove tutto il resto video (VP9, AV1, H264 Main/High, ulpfec, red, flexfec, rtx).
- * Audio: nessuna rimozione (WebView li accetta tutti).
- * Rimuove sempre: a=ssrc, a=ssrc-group, a=rtcp-fb nack.
+ * Quel munging era anzi la causa del bug "connesso ma video nero":
+ *   - rimuovere a=ssrc/a=ssrc-group impedisce a Chrome di mappare l'RTP in
+ *     arrivo alla traccia corretta;
+ *   - rimuovere a=rtcp-fb ... nack (incluso nack pli) impedisce al ricevitore
+ *     di richiedere un nuovo keyframe se il primo va perso → schermo nero.
+ *
+ * Manteniamo la funzione (e le sue chiamate) come pass-through: se in futuro
+ * servisse limitare i codec, usare RTCRtpTransceiver.setCodecPreferences()
+ * — l'API corretta — invece di manipolare la stringa SDP.
  */
-export const patchSdp = (sdp: string): string => {
-    const lines = sdp.split(/\r?\n/);
-
-    // Codec video sicuri per WebView
-    const SAFE_VIDEO = new Set(['vp8']);
-    // Codec da rimuovere incondizionatamente
-    const ALWAYS_BAD = new Set(['ulpfec', 'red', 'flexfec']);
-
-    // Mappa PT → codec name (lowercase, senza clock rate)
-    const ptCodec = new Map<string, string>();
-    // Mappa PT → fmtp params
-    const ptFmtp  = new Map<string, string>();
-
-    for (const line of lines) {
-        const rm = line.match(/^a=rtpmap:(\d+)\s+(\S+)/);
-        if (rm) ptCodec.set(rm[1], rm[2].split('/')[0].toLowerCase());
-        const fm = line.match(/^a=fmtp:(\d+)\s+(.*)/);
-        if (fm) ptFmtp.set(fm[1], fm[2]);
-    }
-
-    // Determina quali PT rimuovere
-    const badPTs = new Set<string>();
-
-    for (const [pt, codec] of ptCodec) {
-        // Codec sempre rimossi
-        if (ALWAYS_BAD.has(codec)) { badPTs.add(pt); continue; }
-
-        // VP9, AV1 — non supportati da WebView
-        if (codec === 'vp9' || codec === 'av1') { badPTs.add(pt); continue; }
-
-        // H264: tieni solo Baseline (profile 42xx)
-        if (codec === 'h264') {
-            const fmtp = ptFmtp.get(pt) ?? '';
-            const pm = fmtp.match(/profile-level-id=([0-9a-fA-F]{2})/);
-            if (pm && pm[1].toLowerCase() !== '42') {
-                badPTs.add(pt);
-            }
-            continue;
-        }
-
-        // Codec video non nella whitelist (esclusi audio che non tocchiamo)
-        // RTX viene gestito dopo
-        if (codec !== 'rtx' && !SAFE_VIDEO.has(codec)) {
-            // Controlla se è un codec audio (non toccare)
-            // Audio: opus, pcmu, pcma, isac, g722, cn, telephone-event, comfort-noise
-            const audioCodecs = new Set(['opus', 'pcmu', 'pcma', 'isac', 'g722', 'cn', 'telephone-event']);
-            if (!audioCodecs.has(codec)) {
-                badPTs.add(pt);
-            }
-        }
-    }
-
-    // RTX: rimuovi se il codec associato è stato rimosso
-    for (const [pt, codec] of ptCodec) {
-        if (codec === 'rtx') {
-            const fmtp = ptFmtp.get(pt) ?? '';
-            const aptMatch = fmtp.match(/apt=(\d+)/);
-            if (aptMatch && badPTs.has(aptMatch[1])) {
-                badPTs.add(pt);
-            }
-        }
-    }
-
-    // Filtra righe e aggiorna m= lines
-    return lines
-        .filter(line => {
-            if (line.startsWith('a=ssrc:') || line.startsWith('a=ssrc-group:')) return false;
-            if (/^a=rtcp-fb:\S+\s+nack/i.test(line)) return false;
-            const pm = line.match(/^a=(?:rtpmap|fmtp|rtcp-fb):(\d+)/);
-            if (pm && badPTs.has(pm[1])) return false;
-            return true;
-        })
-        .map(line => {
-            if (/^m=(video|audio)\s/.test(line)) {
-                const p = line.split(' ');
-                if (p.length > 3) {
-                    return [...p.slice(0, 3), ...p.slice(3).filter(pt => !badPTs.has(pt))].join(' ');
-                }
-            }
-            return line;
-        })
-        .join('\r\n');
-};
+export const patchSdp = (sdp: string): string => sdp;
 
 /**
  * Fetcha i server ICE (STUN + TURN) dal backend.
