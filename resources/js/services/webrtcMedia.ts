@@ -164,50 +164,96 @@ export function classificaErroreCondivisione(err: unknown): ErroreMedia {
 /**
  * SDP munging — compatibilità WebView/browser strict.
  *
- * Molte WebView rifiutano codec "extra" nell'SDP (ulpfec, red, flexfec, rtx)
- * e righe rtcp-fb/ssrc. Questo filtro:
- *   1. Identifica i payload type dei codec problematici (ulpfec, red, flexfec, rtx)
- *   2. Rimuove tutte le righe rtpmap/fmtp/rtcp-fb associate a quei PT
- *   3. Rimuove quei PT dalle righe m=video/m=audio
- *   4. Rimuove a=ssrc / a=ssrc-group (deprecate in Unified Plan)
- *   5. Rimuove a=rtcp-fb con nack (WebView le rifiuta)
+ * Approccio WHITELIST: tiene solo i codec video sicuri per WebView:
+ *   - VP8 (universale)
+ *   - H264 Constrained Baseline (profile-level-id 42xx)
+ *
+ * Rimuove tutto il resto video (VP9, AV1, H264 Main/High, ulpfec, red, flexfec, rtx).
+ * Audio: nessuna rimozione (WebView li accetta tutti).
+ * Rimuove sempre: a=ssrc, a=ssrc-group, a=rtcp-fb nack.
  */
 export const patchSdp = (sdp: string): string => {
     const lines = sdp.split(/\r?\n/);
 
-    // Passo 1: trova i payload type dei codec problematici
-    const badPTs = new Set<string>();
+    // Codec video sicuri per WebView
+    const SAFE_VIDEO = new Set(['vp8']);
+    // Codec da rimuovere incondizionatamente
+    const ALWAYS_BAD = new Set(['ulpfec', 'red', 'flexfec']);
+
+    // Mappa PT → codec name (lowercase, senza clock rate)
+    const ptCodec = new Map<string, string>();
+    // Mappa PT → fmtp params
+    const ptFmtp  = new Map<string, string>();
+
     for (const line of lines) {
-        const m = line.match(/^a=rtpmap:(\d+)\s+(ulpfec|red|flexfec|rtx)\//i);
-        if (m) badPTs.add(m[1]);
+        const rm = line.match(/^a=rtpmap:(\d+)\s+(\S+)/);
+        if (rm) ptCodec.set(rm[1], rm[2].split('/')[0].toLowerCase());
+        const fm = line.match(/^a=fmtp:(\d+)\s+(.*)/);
+        if (fm) ptFmtp.set(fm[1], fm[2]);
     }
 
-    // Passo 2: filtra le righe
-    const filtered = lines.filter(line => {
-        // Rimuovi ssrc
-        if (line.startsWith('a=ssrc:') || line.startsWith('a=ssrc-group:')) return false;
-        // Rimuovi rtcp-fb nack (qualsiasi PT)
-        if (/^a=rtcp-fb:\S+\s+nack/i.test(line)) return false;
-        // Rimuovi rtpmap/fmtp/rtcp-fb per codec problematici
-        const ptMatch = line.match(/^a=(?:rtpmap|fmtp|rtcp-fb):(\d+)/);
-        if (ptMatch && badPTs.has(ptMatch[1])) return false;
-        return true;
-    });
+    // Determina quali PT rimuovere
+    const badPTs = new Set<string>();
 
-    // Passo 3: rimuovi i bad PT dalle righe m=
-    const result = filtered.map(line => {
-        if (/^m=(video|audio)\s/.test(line)) {
-            const parts = line.split(' ');
-            if (parts.length > 3) {
-                const header = parts.slice(0, 3);
-                const pts = parts.slice(3).filter(pt => !badPTs.has(pt));
-                return [...header, ...pts].join(' ');
+    for (const [pt, codec] of ptCodec) {
+        // Codec sempre rimossi
+        if (ALWAYS_BAD.has(codec)) { badPTs.add(pt); continue; }
+
+        // VP9, AV1 — non supportati da WebView
+        if (codec === 'vp9' || codec === 'av1') { badPTs.add(pt); continue; }
+
+        // H264: tieni solo Baseline (profile 42xx)
+        if (codec === 'h264') {
+            const fmtp = ptFmtp.get(pt) ?? '';
+            const pm = fmtp.match(/profile-level-id=([0-9a-fA-F]{2})/);
+            if (pm && pm[1].toLowerCase() !== '42') {
+                badPTs.add(pt);
+            }
+            continue;
+        }
+
+        // Codec video non nella whitelist (esclusi audio che non tocchiamo)
+        // RTX viene gestito dopo
+        if (codec !== 'rtx' && !SAFE_VIDEO.has(codec)) {
+            // Controlla se è un codec audio (non toccare)
+            // Audio: opus, pcmu, pcma, isac, g722, cn, telephone-event, comfort-noise
+            const audioCodecs = new Set(['opus', 'pcmu', 'pcma', 'isac', 'g722', 'cn', 'telephone-event']);
+            if (!audioCodecs.has(codec)) {
+                badPTs.add(pt);
             }
         }
-        return line;
-    });
+    }
 
-    return result.join('\r\n');
+    // RTX: rimuovi se il codec associato è stato rimosso
+    for (const [pt, codec] of ptCodec) {
+        if (codec === 'rtx') {
+            const fmtp = ptFmtp.get(pt) ?? '';
+            const aptMatch = fmtp.match(/apt=(\d+)/);
+            if (aptMatch && badPTs.has(aptMatch[1])) {
+                badPTs.add(pt);
+            }
+        }
+    }
+
+    // Filtra righe e aggiorna m= lines
+    return lines
+        .filter(line => {
+            if (line.startsWith('a=ssrc:') || line.startsWith('a=ssrc-group:')) return false;
+            if (/^a=rtcp-fb:\S+\s+nack/i.test(line)) return false;
+            const pm = line.match(/^a=(?:rtpmap|fmtp|rtcp-fb):(\d+)/);
+            if (pm && badPTs.has(pm[1])) return false;
+            return true;
+        })
+        .map(line => {
+            if (/^m=(video|audio)\s/.test(line)) {
+                const p = line.split(' ');
+                if (p.length > 3) {
+                    return [...p.slice(0, 3), ...p.slice(3).filter(pt => !badPTs.has(pt))].join(' ');
+                }
+            }
+            return line;
+        })
+        .join('\r\n');
 };
 
 /**
