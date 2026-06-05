@@ -51,6 +51,33 @@ export async function getSessioneCorrente(): Promise<SessioneCorrenteResult | nu
     }
 }
 
+// ── WebRTC — polling segnali ──────────────────────────────────────────────
+
+export interface WebRtcSignalData {
+    tipo:     string;
+    payload:  Record<string, unknown>;
+    mittente: 'receptionist' | 'chiosco';
+}
+
+/**
+ * GET /kiosk/webrtc/{sessionId}/poll
+ * Preleva e svuota i segnali WebRTC pendenti per il chiosco.
+ */
+export async function pollSignalsChiosco(
+    sessionId: string,
+): Promise<WebRtcSignalData[]> {
+    try {
+        const res = await fetch(`/kiosk/webrtc/${sessionId}/poll`, {
+            headers: { 'Accept': 'application/json' },
+        });
+        if (!res.ok) return [];
+        const data = await res.json() as { signals: WebRtcSignalData[] };
+        return data.signals ?? [];
+    } catch {
+        return [];
+    }
+}
+
 // ── Chiamata dal chiosco ──────────────────────────────────────────────────
 
 /**

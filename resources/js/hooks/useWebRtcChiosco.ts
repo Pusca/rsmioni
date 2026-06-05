@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { inviaSignalChiosco, getSessioneCorrente } from '@/services/kioskApi';
+import { inviaSignalChiosco, getSessioneCorrente, pollSignalsChiosco } from '@/services/kioskApi';
 import {
     classificaErroreMedia,
     getIceServers,
@@ -8,23 +8,11 @@ import {
     type ErroreMedia,
 } from '@/services/webrtcMedia';
 
-// Tipo minimo — stesso pattern degli altri hook Reverb
-interface EchoChannel {
-    listen(event: string, callback: (data: unknown) => void): this;
-    error(callback: (error: unknown) => void): this;
-}
-
 interface WebRtcSignalData {
     tipo:    'offer' | 'answer' | 'ice-candidate' | 'chiosco_ready' | 'sessione_chiusa'
            | 'screen_share_started' | 'screen_share_stopped';
     payload: Record<string, unknown>;
     mittente: 'receptionist' | 'chiosco';
-}
-
-interface SessioneCreataData {
-    session_id: string;
-    chiosco_id: string;
-    tipo: 'chiaro' | 'nascosto' | 'parlato';
 }
 
 export type StatoParlatoChiosco = 'idle' | 'connecting' | 'connected' | 'error';
@@ -43,16 +31,26 @@ export interface ChioscoWebRtcResult {
     condivisioneAttiva: boolean;
 }
 
+/** Polling interval per scoperta sessione (ms) */
+const SESSION_POLL_MS = 2_000;
+/** Polling interval per segnali WebRTC (ms) */
+const SIGNAL_POLL_MS = 1_000;
+
 
 /**
  * Gestisce il ciclo di vita WebRTC lato chiosco.
  *
- * Effect 1 — abbona il canale chiosco.{chioscoId} per ricevere WebRtcSessionCreata.
- *   Al mount esegue anche un recovery: GET /kiosk/webrtc/sessione-corrente
- *   per recuperare sessioni create mentre il browser non era connesso a Reverb.
+ * Signaling via HTTP polling (nessuna dipendenza da Pusher/Echo):
+ *   - Scoperta sessione: polling GET /kiosk/webrtc/sessione-corrente ogni 2s
+ *   - Segnali: polling GET /kiosk/webrtc/{sessionId}/poll ogni 1s
+ *   - Invio segnali: POST /kiosk/webrtc/signal (invariato)
+ *
+ * Effect 1 — polling per scoprire nuove sessioni WebRTC.
+ *   Al mount e ogni 2s chiama getSessioneCorrente().
+ *   Quando trova una sessione, imposta sessionId e sessionTipo.
  *
  * Effect 2 — quando sessionId è non-null, avvia la negoziazione WebRTC:
- *   1. Abbonati a webrtc.{sessionId}  ← PRIMA di getUserMedia (fix race condition)
+ *   1. Avvia polling segnali
  *   2. getUserMedia
  *   3. Crea RTCPeerConnection, configura tracks, remote stream, ICE
  *   4. Invia 'chiosco_ready' al receptionist
@@ -70,48 +68,28 @@ export function useWebRtcChiosco({ chioscoId }: Options): ChioscoWebRtcResult {
     const localVideoRef  = useRef<HTMLVideoElement | null>(null);
     const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
 
-    // ── Effect 1: abbonamento al canale chiosco + recovery ─────────────────
+    // ── Effect 1: polling per scoprire nuove sessioni ─────────────────────
     useEffect(() => {
         if (!chioscoId) return;
 
         let mounted = true;
 
-        // Recovery: cerca sessione attiva anche senza Reverb
-        // Gestisce il caso in cui il browser si apre dopo la creazione della sessione
-        getSessioneCorrente().then(result => {
+        const poll = async () => {
+            if (!mounted) return;
+            const result = await getSessioneCorrente();
             if (mounted && result) {
                 setSessionId(current => (current !== null ? current : result.session_id));
                 setSessionTipo(current => (current !== null ? current : result.tipo));
             }
-        });
+        };
 
-        if (typeof window === 'undefined' || !window.Echo) return;
-
-        let chioscoChannel: EchoChannel | null = null;
-
-        try {
-            chioscoChannel = window.Echo.private(
-                `chiosco.${chioscoId}`,
-            ) as unknown as EchoChannel;
-
-            chioscoChannel.listen('.webrtc.sessione_creata', (raw: unknown) => {
-                if (!mounted) return;
-                const data = raw as SessioneCreataData;
-                // Una nuova sessione sovrascrive sempre quella precedente
-                setSessionId(data.session_id);
-                setSessionTipo(data.tipo ?? 'parlato');
-            });
-
-            chioscoChannel.error(() => {
-                // Canale non disponibile — il recovery HTTP ha già agito
-            });
-        } catch { /* Echo non connesso */ }
+        // Check immediato + polling ogni 2s
+        poll();
+        const intervalId = setInterval(poll, SESSION_POLL_MS);
 
         return () => {
             mounted = false;
-            if (typeof window !== 'undefined' && window.Echo) {
-                try { window.Echo.leave(`chiosco.${chioscoId}`); } catch { /* ignore */ }
-            }
+            clearInterval(intervalId);
         };
     }, [chioscoId]);
 
@@ -122,22 +100,22 @@ export function useWebRtcChiosco({ chioscoId }: Options): ChioscoWebRtcResult {
         let cancelled = false;
         let pc: RTCPeerConnection | null = null;
         let localStream: MediaStream | null = null;
-        let webrtcChannel: EchoChannel | null = null;
+        let pollTimer: ReturnType<typeof setInterval> | null = null;
 
         const cleanup = () => {
             if (cancelled) return; // già pulito
             cancelled = true;
+
+            if (pollTimer) {
+                clearInterval(pollTimer);
+                pollTimer = null;
+            }
 
             pc?.close();
             pc = null;
 
             localStream?.getTracks().forEach(t => t.stop());
             localStream = null;
-
-            if (webrtcChannel && typeof window !== 'undefined' && window.Echo) {
-                try { window.Echo.leave(`webrtc.${sessionId}`); } catch { /* ignore */ }
-                webrtcChannel = null;
-            }
 
             if (localVideoRef.current)  localVideoRef.current.srcObject  = null;
             if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
@@ -163,18 +141,12 @@ export function useWebRtcChiosco({ chioscoId }: Options): ChioscoWebRtcResult {
             pc = new RTCPeerConnection({ iceServers });
             console.log('[WebRTC-K] RTCPeerConnection creata');
 
-            // ── 2. Abbonamento Echo PRIMA di getUserMedia ───────────────────
-            //    Fix race condition offer: se l'offer arriva prima di getUserMedia
-            //    la salviamo e la processiamo appena getUserMedia risolve.
-            //    Fix race condition ICE: i candidati che arrivano prima che la
-            //    remote description sia impostata vengono accodati e aggiunti
-            //    subito dopo setRemoteDescription.
+            // ── 2. Avvia polling segnali (PRIMA di getUserMedia) ───────────
             let offerPendente:  RTCSessionDescriptionInit | null = null;
             let iceQueue:       RTCIceCandidateInit[]            = [];
             let remoteDescSet = false;
 
             // Helper: riceve offer, crea answer, invia via signal.
-            // Dopo setRemoteDescription svuota la coda ICE pre-offer.
             const processaOffer = async (
                 payload: RTCSessionDescriptionInit,
                 pcRef: RTCPeerConnection,
@@ -207,79 +179,63 @@ export function useWebRtcChiosco({ chioscoId }: Options): ChioscoWebRtcResult {
                 });
             };
 
-            if (typeof window !== 'undefined' && window.Echo) {
+            // Handler per processare un singolo segnale
+            const processaSignal = async (sig: WebRtcSignalData) => {
+                if (cancelled || !pc) return;
+                if (sig.mittente === 'chiosco') return;
+
                 try {
-                    webrtcChannel = window.Echo.private(
-                        `webrtc.${sessionId}`,
-                    ) as unknown as EchoChannel;
-
-                    webrtcChannel.listen('.webrtc.signal', async (raw: unknown) => {
-                        if (cancelled || !pc) return;
-                        const sig = raw as WebRtcSignalData;
-
-                        if (sig.mittente === 'chiosco') return;
-
-                        try {
-                            if (sig.tipo === 'offer') {
-                                if (localStream) {
-                                    // getUserMedia già risolto: processa subito
-                                    console.log('[WebRTC-K] offer ricevuta — processa subito');
-                                    await processaOffer(sig.payload as unknown as RTCSessionDescriptionInit, pc);
-                                } else {
-                                    // getUserMedia non ancora risolto: salva per dopo
-                                    console.log('[WebRTC-K] offer ricevuta — in attesa getUserMedia');
-                                    offerPendente = sig.payload as unknown as RTCSessionDescriptionInit;
-                                }
-                            } else if (sig.tipo === 'ice-candidate' && sig.payload.candidate) {
-                                const cand = sig.payload.candidate as RTCIceCandidateInit;
-                                if (remoteDescSet) {
-                                    // Remote description già impostata: aggiungi subito
-                                    console.log('[WebRTC-K] ICE candidate ricevuto dal receptionist');
-                                    await pc.addIceCandidate(new RTCIceCandidate(cand));
-                                } else {
-                                    // Arrivato prima dell'offer: accoda
-                                    console.log('[WebRTC-K] ICE candidate accodato (pre-offer)');
-                                    iceQueue.push(cand);
-                                }
-                            } else if (sig.tipo === 'sessione_chiusa') {
-                                console.log('[WebRTC-K] sessione_chiusa ricevuta');
-                                cleanup();
-                            } else if (sig.tipo === 'screen_share_started') {
-                                console.log('[WebRTC-K] condivisione schermo avviata dal receptionist');
-                                setCondivisioneAttiva(true);
-                            } else if (sig.tipo === 'screen_share_stopped') {
-                                console.log('[WebRTC-K] condivisione schermo terminata');
-                                setCondivisioneAttiva(false);
-                            }
-                        } catch (e) {
-                            console.error('[WebRTC-K] signal handler error:', e);
-                            // Se l'offer è stata rifiutata (SDP invalido o setRemoteDescription fallita),
-                            // notifica l'utente e pulisci la sessione
-                            if (sig.tipo === 'offer' && !cancelled) {
-                                setStato('error');
-                                setErrore({
-                                    tipo: 'sconosciuto',
-                                    messaggio: 'SDP dell\'offerta non accettato.',
-                                    suggerimento: 'Aggiorna la pagina del chiosco e riprova il collegamento.',
-                                });
-                                cleanup();
-                            }
+                    if (sig.tipo === 'offer') {
+                        if (localStream) {
+                            console.log('[WebRTC-K] offer ricevuta — processa subito');
+                            await processaOffer(sig.payload as unknown as RTCSessionDescriptionInit, pc);
+                        } else {
+                            console.log('[WebRTC-K] offer ricevuta — in attesa getUserMedia');
+                            offerPendente = sig.payload as unknown as RTCSessionDescriptionInit;
                         }
-                    });
-
-                    webrtcChannel.error(() => {
-                        console.error('[WebRTC-K] errore canale Echo webrtc.' + sessionId);
-                        if (!cancelled) {
-                            setStato('error');
-                            setErrore({
-                                tipo: 'timeout_signaling',
-                                messaggio: 'Canale signaling non disponibile.',
-                                suggerimento: 'Verifica che Pusher sia configurato correttamente (PUSHER_APP_KEY, cluster).',
-                            });
+                    } else if (sig.tipo === 'ice-candidate' && sig.payload.candidate) {
+                        const cand = sig.payload.candidate as RTCIceCandidateInit;
+                        if (remoteDescSet) {
+                            console.log('[WebRTC-K] ICE candidate ricevuto dal receptionist');
+                            await pc.addIceCandidate(new RTCIceCandidate(cand));
+                        } else {
+                            console.log('[WebRTC-K] ICE candidate accodato (pre-offer)');
+                            iceQueue.push(cand);
                         }
-                    });
-                } catch { /* Echo non connesso */ }
-            }
+                    } else if (sig.tipo === 'sessione_chiusa') {
+                        console.log('[WebRTC-K] sessione_chiusa ricevuta');
+                        cleanup();
+                    } else if (sig.tipo === 'screen_share_started') {
+                        console.log('[WebRTC-K] condivisione schermo avviata dal receptionist');
+                        setCondivisioneAttiva(true);
+                    } else if (sig.tipo === 'screen_share_stopped') {
+                        console.log('[WebRTC-K] condivisione schermo terminata');
+                        setCondivisioneAttiva(false);
+                    }
+                } catch (e) {
+                    console.error('[WebRTC-K] signal handler error:', e);
+                    if (sig.tipo === 'offer' && !cancelled) {
+                        setStato('error');
+                        setErrore({
+                            tipo: 'sconosciuto',
+                            messaggio: 'SDP dell\'offerta non accettato.',
+                            suggerimento: 'Aggiorna la pagina del chiosco e riprova il collegamento.',
+                        });
+                        cleanup();
+                    }
+                }
+            };
+
+            // Avvia polling segnali
+            pollTimer = setInterval(async () => {
+                if (cancelled) return;
+                try {
+                    const signals = await pollSignalsChiosco(sessionId!);
+                    for (const sig of signals) {
+                        await processaSignal(sig as WebRtcSignalData);
+                    }
+                } catch { /* network error — riprova al prossimo ciclo */ }
+            }, SIGNAL_POLL_MS);
 
             // ── 3. getUserMedia — audio solo per parlato ─────────────────────
             const needsAudio = sessionTipo === 'parlato';

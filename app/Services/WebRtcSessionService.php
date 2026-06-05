@@ -95,7 +95,43 @@ class WebRtcSessionService
     }
 
     /**
+     * Accoda un segnale WebRTC per il destinatario specificato.
+     *
+     * I segnali vengono salvati in Cache come array e consumati dal poll.
+     * Destinatario: 'receptionist' | 'chiosco'
+     */
+    public function accoda(string $sessionId, string $destinatario, string $tipo, array $payload, string $mittente): void
+    {
+        $key     = "webrtc_signals:{$sessionId}:{$destinatario}";
+        $signals = Cache::get($key, []);
+        $signals[] = [
+            'tipo'     => $tipo,
+            'payload'  => $payload,
+            'mittente' => $mittente,
+        ];
+        Cache::put($key, $signals, self::TTL);
+    }
+
+    /**
+     * Preleva e svuota tutti i segnali pendenti per il ruolo specificato.
+     *
+     * @return array<int, array{tipo: string, payload: array, mittente: string}>
+     */
+    public function preleva(string $sessionId, string $ruolo): array
+    {
+        $key     = "webrtc_signals:{$sessionId}:{$ruolo}";
+        $signals = Cache::get($key, []);
+
+        if (! empty($signals)) {
+            Cache::forget($key);
+        }
+
+        return $signals;
+    }
+
+    /**
      * Chiude la sessione eliminandola dalla Cache (principale + indice inverso).
+     * Le code segnali NON vengono svuotate: l'ultimo poll le consumerà.
      */
     public function chiudi(string $sessionId): void
     {

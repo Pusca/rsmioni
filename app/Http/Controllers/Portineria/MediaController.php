@@ -3,15 +3,12 @@
 namespace App\Http\Controllers\Portineria;
 
 use App\Enums\StatoChiosco;
-use App\Events\WebRtcSessionCreata;
-use App\Events\WebRtcSignal;
 use App\Http\Controllers\Controller;
 use App\Models\Chiosco;
 use App\Services\PortineriaService;
 use App\Services\WebRtcSessionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
 
 /**
  * Sessioni media per collegamento in chiaro e in nascosto.
@@ -77,16 +74,7 @@ class MediaController extends Controller
             $request->tipo,
         );
 
-        try {
-            broadcast(new WebRtcSessionCreata($chiosco->id, $sessionId, $request->tipo));
-        } catch (\Throwable $e) {
-            Log::error('[WebRTC] broadcast WebRtcSessionCreata fallito (media)', [
-                'chiosco_id' => $chiosco->id,
-                'session_id' => $sessionId,
-                'tipo'       => $request->tipo,
-                'error'      => $e->getMessage(),
-            ]);
-        }
+        // Il chiosco scopre la sessione tramite polling su /kiosk/webrtc/sessione-corrente
 
         return response()->json([
             'session_id' => $sessionId,
@@ -114,20 +102,14 @@ class MediaController extends Controller
             return response()->json(['error' => 'Accesso non consentito'], 403);
         }
 
-        // Notifica il chiosco prima di eliminare la sessione
-        try {
-            broadcast(new WebRtcSignal(
-                $request->session_id,
-                'sessione_chiusa',
-                [],
-                'receptionist',
-            ));
-        } catch (\Throwable $e) {
-            Log::error('[WebRTC] broadcast sessione_chiusa fallito (media)', [
-                'session_id' => $request->session_id,
-                'error'      => $e->getMessage(),
-            ]);
-        }
+        // Accoda il segnale prima di eliminare la sessione
+        $this->webRtcSession->accoda(
+            $request->session_id,
+            'chiosco',
+            'sessione_chiusa',
+            [],
+            'receptionist',
+        );
 
         $this->webRtcSession->chiudi($request->session_id);
 

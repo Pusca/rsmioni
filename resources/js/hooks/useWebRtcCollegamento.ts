@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { inviaSignalWebRtc } from '@/services/portineriaApi';
+import { inviaSignalWebRtc, pollSignalsWebRtc } from '@/services/portineriaApi';
 import { classificaErroreMedia, getIceServers, messaggioPeerFallito, patchSdp, type ErroreMedia } from '@/services/webrtcMedia';
 import type { ParkedCall } from '@/contexts/VideoCallContext';
 
@@ -7,30 +7,22 @@ import type { ParkedCall } from '@/contexts/VideoCallContext';
  * Gestisce il ciclo di vita WebRTC lato receptionist per
  * collegamento in chiaro e in nascosto.
  *
+ * Signaling via HTTP polling (nessuna dipendenza da Pusher/Echo):
+ *   - I segnali vengono inviati al server via POST /portineria/webrtc/signal
+ *   - Il server li accoda in Cache
+ *   - Il receptionist li preleva con GET /portineria/webrtc/{sessionId}/poll ogni 1s
+ *
  * Differenza rispetto a useWebRtcParlato:
  *   - Nessun audio
  *   - in_nascosto: receptionist riceve video (recvonly), non invia
  *   - in_chiaro:   receptionist invia e riceve video (sendrecv)
- *
- * Ordine operazioni (stesso fix race condition di useWebRtcParlato):
- *   1. Crea RTCPeerConnection + transceiver video
- *   2. Abbonati a webrtc.{sessionId} via Echo  ← PRIMA di getUserMedia
- *   3. getUserMedia(video only) — solo per in_chiaro
- *   4. Configura tracks, remote stream, ICE handler
- *   5. Quando arriva 'chiosco_ready' E media pronto → crea offer
- *   6. Quando arriva 'answer' → setRemoteDescription
- *   7. ICE candidates bidirezionali
  */
 
 export type TipoCollegamento = 'chiaro' | 'nascosto';
 export type StatoCollegamento = 'idle' | 'waiting_chiosco' | 'connecting' | 'connected' | 'error';
 
 const CHIOSCO_READY_TIMEOUT_MS = 20_000;
-
-interface EchoChannel {
-    listen(event: string, callback: (data: unknown) => void): this;
-    error(callback: (error: unknown) => void): this;
-}
+const POLL_INTERVAL_MS = 1_000;
 
 interface WebRtcSignalData {
     tipo:     'offer' | 'answer' | 'ice-candidate' | 'chiosco_ready' | 'sessione_chiusa';
@@ -67,7 +59,6 @@ export function useWebRtcCollegamento({ sessionId, tipo, attivo, chioscoId, chio
     const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
 
     const pcRef           = useRef<RTCPeerConnection | null>(null);
-    const channelRef      = useRef<EchoChannel | null>(null);
     const localStreamRef  = useRef<MediaStream | null>(null);
     const remoteStreamRef = useRef<MediaStream | null>(null);
     const screenStreamRef = useRef<MediaStream | null>(null);
@@ -198,6 +189,7 @@ export function useWebRtcCollegamento({ sessionId, tipo, attivo, chioscoId, chio
         const needsMedia = tipo === 'chiaro';
 
         let readyTimeout: ReturnType<typeof setTimeout> | null = null;
+        let pollTimer:    ReturnType<typeof setInterval> | null = null;
         // Coda ICE lato receptionist: i candidati del chiosco possono arrivare
         // prima che l'answer imposti la remote description.
         let iceQueueR:       RTCIceCandidateInit[] = [];
@@ -231,6 +223,57 @@ export function useWebRtcCollegamento({ sessionId, tipo, attivo, chioscoId, chio
             }
         };
 
+        // ── Handler per processare un singolo segnale ──────────────────────
+        const processaSignal = async (sig: WebRtcSignalData) => {
+            if (cancelled) return;
+            const pc = pcRef.current;
+            if (!pc) return;
+
+            if (sig.mittente === 'receptionist') return;
+
+            try {
+                if (sig.tipo === 'chiosco_ready') {
+                    console.log(`[WebRTC-C:${tipo}] chiosco_ready ricevuto`);
+                    if (readyTimeout) { clearTimeout(readyTimeout); readyTimeout = null; }
+                    chioscoReady = true;
+                    await tryCreateOffer();
+                } else if (sig.tipo === 'answer') {
+                    console.log(`[WebRTC-C:${tipo}] answer ricevuta`);
+                    const raw2 = sig.payload as unknown as RTCSessionDescriptionInit;
+                    await pc.setRemoteDescription(
+                        new RTCSessionDescription({ ...raw2, sdp: patchSdp(raw2.sdp ?? '') }),
+                    );
+                    remoteDescSetR = true;
+                    // Svuota coda ICE pre-answer
+                    if (iceQueueR.length > 0) {
+                        console.log(`[WebRTC-C:${tipo}] flush coda ICE: ${iceQueueR.length} candidate`);
+                        for (const cand of iceQueueR) {
+                            try { await pc.addIceCandidate(new RTCIceCandidate(cand)); } catch { /* ignore */ }
+                        }
+                        iceQueueR = [];
+                    }
+                } else if (sig.tipo === 'ice-candidate' && sig.payload.candidate) {
+                    const cand = sig.payload.candidate as RTCIceCandidateInit;
+                    if (remoteDescSetR) {
+                        await pc.addIceCandidate(new RTCIceCandidate(cand));
+                    } else {
+                        console.log(`[WebRTC-C:${tipo}] ICE candidate accodato (pre-answer)`);
+                        iceQueueR.push(cand);
+                    }
+                } else if (sig.tipo === 'sessione_chiusa') {
+                    console.log(`[WebRTC-C:${tipo}] sessione_chiusa ricevuta`);
+                    if (!cancelled) {
+                        updateStato('error');
+                        setErrore({
+                            tipo: 'connessione_interrotta',
+                            messaggio: 'Il chiosco ha chiuso la connessione.',
+                            suggerimento: 'Il collegamento è stato interrotto. Chiudi e riprova.',
+                        });
+                    }
+                }
+            } catch { /* peer già chiuso o segnale malformato */ }
+        };
+
         const avvia = async () => {
             updateStato('waiting_chiosco');
             setErrore(null);
@@ -249,75 +292,16 @@ export function useWebRtcCollegamento({ sessionId, tipo, attivo, chioscoId, chio
             }
             // Per 'chiaro': il video track viene aggiunto dopo getUserMedia (sendrecv automatico)
 
-            // ── 2. Abbonamento Echo PRIMA di getUserMedia ────────────────────
-            if (typeof window !== 'undefined' && window.Echo) {
+            // ── 2. Avvia polling segnali (PRIMA di getUserMedia) ────────────
+            pollTimer = setInterval(async () => {
+                if (cancelled) return;
                 try {
-                    const ch = window.Echo.private(
-                        `webrtc.${sessionId}`,
-                    ) as unknown as EchoChannel;
-                    channelRef.current = ch;
-
-                    ch.listen('.webrtc.signal', async (raw: unknown) => {
-                        if (cancelled) return;
-                        const sig = raw as WebRtcSignalData;
-                        if (sig.mittente === 'receptionist') return;
-
-                        try {
-                            if (sig.tipo === 'chiosco_ready') {
-                                console.log(`[WebRTC-C:${tipo}] chiosco_ready ricevuto`);
-                                if (readyTimeout) { clearTimeout(readyTimeout); readyTimeout = null; }
-                                chioscoReady = true;
-                                await tryCreateOffer();
-                            } else if (sig.tipo === 'answer') {
-                                console.log(`[WebRTC-C:${tipo}] answer ricevuta`);
-                                const raw2 = sig.payload as unknown as RTCSessionDescriptionInit;
-                                await pc.setRemoteDescription(
-                                    new RTCSessionDescription({ ...raw2, sdp: patchSdp(raw2.sdp ?? '') }),
-                                );
-                                remoteDescSetR = true;
-                                // Svuota coda ICE pre-answer
-                                if (iceQueueR.length > 0) {
-                                    console.log(`[WebRTC-C:${tipo}] flush coda ICE: ${iceQueueR.length} candidate`);
-                                    for (const cand of iceQueueR) {
-                                        try { await pc.addIceCandidate(new RTCIceCandidate(cand)); } catch { /* ignore */ }
-                                    }
-                                    iceQueueR = [];
-                                }
-                            } else if (sig.tipo === 'ice-candidate' && sig.payload.candidate) {
-                                const cand = sig.payload.candidate as RTCIceCandidateInit;
-                                if (remoteDescSetR) {
-                                    await pc.addIceCandidate(new RTCIceCandidate(cand));
-                                } else {
-                                    console.log(`[WebRTC-C:${tipo}] ICE candidate accodato (pre-answer)`);
-                                    iceQueueR.push(cand);
-                                }
-                            } else if (sig.tipo === 'sessione_chiusa') {
-                                console.log(`[WebRTC-C:${tipo}] sessione_chiusa ricevuta`);
-                                if (!cancelled) {
-                                    updateStato('error');
-                                    setErrore({
-                                        tipo: 'connessione_interrotta',
-                                        messaggio: 'Il chiosco ha chiuso la connessione.',
-                                        suggerimento: 'Il collegamento è stato interrotto. Chiudi e riprova.',
-                                    });
-                                }
-                            }
-                        } catch { /* peer già chiuso o segnale malformato */ }
-                    });
-
-                    ch.error(() => {
-                        console.error(`[WebRTC-C:${tipo}] errore canale Echo`);
-                        if (!cancelled) {
-                            updateStato('error');
-                            setErrore({
-                                tipo: 'timeout_signaling',
-                                messaggio: 'Canale signaling non disponibile.',
-                                suggerimento: 'Verifica che Pusher sia configurato correttamente e il browser del chiosco sia aperto su /kiosk.',
-                            });
-                        }
-                    });
-                } catch { /* Echo non connesso */ }
-            }
+                    const signals = await pollSignalsWebRtc(sessionId);
+                    for (const sig of signals) {
+                        await processaSignal(sig as WebRtcSignalData);
+                    }
+                } catch { /* network error — riprova al prossimo ciclo */ }
+            }, POLL_INTERVAL_MS);
 
             // ── 3. getUserMedia — solo per in_chiaro ─────────────────────────
             if (needsMedia) {
@@ -407,9 +391,8 @@ export function useWebRtcCollegamento({ sessionId, tipo, attivo, chioscoId, chio
                             tipo: 'timeout_signaling',
                             messaggio: 'Il chiosco non risponde al segnale.',
                             suggerimento:
-                                'Verifica che il browser del chiosco sia aperto su /kiosk, ' +
-                                'Pusher configurato, ' +
-                                'ed entrambi i browser aperti su /kiosk e /portineria.',
+                                'Verifica che il browser del chiosco sia aperto su /kiosk ' +
+                                'ed entrambi i dispositivi abbiano connessione internet.',
                         });
                     }
                 }, CHIOSCO_READY_TIMEOUT_MS);
@@ -433,6 +416,7 @@ export function useWebRtcCollegamento({ sessionId, tipo, attivo, chioscoId, chio
             cancelled = true;
 
             if (readyTimeout) { clearTimeout(readyTimeout); readyTimeout = null; }
+            if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
 
             // Park the call if it's connected and parkCall is available
             if (statoRef.current === 'connected' && parkCall && pcRef.current && remoteStreamRef.current && sessionId && chioscoId) {
@@ -464,11 +448,6 @@ export function useWebRtcCollegamento({ sessionId, tipo, attivo, chioscoId, chio
             screenStreamRef.current?.getTracks().forEach(t => t.stop());
             screenStreamRef.current = null;
             setCondivisioneSchermo(false);
-
-            if (channelRef.current && typeof window !== 'undefined' && window.Echo) {
-                try { window.Echo.leave(`webrtc.${sessionId}`); } catch { /* ignore */ }
-                channelRef.current = null;
-            }
 
             if (localVideoRef.current)  localVideoRef.current.srcObject  = null;
             if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;

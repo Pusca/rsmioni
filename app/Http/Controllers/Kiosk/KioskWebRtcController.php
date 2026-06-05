@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Kiosk;
 
-use App\Events\WebRtcSignal;
 use App\Http\Controllers\Controller;
 use App\Services\WebRtcSessionService;
 use Illuminate\Http\JsonResponse;
@@ -82,17 +81,41 @@ class KioskWebRtcController extends Controller
             return response()->json(['error' => 'Sessione non appartiene a questo chiosco.'], 403);
         }
 
-        try {
-            broadcast(new WebRtcSignal(
-                $request->session_id,
-                $request->tipo,
-                $request->payload,
-                'chiosco',
-            ));
-        } catch (\Throwable) {
-            // Reverb non attivo in dev — ignora silenziosamente
-        }
+        $this->webRtcSession->accoda(
+            $request->session_id,
+            'receptionist',
+            $request->tipo,
+            $request->payload,
+            'chiosco',
+        );
 
         return response()->json(['ok' => true]);
+    }
+
+    /**
+     * Polling dei segnali WebRTC pendenti per il chiosco.
+     *
+     * GET /kiosk/webrtc/{sessionId}/poll
+     * Restituisce e svuota tutti i segnali accodati per il chiosco.
+     */
+    public function poll(Request $request, string $sessionId): JsonResponse
+    {
+        $chioscoId = session('chiosco_id');
+
+        if (! $chioscoId) {
+            return response()->json(['signals' => []], 403);
+        }
+
+        // Se la sessione esiste, verifica appartenenza.
+        // Se appena chiusa, restituisce comunque gli ultimi segnali.
+        $session = $this->webRtcSession->trova($sessionId);
+
+        if ($session && $session['chiosco_id'] !== $chioscoId) {
+            return response()->json(['signals' => []], 403);
+        }
+
+        $signals = $this->webRtcSession->preleva($sessionId, 'chiosco');
+
+        return response()->json(['signals' => $signals]);
     }
 }

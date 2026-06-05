@@ -3,15 +3,12 @@
 namespace App\Http\Controllers\Portineria;
 
 use App\Enums\StatoChiosco;
-use App\Events\WebRtcSessionCreata;
-use App\Events\WebRtcSignal;
 use App\Http\Controllers\Controller;
 use App\Models\Chiosco;
 use App\Services\PortineriaService;
 use App\Services\WebRtcSessionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
 
 /**
  * API WebRTC per il parlato receptionist ↔ chiosco.
@@ -75,16 +72,7 @@ class WebRtcController extends Controller
             'parlato',
         );
 
-        // Notifica il browser del chiosco che c'è una nuova sessione WebRTC
-        try {
-            broadcast(new WebRtcSessionCreata($chiosco->id, $sessionId, 'parlato'));
-        } catch (\Throwable $e) {
-            Log::error('[WebRTC] broadcast WebRtcSessionCreata fallito (parlato)', [
-                'chiosco_id' => $chiosco->id,
-                'session_id' => $sessionId,
-                'error'      => $e->getMessage(),
-            ]);
-        }
+        // Il chiosco scopre la sessione tramite polling su /kiosk/webrtc/sessione-corrente
 
         return response()->json([
             'session_id' => $sessionId,
@@ -108,20 +96,13 @@ class WebRtcController extends Controller
             return response()->json(['error' => 'Sessione non valida o scaduta.'], 403);
         }
 
-        try {
-            broadcast(new WebRtcSignal(
-                $request->session_id,
-                $request->tipo,
-                $request->payload,
-                'receptionist',
-            ));
-        } catch (\Throwable $e) {
-            Log::error('[WebRTC] broadcast WebRtcSignal fallito', [
-                'session_id' => $request->session_id,
-                'tipo'       => $request->tipo,
-                'error'      => $e->getMessage(),
-            ]);
-        }
+        $this->webRtcSession->accoda(
+            $request->session_id,
+            'chiosco',
+            $request->tipo,
+            $request->payload,
+            'receptionist',
+        );
 
         return response()->json(['ok' => true]);
     }
@@ -129,7 +110,7 @@ class WebRtcController extends Controller
     /**
      * Chiude la sessione WebRTC e riporta il chiosco in in_chiaro.
      *
-     * Prima invia il segnale 'sessione_chiusa' al chiosco via Reverb,
+     * Accoda 'sessione_chiusa' nella coda segnali del chiosco,
      * poi elimina la sessione dalla Cache e cambia stato.
      */
     public function chiudi(Request $request): JsonResponse
@@ -145,20 +126,14 @@ class WebRtcController extends Controller
             return response()->json(['error' => 'Accesso non consentito'], 403);
         }
 
-        // Prima del delete: notifica il chiosco che la sessione è terminata
-        try {
-            broadcast(new WebRtcSignal(
-                $request->session_id,
-                'sessione_chiusa',
-                [],
-                'receptionist',
-            ));
-        } catch (\Throwable $e) {
-            Log::error('[WebRTC] broadcast sessione_chiusa fallito', [
-                'session_id' => $request->session_id,
-                'error'      => $e->getMessage(),
-            ]);
-        }
+        // Accoda il segnale prima di eliminare la sessione
+        $this->webRtcSession->accoda(
+            $request->session_id,
+            'chiosco',
+            'sessione_chiusa',
+            [],
+            'receptionist',
+        );
 
         // Poi elimina la sessione dalla Cache
         $this->webRtcSession->chiudi($request->session_id);
@@ -174,5 +149,27 @@ class WebRtcController extends Controller
         }
 
         return response()->json(['ok' => true]);
+    }
+
+    /**
+     * Polling dei segnali WebRTC pendenti per il receptionist.
+     *
+     * GET /portineria/webrtc/{sessionId}/poll
+     * Restituisce e svuota tutti i segnali accodati per il receptionist.
+     */
+    public function poll(Request $request, string $sessionId): JsonResponse
+    {
+        // Se la sessione esiste, verifica che appartenga al receptionist.
+        // Se la sessione è stata appena chiusa (chiudi()), restituisce
+        // comunque gli ultimi segnali in coda.
+        $session = $this->webRtcSession->trova($sessionId);
+
+        if ($session && ! $this->webRtcSession->appartiene($sessionId, $request->user()->id)) {
+            return response()->json(['signals' => []], 403);
+        }
+
+        $signals = $this->webRtcSession->preleva($sessionId, 'receptionist');
+
+        return response()->json(['signals' => $signals]);
     }
 }

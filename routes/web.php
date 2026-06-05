@@ -80,6 +80,7 @@ Route::middleware(['auth', 'ip_whitelist', 'role:receptionist,receptionist_lite'
         Route::post('/webrtc/sessione', [WebRtcController::class, 'creaSessione'])->name('webrtc.sessione');
         Route::post('/webrtc/signal',   [WebRtcController::class, 'signal'])->name('webrtc.signal');
         Route::post('/webrtc/chiudi',   [WebRtcController::class, 'chiudi'])->name('webrtc.chiudi');
+        Route::get('/webrtc/{sessionId}/poll', [WebRtcController::class, 'poll'])->name('webrtc.poll');
 
         // Media — sessioni chiaro/nascosto (senza transizione stato)
         Route::post('/media/sessione', [MediaController::class, 'creaSessione'])->name('media.sessione');
@@ -264,6 +265,7 @@ Route::middleware(['auth', 'role:chiosco'])
         // WebRTC — recovery sessione e segnali dal chiosco verso il receptionist
         Route::get('/webrtc/sessione-corrente', [KioskWebRtcController::class, 'sessioneCorrente'])->name('webrtc.sessione_corrente');
         Route::post('/webrtc/signal',           [KioskWebRtcController::class, 'signal'])->name('webrtc.signal');
+        Route::get('/webrtc/{sessionId}/poll',  [KioskWebRtcController::class, 'poll'])->name('webrtc.poll');
 
         // Acquisizione documento da webcam chiosco
         Route::get('/acquisizione-pendente',    [KioskAcquisizioneController::class, 'show'])->name('kiosk.acquisizione.show');

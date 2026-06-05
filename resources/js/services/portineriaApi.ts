@@ -184,6 +184,33 @@ export async function chiudiSessioneCollegamento(
     } catch { /* best-effort */ }
 }
 
+// ── WebRTC — polling segnali ──────────────────────────────────────────────
+
+export interface WebRtcSignalData {
+    tipo:     string;
+    payload:  Record<string, unknown>;
+    mittente: 'receptionist' | 'chiosco';
+}
+
+/**
+ * GET /portineria/webrtc/{sessionId}/poll
+ * Preleva e svuota i segnali WebRTC pendenti per il receptionist.
+ */
+export async function pollSignalsWebRtc(
+    sessionId: string,
+): Promise<WebRtcSignalData[]> {
+    try {
+        const res = await fetch(`/portineria/webrtc/${sessionId}/poll`, {
+            headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': getCsrfToken() },
+        });
+        if (!res.ok) return [];
+        const data = await res.json() as { signals: WebRtcSignalData[] };
+        return data.signals ?? [];
+    } catch {
+        return [];
+    }
+}
+
 // ── Demo / testing ─────────────────────────────────────────────────────────
 
 export interface DemoSimulaResult {
