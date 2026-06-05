@@ -63,8 +63,8 @@ export function classificaErroreMedia(err: unknown): ErroreMedia {
                     tipo: 'contesto_non_sicuro',
                     messaggio: 'Contesto non sicuro — webcam non accessibile.',
                     suggerimento:
-                        'WebRTC richiede HTTPS o localhost. ' +
-                        'Verifica che l\'URL sia http://localhost (non un IP di rete).',
+                        'WebRTC richiede HTTPS. ' +
+                        'Verifica che il sito sia servito tramite https://.',
                 };
             default:
                 return {
@@ -215,5 +215,5 @@ export const TIMEOUT_MSG: ErroreMedia = {
     suggerimento:
         'Verifica che: (1) il browser del chiosco sia aperto su /kiosk, ' +
         '(2) Pusher sia configurato (VITE_PUSHER_APP_KEY nel .env), ' +
-        '(3) entrambi i browser usino http://localhost (non IP di rete).',
+        '(3) il sito sia servito tramite HTTPS.',
 };
