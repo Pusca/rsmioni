@@ -162,25 +162,52 @@ export function classificaErroreCondivisione(err: unknown): ErroreMedia {
 }
 
 /**
- * SDP munging mirato — compatibilità WebView/browser strict.
+ * SDP munging — compatibilità WebView/browser strict.
  *
- * Rimuove ciò che causa "Invalid SDP line" su WebView:
- *   1. a=ssrc / a=ssrc-group — deprecate in Unified Plan
- *   2. a=rtcp-fb con nack (qualsiasi payload type, anche *, con o senza sotto-tipo)
- *
- * Tutto il resto (fmtp, rtpmap, setup, extmap, codec, m= lines) resta intatto.
- * I browser negoziano i codec nativamente.
+ * Molte WebView rifiutano codec "extra" nell'SDP (ulpfec, red, flexfec, rtx)
+ * e righe rtcp-fb/ssrc. Questo filtro:
+ *   1. Identifica i payload type dei codec problematici (ulpfec, red, flexfec, rtx)
+ *   2. Rimuove tutte le righe rtpmap/fmtp/rtcp-fb associate a quei PT
+ *   3. Rimuove quei PT dalle righe m=video/m=audio
+ *   4. Rimuove a=ssrc / a=ssrc-group (deprecate in Unified Plan)
+ *   5. Rimuove a=rtcp-fb con nack (WebView le rifiuta)
  */
 export const patchSdp = (sdp: string): string => {
-    return sdp
-        .split(/\r?\n/)
-        .filter(line => {
-            if (line.startsWith('a=ssrc:') || line.startsWith('a=ssrc-group:')) return false;
-            // Rimuovi qualsiasi "a=rtcp-fb:... nack..." — WebView rifiuta nack / nack pli / nack rpsi
-            if (/^a=rtcp-fb:\S+\s+nack/i.test(line)) return false;
-            return true;
-        })
-        .join('\r\n');
+    const lines = sdp.split(/\r?\n/);
+
+    // Passo 1: trova i payload type dei codec problematici
+    const badPTs = new Set<string>();
+    for (const line of lines) {
+        const m = line.match(/^a=rtpmap:(\d+)\s+(ulpfec|red|flexfec|rtx)\//i);
+        if (m) badPTs.add(m[1]);
+    }
+
+    // Passo 2: filtra le righe
+    const filtered = lines.filter(line => {
+        // Rimuovi ssrc
+        if (line.startsWith('a=ssrc:') || line.startsWith('a=ssrc-group:')) return false;
+        // Rimuovi rtcp-fb nack (qualsiasi PT)
+        if (/^a=rtcp-fb:\S+\s+nack/i.test(line)) return false;
+        // Rimuovi rtpmap/fmtp/rtcp-fb per codec problematici
+        const ptMatch = line.match(/^a=(?:rtpmap|fmtp|rtcp-fb):(\d+)/);
+        if (ptMatch && badPTs.has(ptMatch[1])) return false;
+        return true;
+    });
+
+    // Passo 3: rimuovi i bad PT dalle righe m=
+    const result = filtered.map(line => {
+        if (/^m=(video|audio)\s/.test(line)) {
+            const parts = line.split(' ');
+            if (parts.length > 3) {
+                const header = parts.slice(0, 3);
+                const pts = parts.slice(3).filter(pt => !badPTs.has(pt));
+                return [...header, ...pts].join(' ');
+            }
+        }
+        return line;
+    });
+
+    return result.join('\r\n');
 };
 
 /**
