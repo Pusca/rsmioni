@@ -32,7 +32,7 @@ export default function ReceptionistLayout({ children }: { children: ReactNode }
 
     return (
         <VideoCallProvider>
-        <div className="flex flex-col h-screen overflow-hidden"
+        <div className={`flex flex-col h-screen overflow-hidden${isPortineria ? ' theme-dark' : ''}`}
              style={{ backgroundColor: 'var(--color-bg-primary)' }}>
 
             {/* ── Header ── */}

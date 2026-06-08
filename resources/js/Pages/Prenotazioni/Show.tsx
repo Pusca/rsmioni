@@ -406,8 +406,9 @@ export default function Show({ prenotazione: pren, profilo, puoCancellare, motiv
 
 function formatDate(d: string | null | undefined): string {
     if (!d) return '—';
-    const date = new Date(d);
-    return new Intl.DateTimeFormat('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(date);
+    // Solo data in formato europeo gg/mm/aaaa — niente ora/fuso/secondi
+    const [y, m, g] = d.slice(0, 10).split('-');
+    return `${g}/${m}/${y}`;
 }
 
 function labelProfilo(p: string): string {

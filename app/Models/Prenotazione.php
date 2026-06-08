@@ -41,8 +41,8 @@ class Prenotazione extends Model
     protected function casts(): array
     {
         return [
-            'check_in'              => 'date',
-            'check_out'             => 'date',
+            'check_in'              => 'date:Y-m-d',
+            'check_out'             => 'date:Y-m-d',
             'pax'                   => 'array',
             'tipo_pagamento'        => TipoPagamento::class,
             'documento_identita'    => StatoDocumentoIdentita::class,

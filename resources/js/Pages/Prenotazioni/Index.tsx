@@ -30,7 +30,8 @@ interface Props {
 
 function formatDate(d: string | null | undefined): string {
     if (!d) return '—';
-    const [y, m, g] = d.split('-');
+    // Prende solo la parte data (YYYY-MM-DD), ignorando eventuale ora/fuso ISO
+    const [y, m, g] = d.slice(0, 10).split('-');
     return `${g}/${m}/${y}`;
 }
 

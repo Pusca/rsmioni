@@ -23,10 +23,10 @@
     /* Bordi */
     --color-border:       #d1d5e0;
 
-    /* Testo */
-    --color-text-primary:   #1a1d2b;
-    --color-text-secondary: #5c6380;
-    --color-text-muted:     #9ba3c0;
+    /* Testo — più contrasto su sfondo chiaro (prenotazioni/regolamento) */
+    --color-text-primary:   #14161f;
+    --color-text-secondary: #3a4055;
+    --color-text-muted:     #5b6280;
 
     /* Header */
     --color-header:       #ffffff;
@@ -38,6 +38,24 @@
     --color-danger:   #ef4444;   /* rosso — errore / da acquisire */
     --color-warning:  #f97316;   /* arancione — attenzione */
     --color-ok:       #22c55e;   /* verde — pagamento/documento OK */
+}
+
+/*
+ * Tema scuro "ambito": applicato solo dove serve (Portineria / dashboard
+ * principale del receptionist). Le pagine gestionali (prenotazioni, regolamento,
+ * camere, configurazioni) restano sul tema chiaro definito in @theme.
+ * Le schermate kiosk hanno il proprio dark hardcoded.
+ */
+.theme-dark {
+    --color-bg-primary:   #0f1117;
+    --color-bg-secondary: #1a1d27;
+    --color-bg-card:      #22263a;
+    --color-bg-hover:     #2a2f45;
+    --color-border:       #2e3348;
+    --color-text-primary:   #e8eaf2;
+    --color-text-secondary: #9ba3c0;
+    --color-text-muted:     #5c6380;
+    --color-header:       #12151f;
 }
 
 /* Reset base */
