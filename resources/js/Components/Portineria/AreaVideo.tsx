@@ -80,7 +80,9 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
     useEffect(() => {
         liveKitCall.attachRemote(remoteVideoRef.current);
         liveKitCall.attachLocal(localVideoRef.current);
-    }, [call.stato, call.tipo, call.condivisione, call.condivisioneLocale, call.remoteVer]);
+        // chiosco?.stato/id: al rientro in Portineria (dal PiP) la vista del chiosco
+        // si rimonta → riaggancia il video, altrimenti resta nero.
+    }, [call.stato, call.tipo, call.condivisione, call.condivisioneLocale, call.remoteVer, chiosco?.stato, chiosco?.id]);
 
     // Viste: adattano lo stato del gestore all'interfaccia delle sub-view
     const statoCollegamento: StatoCollegamento = call.stato;

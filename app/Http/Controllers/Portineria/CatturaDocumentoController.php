@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Portineria;
 
 use App\Enums\ContestoDocumento;
+use App\Enums\StatoDocumentoIdentita;
 use App\Http\Controllers\Controller;
 use App\Models\Prenotazione;
 use App\Services\DocumentoService;
@@ -88,6 +89,11 @@ class CatturaDocumentoController extends Controller
             lingua:            null,
             tipoDocumento:     $validated['tipo_documento'] ?? 'carta_identita',
         );
+
+        // Il documento è stato acquisito → la prenotazione passa a "già fornito"
+        if ($pren->documento_identita !== StatoDocumentoIdentita::GiaFornito) {
+            $pren->update(['documento_identita' => StatoDocumentoIdentita::GiaFornito]);
+        }
 
         return response()->json(['ok' => true, 'documento_id' => $documento->id]);
     }
