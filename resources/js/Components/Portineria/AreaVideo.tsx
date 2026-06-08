@@ -9,8 +9,7 @@ import {
     chiudiSessioneCollegamento,
     type TipoCollegamento,
 } from '@/services/portineriaApi';
-import { useWebRtcParlato } from '@/hooks/useWebRtcParlato';
-import { useLiveKitMedia as useWebRtcCollegamento, type StatoCollegamento } from '@/hooks/useLiveKitMedia';
+import { useLiveKitMedia, type StatoCollegamento } from '@/hooks/useLiveKitMedia';
 import type { ErroreMedia, TipoErroreMedia } from '@/services/webrtcMedia';
 import { useVideoCall } from '@/contexts/VideoCallContext';
 
@@ -47,15 +46,17 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
         }
     }, [chiosco?.id]);
 
-    // Hook WebRTC parlato (audio+video) — inattivo finché attivo=false
-    const webrtc = useWebRtcParlato({
+    // Hook LiveKit parlato (audio+video) — inattivo finché attivo=false
+    const webrtc = useLiveKitMedia({
         sessionId,
+        tipo:       'parlato',
         chioscoId:  chiosco?.id ?? null,
+        chioscoNome: chiosco?.nome ?? null,
         attivo:     chiosco?.stato === 'in_parlato' && sessionId !== null,
     });
 
-    // Hook WebRTC collegamento (video only) — chiaro/nascosto
-    const collegamento = useWebRtcCollegamento({
+    // Hook LiveKit collegamento (video only) — chiaro/nascosto
+    const collegamento = useLiveKitMedia({
         sessionId: mediaSessionId,
         tipo:      mediaSessionTipo,
         attivo:    (chiosco?.stato === 'in_chiaro' || chiosco?.stato === 'in_nascosto') && mediaSessionId !== null,
@@ -713,7 +714,7 @@ function CollegamentoView({
 interface ParlatoViewProps {
     localVideoRef:      React.RefObject<HTMLVideoElement | null>;
     remoteVideoRef:     React.RefObject<HTMLVideoElement | null>;
-    stato:              import('@/hooks/useWebRtcParlato').StatoParlato;
+    stato:              StatoCollegamento;
     errore:             ErroreMedia | null;
     condivisioneSchermo: boolean;
 }

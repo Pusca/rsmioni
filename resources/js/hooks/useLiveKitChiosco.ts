@@ -23,8 +23,10 @@ export type StatoChiosco = 'idle' | 'connecting' | 'connected' | 'error';
 
 const POLL_MS = 2_000;
 
+type TipoMedia = 'chiaro' | 'nascosto' | 'parlato';
+
 interface Result {
-    sessionTipo:        'chiaro' | 'nascosto' | null;
+    sessionTipo:        TipoMedia | null;
     localVideoRef:      React.RefObject<HTMLVideoElement | null>;
     remoteVideoRef:     React.RefObject<HTMLVideoElement | null>;
     stato:              StatoChiosco;
@@ -57,7 +59,7 @@ export function useLiveKitChiosco(): Result {
     const roomRef        = useRef<Room | null>(null);
     const connectedRef   = useRef<string | null>(null); // sessionId attualmente connesso
 
-    const [sessionTipo, setSessionTipo] = useState<'chiaro' | 'nascosto' | null>(null);
+    const [sessionTipo, setSessionTipo] = useState<TipoMedia | null>(null);
     const [stato,       setStato]       = useState<StatoChiosco>('idle');
     const [errore,      setErrore]      = useState<ErroreMedia | null>(null);
     const [condivisioneAttiva, setCondivisioneAttiva] = useState(false);
@@ -78,7 +80,7 @@ export function useLiveKitChiosco(): Result {
             if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
         };
 
-        const connect = async (cred: { url: string; token: string; session_id: string }, tipo: 'chiaro' | 'nascosto') => {
+        const connect = async (cred: { url: string; token: string; session_id: string }, tipo: TipoMedia) => {
             connectedRef.current = cred.session_id;
             setSessionTipo(tipo);
             setStato('connecting');
@@ -108,8 +110,12 @@ export function useLiveKitChiosco(): Result {
                 if (cancelled) { room.disconnect(); return; }
                 console.log('[LiveKit-K] connesso alla stanza', cred.session_id, tipo);
 
-                // Il chiosco pubblica sempre la webcam (anche in nascosto)
+                // Il chiosco pubblica sempre la webcam (anche in nascosto);
+                // nel parlato aggiunge anche il microfono.
                 await room.localParticipant.setCameraEnabled(true);
+                if (tipo === 'parlato') {
+                    await room.localParticipant.setMicrophoneEnabled(true);
+                }
                 const pub = room.localParticipant.getTrackPublication(Track.Source.Camera);
                 if (pub?.track && localVideoRef.current) pub.track.attach(localVideoRef.current);
 
@@ -137,15 +143,15 @@ export function useLiveKitChiosco(): Result {
             const url   = resp.url;
             const token = resp.token;
             const sid   = resp.session_id;
-            const isCollegamento = tipo === 'chiaro' || tipo === 'nascosto';
+            const isMedia = tipo === 'chiaro' || tipo === 'nascosto' || tipo === 'parlato';
 
-            // Sessione assente o di tipo parlato → lascia gestire all'altro hook
-            if (!sid || !token || !url || !isCollegamento) {
+            // Nessuna sessione attiva → disconnetti
+            if (!sid || !token || !url || !isMedia) {
                 if (connectedRef.current) disconnect();
                 return;
             }
 
-            // Nuova sessione chiaro/nascosto da connettere
+            // Nuova sessione da connettere (o cambio di sessione)
             if (sid !== connectedRef.current) {
                 if (connectedRef.current) disconnect();
                 await connect({ url, token, session_id: sid }, tipo);

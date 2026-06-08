@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Head, router } from '@inertiajs/react';
 import KioskLayout from '@/Layouts/KioskLayout';
 import { Chiosco, StatoChiosco } from '@/types';
-import { useWebRtcChiosco } from '@/hooks/useWebRtcChiosco';
 import { useLiveKitChiosco } from '@/hooks/useLiveKitChiosco';
 import { useKioskHeartbeat } from '@/hooks/useKioskHeartbeat';
 import { useKioskStato } from '@/hooks/useKioskStato';
@@ -52,12 +51,11 @@ export default function KioskIndex({ chiosco, stato_iniziale, messaggio_attesa: 
     // ── Pagamento POS remoto ────────────────────────────────────────────────
     const { pagamento } = useKioskPagamento();
 
-    // ── Media: il parlato resta su WebRTC P2P; chiaro/nascosto su LiveKit ───
-    const webrtc = useWebRtcChiosco({ chioscoId: chiosco.id });
-    const lk     = useLiveKitChiosco();
+    // ── Media: chiaro / nascosto / parlato tutti su LiveKit ─────────────────
+    const lk = useLiveKitChiosco();
 
-    // Routing — ogni tipo usa il sessionTipo del proprio hook
-    const inParlato = stato === 'in_parlato' && webrtc.sessionTipo === 'parlato';
+    // Routing — usa il sessionTipo riportato dall'hook LiveKit
+    const inParlato = stato === 'in_parlato' && lk.sessionTipo === 'parlato';
     const inChiaro  = stato === 'in_chiaro'  && lk.sessionTipo === 'chiaro';
 
     // ── Handler chiamata (touch) ────────────────────────────────────────────
@@ -103,11 +101,11 @@ export default function KioskIndex({ chiosco, stato_iniziale, messaggio_attesa: 
             ) : inParlato ? (
                 <ParlatoScreen
                     chiosco={chiosco}
-                    localVideoRef={webrtc.localVideoRef}
-                    remoteVideoRef={webrtc.remoteVideoRef}
-                    stato={webrtc.stato}
-                    errore={webrtc.errore}
-                    condivisioneAttiva={webrtc.condivisioneAttiva}
+                    localVideoRef={lk.localVideoRef}
+                    remoteVideoRef={lk.remoteVideoRef}
+                    stato={lk.stato}
+                    errore={lk.errore}
+                    condivisioneAttiva={lk.condivisioneAttiva}
                 />
             ) : inChiaro ? (
                 /* Chiaro: video bidirezionale, no audio (LiveKit) */

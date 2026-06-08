@@ -1,25 +1,26 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
     Room,
     RoomEvent,
     Track,
     type RemoteTrack,
-    type RemoteTrackPublication,
 } from 'livekit-client';
-import { classificaErroreMedia, type ErroreMedia } from '@/services/webrtcMedia';
+import { classificaErroreMedia, classificaErroreCondivisione, type ErroreMedia } from '@/services/webrtcMedia';
 
 /**
- * Livello media LiveKit per il receptionist — collegamento in chiaro/nascosto.
+ * Livello media LiveKit per il receptionist — chiaro / nascosto / parlato.
  *
- * Sostituisce useWebRtcCollegamento mantenendone l'interfaccia, così AreaVideo
- * non cambia. La "stanza" LiveKit coincide con il sessionId della sessione
- * chiosco; il token (con i permessi giusti per tipo) arriva dal backend.
+ * Sostituisce useWebRtcCollegamento e useWebRtcParlato mantenendone l'interfaccia,
+ * così AreaVideo non cambia struttura. La "stanza" LiveKit coincide con il
+ * sessionId della sessione chiosco; il token (con i permessi giusti) arriva dal
+ * backend.
  *
- *   - chiaro:   il receptionist pubblica la propria webcam e vede quella del chiosco
- *   - nascosto: il receptionist NON pubblica (token canPublish=false), solo visione
+ *   - chiaro:   pubblica webcam, vede il chiosco
+ *   - nascosto: NON pubblica (token canPublish=false), solo visione
+ *   - parlato:  pubblica webcam + microfono, vede/sente il chiosco
  */
 
-export type TipoCollegamento = 'chiaro' | 'nascosto';
+export type TipoCollegamento = 'chiaro' | 'nascosto' | 'parlato';
 export type StatoCollegamento = 'idle' | 'waiting_chiosco' | 'connecting' | 'connected' | 'error';
 
 interface Options {
@@ -28,7 +29,6 @@ interface Options {
     attivo:       boolean;
     chioscoId?:   string | null;
     chioscoNome?: string | null;
-    // Compatibilità di firma con useWebRtcCollegamento (PiP non ancora gestito su LiveKit)
     parkCall?:    unknown;
     reclaimCall?: unknown;
 }
@@ -38,9 +38,11 @@ interface Result {
     remoteVideoRef: React.RefObject<HTMLVideoElement | null>;
     stato:  StatoCollegamento;
     errore: ErroreMedia | null;
-    condivisioneSchermo: boolean;
-    avviaCondivisione:   () => Promise<void>;
-    fermaCondivisione:   () => void;
+    condivisioneSchermo:    boolean;
+    avviaCondivisione:      () => Promise<void>;
+    fermaCondivisione:      () => void;
+    erroreCondivisione:     ErroreMedia | null;
+    clearErroreCondivisione: () => void;
 }
 
 function getCsrf(): string {
@@ -79,6 +81,7 @@ export function useLiveKitMedia({ sessionId, tipo, attivo }: Options): Result {
     const [stato,  setStato]  = useState<StatoCollegamento>('idle');
     const [errore, setErrore] = useState<ErroreMedia | null>(null);
     const [condivisioneSchermo, setCondivisioneSchermo] = useState(false);
+    const [erroreCondivisione, setErroreCondivisione]   = useState<ErroreMedia | null>(null);
 
     useEffect(() => {
         if (!attivo || !sessionId || !tipo) return;
@@ -87,28 +90,30 @@ export function useLiveKitMedia({ sessionId, tipo, attivo }: Options): Result {
         const room = new Room({ adaptiveStream: true, dynacast: true });
         roomRef.current = room;
 
-        // Aggancia le track remote del chiosco al <video> principale
         const attachRemote = (track: RemoteTrack) => {
             if (track.kind === Track.Kind.Video && remoteVideoRef.current) {
                 track.attach(remoteVideoRef.current);
                 if (!cancelled) setStato('connected');
             }
             if (track.kind === Track.Kind.Audio) {
-                track.attach(); // crea un elemento audio nascosto gestito da LiveKit
+                track.attach(); // elemento audio nascosto gestito da LiveKit
             }
         };
 
         room
-            .on(RoomEvent.TrackSubscribed, (track: RemoteTrack, _pub: RemoteTrackPublication) => {
+            .on(RoomEvent.TrackSubscribed, (track: RemoteTrack) => {
                 console.log('[LiveKit-R] track remota:', track.kind, track.source);
                 attachRemote(track);
             })
             .on(RoomEvent.Disconnected, () => {
-                if (!cancelled) { setStato('error'); setErrore({
-                    tipo: 'connessione_interrotta',
-                    messaggio: 'Collegamento interrotto.',
-                    suggerimento: 'Il chiosco si è disconnesso. Chiudi e riprova.',
-                }); }
+                if (!cancelled) {
+                    setStato('error');
+                    setErrore({
+                        tipo: 'connessione_interrotta',
+                        messaggio: 'Collegamento interrotto.',
+                        suggerimento: 'Il chiosco si è disconnesso. Chiudi e riprova.',
+                    });
+                }
             });
 
         const avvia = async () => {
@@ -128,18 +133,24 @@ export function useLiveKitMedia({ sessionId, tipo, attivo }: Options): Result {
             try {
                 await room.connect(cred.url, cred.token);
                 if (cancelled) { room.disconnect(); return; }
-                console.log('[LiveKit-R] connesso alla stanza', sessionId);
+                console.log('[LiveKit-R] connesso alla stanza', sessionId, tipo);
 
-                // chiaro: pubblica webcam. nascosto: non pubblicare (solo visione).
-                if (tipo === 'chiaro') {
+                // Pubblicazione in base al tipo
+                //  - chiaro:   webcam
+                //  - parlato:  webcam + microfono
+                //  - nascosto: niente (il guest non deve vedere/sentire il receptionist)
+                if (tipo === 'chiaro' || tipo === 'parlato') {
                     await room.localParticipant.setCameraEnabled(true);
+                    if (tipo === 'parlato') {
+                        await room.localParticipant.setMicrophoneEnabled(true);
+                    }
                     const pub = room.localParticipant.getTrackPublication(Track.Source.Camera);
                     if (pub?.track && localVideoRef.current) {
                         pub.track.attach(localVideoRef.current);
                     }
                 }
 
-                // Aggancia eventuali track già presenti (chiosco entrato per primo)
+                // Track già presenti (chiosco entrato per primo)
                 room.remoteParticipants.forEach((p) => {
                     p.trackPublications.forEach((pub) => {
                         if (pub.track) attachRemote(pub.track as RemoteTrack);
@@ -158,6 +169,7 @@ export function useLiveKitMedia({ sessionId, tipo, attivo }: Options): Result {
         return () => {
             cancelled = true;
             setCondivisioneSchermo(false);
+            setErroreCondivisione(null);
             try { room.disconnect(); } catch { /* ignore */ }
             roomRef.current = null;
             if (localVideoRef.current)  localVideoRef.current.srcObject  = null;
@@ -168,15 +180,17 @@ export function useLiveKitMedia({ sessionId, tipo, attivo }: Options): Result {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [attivo, sessionId, tipo]);
 
-    // ── Condivisione schermo (solo chiaro) ───────────────────────────────
+    // ── Condivisione schermo (chiaro e parlato) ──────────────────────────
     const avviaCondivisione = async () => {
         const room = roomRef.current;
-        if (!room || tipo !== 'chiaro') return;
+        if (!room || tipo === 'nascosto') return;
         try {
             await room.localParticipant.setScreenShareEnabled(true);
             setCondivisioneSchermo(true);
+            setErroreCondivisione(null);
         } catch (e) {
             console.warn('[LiveKit-R] screen share annullata/fallita', e);
+            setErroreCondivisione(classificaErroreCondivisione(e));
         }
     };
 
@@ -187,5 +201,11 @@ export function useLiveKitMedia({ sessionId, tipo, attivo }: Options): Result {
         setCondivisioneSchermo(false);
     };
 
-    return { localVideoRef, remoteVideoRef, stato, errore, condivisioneSchermo, avviaCondivisione, fermaCondivisione };
+    const clearErroreCondivisione = () => setErroreCondivisione(null);
+
+    return {
+        localVideoRef, remoteVideoRef, stato, errore,
+        condivisioneSchermo, avviaCondivisione, fermaCondivisione,
+        erroreCondivisione, clearErroreCondivisione,
+    };
 }
