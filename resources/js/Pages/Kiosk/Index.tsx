@@ -106,6 +106,7 @@ export default function KioskIndex({ chiosco, stato_iniziale, messaggio_attesa: 
                     stato={lk.stato}
                     errore={lk.errore}
                     condivisioneAttiva={lk.condivisioneAttiva}
+                    grigliaDoc={lk.grigliaDoc}
                 />
             ) : inChiaro ? (
                 /* Chiaro: video bidirezionale, no audio (LiveKit) */
@@ -115,6 +116,7 @@ export default function KioskIndex({ chiosco, stato_iniziale, messaggio_attesa: 
                     remoteVideoRef={lk.remoteVideoRef}
                     stato={lk.stato}
                     condivisioneAttiva={lk.condivisioneAttiva}
+                    grigliaDoc={lk.grigliaDoc}
                 />
             ) : stato === 'in_chiamata' ? (
                 /* Chiamata in corso: attesa risposta receptionist */
@@ -1212,6 +1214,20 @@ interface CollegamentoChiaroScreenProps {
     remoteVideoRef:     React.RefObject<HTMLVideoElement | null>;
     stato:              import('@/hooks/useWebRtcChiosco').StatoParlatoChiosco;
     condivisioneAttiva: boolean;
+    grigliaDoc?:        boolean;
+}
+
+/** Cornice/griglia guida per il posizionamento del documento davanti alla camera. */
+function GrigliaDocumento() {
+    return (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+            <div className="relative" style={{ width: '70%', maxWidth: 520, aspectRatio: '1.586', border: '3px dashed rgba(255,255,255,0.85)', borderRadius: 12, boxShadow: '0 0 0 9999px rgba(0,0,0,0.35)' }}>
+                <span className="absolute -top-7 left-0 right-0 text-center text-sm font-medium" style={{ color: '#fff' }}>
+                    Posiziona il documento nel riquadro
+                </span>
+            </div>
+        </div>
+    );
 }
 
 function CollegamentoChiaroScreen({
@@ -1220,6 +1236,7 @@ function CollegamentoChiaroScreen({
     remoteVideoRef,
     stato,
     condivisioneAttiva,
+    grigliaDoc,
 }: CollegamentoChiaroScreenProps) {
     const isConnected = stato === 'connected';
 
@@ -1252,6 +1269,7 @@ function CollegamentoChiaroScreen({
 
             {/* Video receptionist (remoto) — principale */}
             <div className="flex-1 relative overflow-hidden">
+                {grigliaDoc && <GrigliaDocumento />}
                 <video ref={remoteVideoRef} autoPlay playsInline
                        className="w-full h-full"
                        style={{
@@ -1301,6 +1319,7 @@ interface ParlatoScreenProps {
     stato:              import('@/hooks/useWebRtcChiosco').StatoParlatoChiosco;
     errore:             ErroreMedia | null;
     condivisioneAttiva: boolean;
+    grigliaDoc?:        boolean;
 }
 
 function ParlatoScreen({
@@ -1310,6 +1329,7 @@ function ParlatoScreen({
     stato,
     errore,
     condivisioneAttiva,
+    grigliaDoc,
 }: ParlatoScreenProps) {
     const isConnected = stato === 'connected';
 
@@ -1345,6 +1365,7 @@ function ParlatoScreen({
 
             {/* ── Video principale — receptionist (remoto) ── */}
             <div className="flex-1 relative overflow-hidden">
+                {grigliaDoc && <GrigliaDocumento />}
                 <video ref={remoteVideoRef} autoPlay playsInline
                        className="w-full h-full"
                        style={{

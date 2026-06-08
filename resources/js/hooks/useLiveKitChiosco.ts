@@ -32,6 +32,7 @@ interface Result {
     stato:              StatoChiosco;
     errore:             ErroreMedia | null;
     condivisioneAttiva: boolean;
+    grigliaDoc:         boolean; // il receptionist sta acquisendo un documento → mostra cornice guida
 }
 
 interface TokenResp {
@@ -63,6 +64,7 @@ export function useLiveKitChiosco(): Result {
     const [stato,       setStato]       = useState<StatoChiosco>('idle');
     const [errore,      setErrore]      = useState<ErroreMedia | null>(null);
     const [condivisioneAttiva, setCondivisioneAttiva] = useState(false);
+    const [grigliaDoc, setGrigliaDoc] = useState(false);
 
     useEffect(() => {
         let cancelled = false;
@@ -76,6 +78,7 @@ export function useLiveKitChiosco(): Result {
             setSessionTipo(null);
             setStato('idle');
             setCondivisioneAttiva(false);
+            setGrigliaDoc(false);
             if (localVideoRef.current)  localVideoRef.current.srcObject  = null;
             if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
         };
@@ -102,6 +105,13 @@ export function useLiveKitChiosco(): Result {
                 .on(RoomEvent.TrackSubscribed, (track: RemoteTrack) => attachRemote(track))
                 .on(RoomEvent.TrackUnsubscribed, (track: RemoteTrack) => {
                     if (track.source === Track.Source.ScreenShare) setCondivisioneAttiva(false);
+                })
+                .on(RoomEvent.DataReceived, (payload: Uint8Array) => {
+                    try {
+                        const msg = JSON.parse(new TextDecoder().decode(payload)) as { topic?: string };
+                        if (msg.topic === 'doc_capture_on')  setGrigliaDoc(true);
+                        if (msg.topic === 'doc_capture_off') setGrigliaDoc(false);
+                    } catch { /* ignora messaggi non riconosciuti */ }
                 })
                 .on(RoomEvent.Disconnected, () => { if (!cancelled) disconnect(); });
 
@@ -168,5 +178,5 @@ export function useLiveKitChiosco(): Result {
         };
     }, []);
 
-    return { sessionTipo, localVideoRef, remoteVideoRef, stato, errore, condivisioneAttiva };
+    return { sessionTipo, localVideoRef, remoteVideoRef, stato, errore, condivisioneAttiva, grigliaDoc };
 }

@@ -12,6 +12,7 @@ import {
 import type { StatoCollegamento } from '@/hooks/useLiveKitMedia';
 import { useLiveKitCall } from '@/hooks/useLiveKitCall';
 import * as liveKitCall from '@/services/liveKitCall';
+import CatturaDocumento from './CatturaDocumento';
 import type { ErroreMedia, TipoErroreMedia } from '@/services/webrtcMedia';
 
 interface Props {
@@ -31,6 +32,7 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
     const [mediaSessionTipo, setMediaSessionTipo] = useState<TipoCollegamento | null>(null);
 
     const isRL = profilo === 'receptionist_lite';
+    const [showCattura, setShowCattura] = useState(false);
 
     // Stato della videochiamata dal gestore singleton (persiste tra le pagine)
     const call = useLiveKitCall();
@@ -381,6 +383,15 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
                                                 />
                                             )
                                         )}
+                                        {call.stato === 'connected' && (
+                                            <AzioneBtn
+                                                label="Acquisisci documento"
+                                                color="#3b82f6"
+                                                onClick={() => setShowCattura(true)}
+                                                loading={false}
+                                                icon={<DocIcon />}
+                                            />
+                                        )}
                                         <AzioneBtn
                                             label="Passa a nascosto"
                                             color="#eab308"
@@ -470,6 +481,15 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
                                             />
                                         )
                                     )}
+                                    {call.stato === 'connected' && !isRL && (
+                                        <AzioneBtn
+                                            label="Acquisisci documento"
+                                            color="#3b82f6"
+                                            onClick={() => setShowCattura(true)}
+                                            loading={false}
+                                            icon={<DocIcon />}
+                                        />
+                                    )}
                                     <AzioneBtn
                                         label="Chiudi parlato"
                                         color="#ef4444"
@@ -547,6 +567,8 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
                     </div>
                 </>
             )}
+
+            {showCattura && <CatturaDocumento onClose={() => setShowCattura(false)} />}
         </div>
     );
 }
@@ -955,6 +977,15 @@ function ScreenIcon() {
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ display: 'block' }}>
             <rect x="2" y="3" width="20" height="14" rx="2" />
             <path d="M8 21h8M12 17v4" />
+        </svg>
+    );
+}
+
+function DocIcon() {
+    return (
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ display: 'block' }}>
+            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+            <polyline points="14 2 14 8 20 8" />
         </svg>
     );
 }

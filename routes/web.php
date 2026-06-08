@@ -90,6 +90,12 @@ Route::middleware(['auth', 'ip_whitelist', 'role:receptionist,receptionist_lite'
         Route::post('/livekit/token', [\App\Http\Controllers\Portineria\LiveKitTokenController::class, 'token'])
             ->name('livekit.token');
 
+        // Acquisizione documento "dal vivo" — cattura frame dal video del chiosco
+        Route::get('/cattura/prenotazioni', [\App\Http\Controllers\Portineria\CatturaDocumentoController::class, 'prenotazioni'])
+            ->name('cattura.prenotazioni');
+        Route::post('/cattura/documento', [\App\Http\Controllers\Portineria\CatturaDocumentoController::class, 'store'])
+            ->name('cattura.documento');
+
         // Demo / testing (solo APP_ENV=local)
         Route::post('/demo/simula', [DemoController::class, 'simula'])->name('demo.simula');
         Route::post('/demo/reset', [DemoController::class, 'reset'])->name('demo.reset');

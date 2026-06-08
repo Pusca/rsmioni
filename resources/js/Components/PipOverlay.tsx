@@ -1,8 +1,9 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, usePage } from '@inertiajs/react';
 import { useLiveKitCall } from '@/hooks/useLiveKitCall';
 import * as liveKitCall from '@/services/liveKitCall';
 import { cambiaStato } from '@/services/portineriaApi';
+import CatturaDocumento from './Portineria/CatturaDocumento';
 
 /**
  * Riquadro video flottante (PiP) mostrato quando una videochiamata LiveKit è
@@ -13,6 +14,7 @@ export default function PipOverlay() {
     const call     = useLiveKitCall();
     const videoRef = useRef<HTMLVideoElement>(null);
     const currentUrl = usePage().url;
+    const [showCattura, setShowCattura] = useState(false);
 
     const onPortineria = currentUrl.startsWith('/portineria');
     const attivo = call.stato === 'connecting' || call.stato === 'connected';
@@ -55,22 +57,32 @@ export default function PipOverlay() {
             </div>
 
             {/* Controlli */}
-            <div className="flex items-center justify-between px-3 py-2"
-                 style={{ backgroundColor: 'var(--color-bg-card)', borderTop: '1px solid var(--color-border)' }}>
-                <p className="text-xs font-medium truncate" style={{ color: 'var(--color-text-primary)' }}>
-                    {call.chioscoNome ?? 'Chiosco'}
-                </p>
-                <div className="flex items-center gap-1.5 shrink-0">
-                    <Link href="/portineria" className="rounded px-2 py-1 text-xs"
-                          style={{ color: 'var(--color-parlato)', border: '1px solid rgba(59,130,246,0.3)' }}>
-                        Torna
-                    </Link>
-                    <button onClick={termina} className="rounded px-2 py-1 text-xs"
-                            style={{ color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)' }}>
-                        Termina
-                    </button>
+            <div className="px-3 py-2" style={{ backgroundColor: 'var(--color-bg-card)', borderTop: '1px solid var(--color-border)' }}>
+                <div className="flex items-center justify-between">
+                    <p className="text-xs font-medium truncate" style={{ color: 'var(--color-text-primary)' }}>
+                        {call.chioscoNome ?? 'Chiosco'}
+                    </p>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                        <Link href="/portineria" className="rounded px-2 py-1 text-xs"
+                              style={{ color: 'var(--color-parlato)', border: '1px solid rgba(59,130,246,0.3)' }}>
+                            Torna
+                        </Link>
+                        <button onClick={termina} className="rounded px-2 py-1 text-xs"
+                                style={{ color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)' }}>
+                            Termina
+                        </button>
+                    </div>
                 </div>
+                {call.stato === 'connected' && (
+                    <button onClick={() => setShowCattura(true)}
+                            className="w-full mt-2 rounded px-2 py-1.5 text-xs font-medium"
+                            style={{ color: '#fff', backgroundColor: 'var(--color-parlato)' }}>
+                        Acquisisci documento
+                    </button>
+                )}
             </div>
+
+            {showCattura && <CatturaDocumento onClose={() => setShowCattura(false)} />}
         </div>
     );
 }

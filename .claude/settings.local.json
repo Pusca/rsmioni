@@ -21,7 +21,10 @@
       "Bash(git commit *)",
       "Bash(node -e \"console.log\\(require\\('./node_modules/livekit-client/package.json'\\).version\\)\")",
       "Bash(npx tsc *)",
-      "Bash(echo \"=== tsc exit: $? ===\")"
+      "Bash(echo \"=== tsc exit: $? ===\")",
+      "Bash(grep -nE \"^\\\\s*</div>\\\\s*$|^\\\\s*\\\\\\);\\\\s*$|^}\\\\s*$|function NessunaSeleziona|ScreenStopIcon\\\\\\(\\\\\\)\" resources/js/Components/Portineria/AreaVideo.tsx)",
+      "Bash(php -l app/Http/Controllers/Portineria/CatturaDocumentoController.php)",
+      "Bash(php artisan *)"
     ]
   }
 }
