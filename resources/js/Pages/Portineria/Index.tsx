@@ -1,5 +1,6 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { Head, usePage } from '@inertiajs/react';
+import { useLiveKitCall } from '@/hooks/useLiveKitCall';
 import ReceptionistLayout from '@/Layouts/ReceptionistLayout';
 import ChioscoCard from '@/Components/Portineria/ChioscoCard';
 import AreaVideo from '@/Components/Portineria/AreaVideo';
@@ -30,6 +31,15 @@ export default function PortineriaIndex({ chioschi: chioschiIniziali, hotel_ids,
         () => chioschi.find((c) => c.id === selezioneId) ?? null,
         [chioschi, selezioneId],
     );
+
+    // Se rientro in Portineria con una chiamata attiva (persistita nel PiP),
+    // riseleziono automaticamente il suo chiosco per riaprire la vista piena.
+    const call = useLiveKitCall();
+    useEffect(() => {
+        if (call.chioscoId && !selezioneId && chioschi.some((c) => c.id === call.chioscoId)) {
+            setSelezioneId(call.chioscoId);
+        }
+    }, [call.chioscoId, selezioneId, chioschi]);
 
     // ── Aggiornamento stato da evento realtime ────────────────────────────
     const handleStatoCambiato = useCallback((update: StatoAggiornato) => {

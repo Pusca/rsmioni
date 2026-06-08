@@ -9,9 +9,10 @@ import {
     chiudiSessioneCollegamento,
     type TipoCollegamento,
 } from '@/services/portineriaApi';
-import { useLiveKitMedia, type StatoCollegamento } from '@/hooks/useLiveKitMedia';
+import type { StatoCollegamento } from '@/hooks/useLiveKitMedia';
+import { useLiveKitCall } from '@/hooks/useLiveKitCall';
+import * as liveKitCall from '@/services/liveKitCall';
 import type { ErroreMedia, TipoErroreMedia } from '@/services/webrtcMedia';
-import { useVideoCall } from '@/contexts/VideoCallContext';
 
 interface Props {
     chiosco: ChioscoConStato | null;
@@ -31,10 +32,13 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
 
     const isRL = profilo === 'receptionist_lite';
 
-    // PiP context — park/reclaim video calls across navigation
-    const { parkCall, reclaimCall } = useVideoCall();
+    // Stato della videochiamata dal gestore singleton (persiste tra le pagine)
+    const call = useLiveKitCall();
+    const localVideoRef  = useRef<HTMLVideoElement | null>(null);
+    const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
 
-    // Resetta sessioni quando cambia il chiosco selezionato
+    // Resetta solo lo stato LOCALE quando cambia il chiosco selezionato
+    // (NON tocca la chiamata nel singleton: quella persiste).
     const prevChioscoId = useRef<string | undefined>(undefined);
     useEffect(() => {
         if (prevChioscoId.current !== chiosco?.id) {
@@ -46,25 +50,41 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
         }
     }, [chiosco?.id]);
 
-    // Hook LiveKit parlato (audio+video) — inattivo finché attivo=false
-    const webrtc = useLiveKitMedia({
-        sessionId,
-        tipo:       'parlato',
-        chioscoId:  chiosco?.id ?? null,
-        chioscoNome: chiosco?.nome ?? null,
-        attivo:     chiosco?.stato === 'in_parlato' && sessionId !== null,
-    });
+    // ── Avvio chiamata in base allo stato + sessione creata ────────────────
+    // chiaro/nascosto
+    useEffect(() => {
+        if (chiosco && (chiosco.stato === 'in_chiaro' || chiosco.stato === 'in_nascosto')
+            && mediaSessionId && mediaSessionTipo) {
+            liveKitCall.startCall({
+                sessionId: mediaSessionId, tipo: mediaSessionTipo,
+                chioscoId: chiosco.id, chioscoNome: chiosco.nome,
+            });
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [chiosco?.id, chiosco?.stato, mediaSessionId, mediaSessionTipo]);
 
-    // Hook LiveKit collegamento (video only) — chiaro/nascosto
-    const collegamento = useLiveKitMedia({
-        sessionId: mediaSessionId,
-        tipo:      mediaSessionTipo,
-        attivo:    (chiosco?.stato === 'in_chiaro' || chiosco?.stato === 'in_nascosto') && mediaSessionId !== null,
-        chioscoId: chiosco?.id ?? null,
-        chioscoNome: chiosco?.nome ?? null,
-        parkCall,
-        reclaimCall,
-    });
+    // parlato
+    useEffect(() => {
+        if (chiosco && chiosco.stato === 'in_parlato' && sessionId) {
+            liveKitCall.startCall({
+                sessionId, tipo: 'parlato',
+                chioscoId: chiosco.id, chioscoNome: chiosco.nome,
+            });
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [chiosco?.id, chiosco?.stato, sessionId]);
+
+    // Attacca i <video> alle track del gestore quando cambia lo stato chiamata
+    useEffect(() => {
+        liveKitCall.attachRemote(remoteVideoRef.current);
+        liveKitCall.attachLocal(localVideoRef.current);
+    }, [call.stato, call.tipo, call.condivisione, call.condivisioneLocale]);
+
+    // Viste: adattano lo stato del gestore all'interfaccia delle sub-view
+    const statoCollegamento: StatoCollegamento = call.stato;
+    const erroreMedia: ErroreMedia | null = call.errore
+        ? { tipo: 'sconosciuto', messaggio: call.errore, suggerimento: 'Chiudi e riprova il collegamento.' }
+        : null;
 
     // ── Helper: chiudi sessione media attiva (chiaro/nascosto) ─────────────
     const chiudiSessioneMedia = async () => {
@@ -107,6 +127,9 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
             if (nuovoStato === 'in_chiaro' || nuovoStato === 'in_nascosto') {
                 const tipo: TipoCollegamento = nuovoStato === 'in_chiaro' ? 'chiaro' : 'nascosto';
                 await avviaSessioneMedia(tipo);
+            } else {
+                // Stato senza media (es. idle): chiudi la chiamata persistente
+                liveKitCall.stopCall();
             }
         } else {
             setErrore(res.error ?? 'Errore');
@@ -142,7 +165,7 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
     const chiudiParlato = async () => {
         if (!chiosco || !sessionId || loading) return;
         // Ferma la condivisione schermo prima di chiudere la sessione
-        if (webrtc.condivisioneSchermo) webrtc.fermaCondivisione();
+        if (call.condivisioneLocale) liveKitCall.stopScreenShare();
         setLoading(true);
         setErrore(null);
         await chiudiSessioneParlato(sessionId, chiosco.id);
@@ -313,10 +336,10 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
                         {chiosco.stato === 'in_chiaro' && (
                             <div className="w-full flex flex-col items-center gap-4">
                                 <CollegamentoView
-                                    localVideoRef={collegamento.localVideoRef}
-                                    remoteVideoRef={collegamento.remoteVideoRef}
-                                    stato={collegamento.stato}
-                                    errore={collegamento.errore}
+                                    localVideoRef={localVideoRef}
+                                    remoteVideoRef={remoteVideoRef}
+                                    stato={statoCollegamento}
+                                    errore={erroreMedia}
                                     tipo="chiaro"
                                     mostraLocale={true}
                                 />
@@ -339,12 +362,12 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
                                                 icon={<MicIcon />}
                                             />
                                         )}
-                                        {collegamento.stato === 'connected' && (
-                                            collegamento.condivisioneSchermo ? (
+                                        {call.stato === 'connected' && (
+                                            call.condivisioneLocale ? (
                                                 <AzioneBtn
                                                     label="Ferma condivisione"
                                                     color="#f59e0b"
-                                                    onClick={collegamento.fermaCondivisione}
+                                                    onClick={() => liveKitCall.stopScreenShare()}
                                                     loading={false}
                                                     icon={<ScreenStopIcon />}
                                                 />
@@ -352,7 +375,7 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
                                                 <AzioneBtn
                                                     label="Condividi schermo"
                                                     color="#8b5cf6"
-                                                    onClick={collegamento.avviaCondivisione}
+                                                    onClick={() => liveKitCall.startScreenShare()}
                                                     loading={false}
                                                     icon={<ScreenIcon />}
                                                 />
@@ -388,10 +411,10 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
                         {chiosco.stato === 'in_nascosto' && (
                             <div className="w-full flex flex-col items-center gap-4">
                                 <CollegamentoView
-                                    localVideoRef={collegamento.localVideoRef}
-                                    remoteVideoRef={collegamento.remoteVideoRef}
-                                    stato={collegamento.stato}
-                                    errore={collegamento.errore}
+                                    localVideoRef={localVideoRef}
+                                    remoteVideoRef={remoteVideoRef}
+                                    stato={statoCollegamento}
+                                    errore={erroreMedia}
                                     tipo="nascosto"
                                     mostraLocale={false}
                                 />
@@ -420,20 +443,20 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
                         {chiosco.stato === 'in_parlato' && (
                             <div className="w-full flex flex-col items-center gap-4">
                                 <ParlatoView
-                                    localVideoRef={webrtc.localVideoRef}
-                                    remoteVideoRef={webrtc.remoteVideoRef}
-                                    stato={webrtc.stato}
-                                    errore={webrtc.errore}
-                                    condivisioneSchermo={webrtc.condivisioneSchermo}
+                                    localVideoRef={localVideoRef}
+                                    remoteVideoRef={remoteVideoRef}
+                                    stato={call.stato}
+                                    errore={erroreMedia}
+                                    condivisioneSchermo={call.condivisioneLocale}
                                 />
                                 <div className="flex gap-3 flex-wrap justify-center">
                                     {/* Condivisione schermo — solo quando connesso */}
-                                    {webrtc.stato === 'connected' && (
-                                        webrtc.condivisioneSchermo ? (
+                                    {call.stato === 'connected' && (
+                                        call.condivisioneLocale ? (
                                             <AzioneBtn
                                                 label="Ferma condivisione"
                                                 color="#f59e0b"
-                                                onClick={webrtc.fermaCondivisione}
+                                                onClick={() => liveKitCall.stopScreenShare()}
                                                 loading={false}
                                                 icon={<ScreenStopIcon />}
                                             />
@@ -441,7 +464,7 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
                                             <AzioneBtn
                                                 label="Condividi schermo"
                                                 color="#8b5cf6"
-                                                onClick={webrtc.avviaCondivisione}
+                                                onClick={() => liveKitCall.startScreenShare()}
                                                 loading={false}
                                                 icon={<ScreenIcon />}
                                             />
@@ -455,39 +478,6 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
                                         icon={<XIcon />}
                                     />
                                 </div>
-
-                                {/* Errore condivisione schermo — transiente, non blocca il parlato */}
-                                {webrtc.erroreCondivisione && (
-                                    <div
-                                        className="w-full rounded-lg p-3 flex gap-2"
-                                        style={{
-                                            backgroundColor: 'rgba(245,158,11,0.08)',
-                                            border: '1px solid rgba(245,158,11,0.3)',
-                                        }}
-                                    >
-                                        <div className="shrink-0 mt-0.5">
-                                            <ErroreIcon tipo={webrtc.erroreCondivisione.tipo} />
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-xs font-medium" style={{ color: '#f59e0b' }}>
-                                                {webrtc.erroreCondivisione.messaggio}
-                                            </p>
-                                            <p className="text-xs mt-0.5 leading-relaxed" style={{ color: '#9ba3c0' }}>
-                                                {webrtc.erroreCondivisione.suggerimento}
-                                            </p>
-                                        </div>
-                                        <button
-                                            onClick={webrtc.clearErroreCondivisione}
-                                            className="shrink-0 self-start"
-                                            style={{ color: '#5c6380', lineHeight: 1 }}
-                                        >
-                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                                <line x1="18" y1="6" x2="6" y2="18" />
-                                                <line x1="6" y1="6" x2="18" y2="18" />
-                                            </svg>
-                                        </button>
-                                    </div>
-                                )}
                             </div>
                         )}
 
