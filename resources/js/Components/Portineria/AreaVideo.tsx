@@ -78,7 +78,7 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
     useEffect(() => {
         liveKitCall.attachRemote(remoteVideoRef.current);
         liveKitCall.attachLocal(localVideoRef.current);
-    }, [call.stato, call.tipo, call.condivisione, call.condivisioneLocale]);
+    }, [call.stato, call.tipo, call.condivisione, call.condivisioneLocale, call.remoteVer]);
 
     // Viste: adattano lo stato del gestore all'interfaccia delle sub-view
     const statoCollegamento: StatoCollegamento = call.stato;

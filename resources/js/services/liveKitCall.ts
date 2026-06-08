@@ -25,12 +25,13 @@ export interface CallState {
     chioscoNome:  string | null;
     condivisione:        boolean; // schermo condiviso ricevuto (remoto)
     condivisioneLocale:  boolean; // schermo condiviso dal receptionist (locale)
+    remoteVer:    number; // incrementa quando arriva/cambia la track video remota (forza re-attach)
     errore:       string | null;
 }
 
 const STATE_INIZIALE: CallState = {
     stato: 'idle', tipo: null, sessionId: null, chioscoId: null,
-    chioscoNome: null, condivisione: false, condivisioneLocale: false, errore: null,
+    chioscoNome: null, condivisione: false, condivisioneLocale: false, remoteVer: 0, errore: null,
 };
 
 let room: Room | null = null;
@@ -94,11 +95,12 @@ async function fetchToken(sessionId: string): Promise<{ url: string; token: stri
     }
 }
 
-function attachRemoteToHidden(track: RemoteTrack) {
+function setRemoteVideo(track: RemoteTrack) {
     remoteVideoTrack = track;
-    if (track.kind === Track.Kind.Video) {
-        track.attach(ensureHiddenVideo());
-    }
+    track.attach(ensureHiddenVideo());
+    // Bump remoteVer + connected: forza i componenti a ri-agganciare la track
+    // alla loro <video> visibile (l'attach effect dipende da remoteVer).
+    emit({ stato: 'connected', remoteVer: state.remoteVer + 1 });
 }
 
 /**
@@ -137,9 +139,8 @@ export async function startCall(opts: {
 
     r.on(RoomEvent.TrackSubscribed, (track: RemoteTrack) => {
         if (track.kind === Track.Kind.Video) {
-            attachRemoteToHidden(track);
             if (track.source === Track.Source.ScreenShare) emit({ condivisione: true });
-            emit({ stato: 'connected' });
+            setRemoteVideo(track);
         }
         if (track.kind === Track.Kind.Audio) track.attach();
     });
@@ -162,8 +163,10 @@ export async function startCall(opts: {
 
         if (opts.tipo === 'chiaro' || opts.tipo === 'parlato') {
             await r.localParticipant.setCameraEnabled(true);
+            if (room !== r) return; // superata durante la pubblicazione
             if (opts.tipo === 'parlato') {
                 await r.localParticipant.setMicrophoneEnabled(true);
+                if (room !== r) return;
             }
         }
 
@@ -172,7 +175,7 @@ export async function startCall(opts: {
             p.trackPublications.forEach((pub) => {
                 if (pub.track) {
                     const t = pub.track as RemoteTrack;
-                    if (t.kind === Track.Kind.Video) attachRemoteToHidden(t);
+                    if (t.kind === Track.Kind.Video) setRemoteVideo(t);
                     if (t.kind === Track.Kind.Audio) t.attach();
                 }
             });

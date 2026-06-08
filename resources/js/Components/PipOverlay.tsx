@@ -20,7 +20,7 @@ export default function PipOverlay() {
     // Aggancia la track remota al video del PiP
     useEffect(() => {
         if (videoRef.current) liveKitCall.attachRemote(videoRef.current);
-    }, [call.stato, call.condivisione, call.sessionId]);
+    }, [call.stato, call.condivisione, call.sessionId, call.remoteVer]);
 
     if (!attivo || onPortineria) return null;
 
