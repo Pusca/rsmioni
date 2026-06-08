@@ -10,7 +10,7 @@ import {
     type TipoCollegamento,
 } from '@/services/portineriaApi';
 import { useWebRtcParlato } from '@/hooks/useWebRtcParlato';
-import { useWebRtcCollegamento, type StatoCollegamento } from '@/hooks/useWebRtcCollegamento';
+import { useLiveKitMedia as useWebRtcCollegamento, type StatoCollegamento } from '@/hooks/useLiveKitMedia';
 import type { ErroreMedia, TipoErroreMedia } from '@/services/webrtcMedia';
 import { useVideoCall } from '@/contexts/VideoCallContext';
 
@@ -344,6 +344,7 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
                                                     label="Ferma condivisione"
                                                     color="#f59e0b"
                                                     onClick={collegamento.fermaCondivisione}
+                                                    loading={false}
                                                     icon={<ScreenStopIcon />}
                                                 />
                                             ) : (
@@ -351,6 +352,7 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
                                                     label="Condividi schermo"
                                                     color="#8b5cf6"
                                                     onClick={collegamento.avviaCondivisione}
+                                                    loading={false}
                                                     icon={<ScreenIcon />}
                                                 />
                                             )

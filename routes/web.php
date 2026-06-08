@@ -86,6 +86,10 @@ Route::middleware(['auth', 'ip_whitelist', 'role:receptionist,receptionist_lite'
         Route::post('/media/sessione', [MediaController::class, 'creaSessione'])->name('media.sessione');
         Route::post('/media/chiudi',   [MediaController::class, 'chiudiSessione'])->name('media.chiudi');
 
+        // LiveKit — token di accesso alla stanza (media gestito)
+        Route::post('/livekit/token', [\App\Http\Controllers\Portineria\LiveKitTokenController::class, 'token'])
+            ->name('livekit.token');
+
         // Demo / testing (solo APP_ENV=local)
         Route::post('/demo/simula', [DemoController::class, 'simula'])->name('demo.simula');
         Route::post('/demo/reset', [DemoController::class, 'reset'])->name('demo.reset');
@@ -266,6 +270,9 @@ Route::middleware(['auth', 'role:chiosco'])
         Route::get('/webrtc/sessione-corrente', [KioskWebRtcController::class, 'sessioneCorrente'])->name('webrtc.sessione_corrente');
         Route::post('/webrtc/signal',           [KioskWebRtcController::class, 'signal'])->name('webrtc.signal');
         Route::get('/webrtc/{sessionId}/poll',  [KioskWebRtcController::class, 'poll'])->name('webrtc.poll');
+
+        // LiveKit — token di accesso alla stanza (media gestito)
+        Route::get('/livekit/token', [\App\Http\Controllers\Kiosk\LiveKitTokenController::class, 'token'])->name('livekit.token');
 
         // Acquisizione documento da webcam chiosco
         Route::get('/acquisizione-pendente',    [KioskAcquisizioneController::class, 'show'])->name('kiosk.acquisizione.show');

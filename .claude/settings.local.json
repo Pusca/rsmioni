@@ -17,7 +17,11 @@
       "Bash(git commit -m ' *)",
       "Bash(git push *)",
       "Bash(grep -iv \"//\")",
-      "Bash(git check-ignore *)"
+      "Bash(git check-ignore *)",
+      "Bash(git commit *)",
+      "Bash(node -e \"console.log\\(require\\('./node_modules/livekit-client/package.json'\\).version\\)\")",
+      "Bash(npx tsc *)",
+      "Bash(echo \"=== tsc exit: $? ===\")"
     ]
   }
 }

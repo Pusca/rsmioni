@@ -44,4 +44,13 @@ return [
         'credential' => env('METERED_TURN_CREDENTIAL'),
     ],
 
+    // ── LiveKit Cloud — media WebRTC gestito (signaling + SFU + TURN) ──────
+    // Credenziali da https://cloud.livekit.io (progetto → API Keys).
+    // LIVEKIT_URL è il WebSocket del progetto, es. wss://nome.livekit.cloud
+    'livekit' => [
+        'api_key'    => env('LIVEKIT_API_KEY'),
+        'api_secret' => env('LIVEKIT_API_SECRET'),
+        'url'        => env('LIVEKIT_URL'),
+    ],
+
 ];

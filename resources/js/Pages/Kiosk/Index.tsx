@@ -3,6 +3,7 @@ import { Head, router } from '@inertiajs/react';
 import KioskLayout from '@/Layouts/KioskLayout';
 import { Chiosco, StatoChiosco } from '@/types';
 import { useWebRtcChiosco } from '@/hooks/useWebRtcChiosco';
+import { useLiveKitChiosco } from '@/hooks/useLiveKitChiosco';
 import { useKioskHeartbeat } from '@/hooks/useKioskHeartbeat';
 import { useKioskStato } from '@/hooks/useKioskStato';
 import { useKioskAcquisizione } from '@/hooks/useKioskAcquisizione';
@@ -51,12 +52,13 @@ export default function KioskIndex({ chiosco, stato_iniziale, messaggio_attesa: 
     // ── Pagamento POS remoto ────────────────────────────────────────────────
     const { pagamento } = useKioskPagamento();
 
-    // ── WebRTC (gestisce le sessioni chiaro/nascosto/parlato) ───────────────
+    // ── Media: il parlato resta su WebRTC P2P; chiaro/nascosto su LiveKit ───
     const webrtc = useWebRtcChiosco({ chioscoId: chiosco.id });
+    const lk     = useLiveKitChiosco();
 
-    // Routing WebRTC — usa sessionTipo per sapere quale media hook è attivo
+    // Routing — ogni tipo usa il sessionTipo del proprio hook
     const inParlato = stato === 'in_parlato' && webrtc.sessionTipo === 'parlato';
-    const inChiaro  = stato === 'in_chiaro'  && webrtc.sessionTipo === 'chiaro';
+    const inChiaro  = stato === 'in_chiaro'  && lk.sessionTipo === 'chiaro';
 
     // ── Handler chiamata (touch) ────────────────────────────────────────────
     const handleChiama = async () => {
@@ -108,13 +110,13 @@ export default function KioskIndex({ chiosco, stato_iniziale, messaggio_attesa: 
                     condivisioneAttiva={webrtc.condivisioneAttiva}
                 />
             ) : inChiaro ? (
-                /* Chiaro: video bidirezionale, no audio */
+                /* Chiaro: video bidirezionale, no audio (LiveKit) */
                 <CollegamentoChiaroScreen
                     chiosco={chiosco}
-                    localVideoRef={webrtc.localVideoRef}
-                    remoteVideoRef={webrtc.remoteVideoRef}
-                    stato={webrtc.stato}
-                    condivisioneAttiva={webrtc.condivisioneAttiva}
+                    localVideoRef={lk.localVideoRef}
+                    remoteVideoRef={lk.remoteVideoRef}
+                    stato={lk.stato}
+                    condivisioneAttiva={lk.condivisioneAttiva}
                 />
             ) : stato === 'in_chiamata' ? (
                 /* Chiamata in corso: attesa risposta receptionist */

@@ -96,6 +96,8 @@ export function useWebRtcChiosco({ chioscoId }: Options): ChioscoWebRtcResult {
     // ── Effect 2: ciclo di vita RTCPeerConnection ──────────────────────────
     useEffect(() => {
         if (!sessionId || !chioscoId || !sessionTipo) return;
+        // chiaro/nascosto sono gestiti da LiveKit (useLiveKitChiosco): qui resta solo il parlato
+        if (sessionTipo !== 'parlato') return;
 
         let cancelled = false;
         let pc: RTCPeerConnection | null = null;
