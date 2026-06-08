@@ -155,6 +155,10 @@ export function useWebRtcChiosco({ chioscoId }: Options): ChioscoWebRtcResult {
                 const rawSdp = payload.sdp ?? '';
                 console.log('[WebRTC-K] SDP ricevuto (prime 500 char):', rawSdp.substring(0, 500));
                 console.log('[WebRTC-K] SDP lunghezza:', rawSdp.length, '| righe:', rawSdp.split(/\r?\n/).length);
+                // Diagnostica fine-riga: rivela se il round-trip ha alterato i newline
+                console.log('[WebRTC-K] SDP newline — hasCRLF:', rawSdp.includes('\r\n'),
+                    '| loneLF:', /[^\r]\n/.test(rawSdp),
+                    '| a=ssrc:', JSON.stringify(rawSdp.split(/\r?\n/).filter(l => l.startsWith('a=ssrc')).slice(0, 3)));
                 const patchedSdp = patchSdp(rawSdp);
                 console.log('[WebRTC-K] SDP dopo patch lunghezza:', patchedSdp.length, '| righe:', patchedSdp.split(/\r?\n/).length);
                 await pcRef.setRemoteDescription(new RTCSessionDescription({ ...payload, sdp: patchedSdp }));

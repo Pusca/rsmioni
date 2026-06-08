@@ -180,7 +180,18 @@ export function classificaErroreCondivisione(err: unknown): ErroreMedia {
  * servisse limitare i codec, usare RTCRtpTransceiver.setCodecPreferences()
  * — l'API corretta — invece di manipolare la stringa SDP.
  */
-export const patchSdp = (sdp: string): string => sdp;
+export const patchSdp = (sdp: string): string => {
+    // WebRTC/SDP richiede fine-riga CRLF (\r\n). Quando l'SDP fa il round-trip
+    // attraverso il signaling HTTP (JSON → file cache → JSON → proxy LiteSpeed),
+    // i newline possono essere alterati (\r\n → \n, o \r isolati). Alcuni parser
+    // — incluso Chrome — rifiutano allora l'SDP con "Failed to parse
+    // SessionDescription … Invalid SDP line", tipicamente sulla riga a=ssrc.
+    //
+    // Normalizziamo qualsiasi mix di terminatori in CRLF canonico. È un'operazione
+    // sicura e idempotente: se l'SDP è già corretto, resta identico.
+    // NON rimuoviamo righe (il munging di a=ssrc/a=rtcp-fb causava il video nero).
+    return sdp.replace(/\r\n|\r|\n/g, '\r\n');
+};
 
 /**
  * Fetcha i server ICE (STUN + TURN) dal backend.
