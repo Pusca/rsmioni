@@ -1217,6 +1217,13 @@ interface CollegamentoChiaroScreenProps {
     grigliaDoc?:        boolean;
 }
 
+/** Stile della miniatura video (angolo basso-destra). */
+const STILE_MINIATURA: React.CSSProperties = {
+    bottom: '16px', right: '16px', width: '160px', height: '120px',
+    borderRadius: '12px', objectFit: 'cover', zIndex: 20, backgroundColor: '#050710',
+    border: '1px solid rgba(255,255,255,0.25)',
+};
+
 /** Cornice/griglia guida per il posizionamento del documento davanti alla camera. */
 function GrigliaDocumento() {
     return (
@@ -1267,17 +1274,28 @@ function CollegamentoChiaroScreen({
                 </span>
             </div>
 
-            {/* Video receptionist (remoto) — principale */}
+            {/* Area video. In acquisizione documento (grigliaDoc) la camera del
+                chiosco diventa grande (con la cornice guida) e il receptionist va
+                in miniatura: così l'ospite allinea il documento sul feed giusto. */}
             <div className="flex-1 relative overflow-hidden">
-                {grigliaDoc && <GrigliaDocumento />}
-                <video ref={remoteVideoRef} autoPlay playsInline
-                       className="w-full h-full"
-                       style={{
+                {/* Receptionist (remoto) */}
+                <video ref={remoteVideoRef} autoPlay playsInline className="absolute"
+                       style={grigliaDoc ? STILE_MINIATURA : {
+                           top: 0, left: 0, width: '100%', height: '100%',
                            display: isConnected ? 'block' : 'none',
                            objectFit: condivisioneAttiva ? 'contain' : 'cover',
                            backgroundColor: condivisioneAttiva ? '#000' : 'transparent',
                        }} />
-                {!isConnected && (
+
+                {/* Camera chiosco (locale) */}
+                <video ref={localVideoRef} autoPlay playsInline muted className="absolute"
+                       style={grigliaDoc
+                           ? { top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover', backgroundColor: '#050710' }
+                           : { ...STILE_MINIATURA, border: '1px solid rgba(34,197,94,0.3)' }} />
+
+                {grigliaDoc && <GrigliaDocumento />}
+
+                {!isConnected && !grigliaDoc && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
                         <div className="rounded-full flex items-center justify-center"
                              style={{ width: 72, height: 72,
@@ -1292,19 +1310,6 @@ function CollegamentoChiaroScreen({
                         </p>
                     </div>
                 )}
-
-                {/* Miniatura video chiosco (locale) */}
-                <div className="absolute bottom-4 right-4 rounded-xl overflow-hidden shadow-xl"
-                     style={{ width: '160px', height: '120px',
-                              backgroundColor: 'var(--color-bg-primary)',
-                              border: '1px solid rgba(34,197,94,0.3)' }}>
-                    <video ref={localVideoRef} autoPlay playsInline muted
-                           className="w-full h-full object-cover" />
-                    <div className="absolute bottom-1.5 left-0 right-0 text-center"
-                         style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)' }}>
-                        {chiosco.nome}
-                    </div>
-                </div>
             </div>
         </div>
     );
@@ -1363,12 +1368,12 @@ function ParlatoScreen({
                 </span>
             </div>
 
-            {/* ── Video principale — receptionist (remoto) ── */}
+            {/* ── Area video — in acquisizione documento la camera del chiosco
+                   diventa grande con la cornice guida; il receptionist va in miniatura ── */}
             <div className="flex-1 relative overflow-hidden">
-                {grigliaDoc && <GrigliaDocumento />}
-                <video ref={remoteVideoRef} autoPlay playsInline
-                       className="w-full h-full"
-                       style={{
+                <video ref={remoteVideoRef} autoPlay playsInline className="absolute"
+                       style={grigliaDoc ? STILE_MINIATURA : {
+                           top: 0, left: 0, width: '100%', height: '100%',
                            display: isConnected ? 'block' : 'none',
                            objectFit: condivisioneAttiva ? 'contain' : 'cover',
                            backgroundColor: condivisioneAttiva ? '#000' : 'transparent',
@@ -1407,18 +1412,13 @@ function ParlatoScreen({
                     </div>
                 )}
 
-                {/* Video locale (chiosco) — miniatura in basso a destra */}
-                <div className="absolute bottom-4 right-4 rounded-xl overflow-hidden shadow-xl"
-                     style={{ width: '160px', height: '120px',
-                              backgroundColor: 'var(--color-bg-primary)',
-                              border: '1px solid rgba(59,130,246,0.3)' }}>
-                    <video ref={localVideoRef} autoPlay playsInline muted
-                           className="w-full h-full object-cover" />
-                    <div className="absolute bottom-1.5 left-0 right-0 text-center"
-                         style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)' }}>
-                        {chiosco.nome}
-                    </div>
-                </div>
+                {/* Camera chiosco (locale): miniatura, oppure grande in acquisizione */}
+                <video ref={localVideoRef} autoPlay playsInline muted className="absolute"
+                       style={grigliaDoc
+                           ? { top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover', backgroundColor: '#050710' }
+                           : { ...STILE_MINIATURA, border: '1px solid rgba(59,130,246,0.3)' }} />
+
+                {grigliaDoc && <GrigliaDocumento />}
             </div>
         </div>
     );
