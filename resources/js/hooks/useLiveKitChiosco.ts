@@ -33,7 +33,8 @@ interface Result {
     errore:             ErroreMedia | null;
     condivisioneAttiva: boolean;
     grigliaDoc:         boolean; // il receptionist sta acquisendo un documento → mostra cornice guida
-    inAttesa:           boolean; // il receptionist sta gestendo un altro chiosco → mostra "un momento…"
+    inAttesa:           boolean; // il receptionist sta gestendo un altro chiosco → mostra messaggio attesa
+    messaggioAttesa:    string;  // testo del messaggio di attesa (impostato dal receptionist)
 }
 
 interface TokenResp {
@@ -67,6 +68,7 @@ export function useLiveKitChiosco(): Result {
     const [condivisioneAttiva, setCondivisioneAttiva] = useState(false);
     const [grigliaDoc, setGrigliaDoc] = useState(false);
     const [inAttesa, setInAttesa] = useState(false);
+    const [messaggioAttesa, setMessaggioAttesa] = useState('Un momento e sono subito da lei');
 
     useEffect(() => {
         let cancelled = false;
@@ -111,10 +113,10 @@ export function useLiveKitChiosco(): Result {
                 })
                 .on(RoomEvent.DataReceived, (payload: Uint8Array) => {
                     try {
-                        const msg = JSON.parse(new TextDecoder().decode(payload)) as { topic?: string };
+                        const msg = JSON.parse(new TextDecoder().decode(payload)) as { topic?: string; testo?: string };
                         if (msg.topic === 'doc_capture_on')  setGrigliaDoc(true);
                         if (msg.topic === 'doc_capture_off') setGrigliaDoc(false);
-                        if (msg.topic === 'attesa_on')  setInAttesa(true);
+                        if (msg.topic === 'attesa_on')  { setInAttesa(true); if (msg.testo) setMessaggioAttesa(msg.testo); }
                         if (msg.topic === 'attesa_off') setInAttesa(false);
                     } catch { /* ignora messaggi non riconosciuti */ }
                 })
@@ -183,5 +185,5 @@ export function useLiveKitChiosco(): Result {
         };
     }, []);
 
-    return { sessionTipo, localVideoRef, remoteVideoRef, stato, errore, condivisioneAttiva, grigliaDoc, inAttesa };
+    return { sessionTipo, localVideoRef, remoteVideoRef, stato, errore, condivisioneAttiva, grigliaDoc, inAttesa, messaggioAttesa };
 }

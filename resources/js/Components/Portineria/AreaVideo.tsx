@@ -78,13 +78,9 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [chiosco?.id, chiosco?.stato, sessionId]);
 
-    // Selezionando un chiosco che ha già una chiamata → rendila attiva (switch).
-    useEffect(() => {
-        if (chiosco && snap.calls[chiosco.id] && snap.activeChioscoId !== chiosco.id) {
-            liveKitCall.setActive(chiosco.id);
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [chiosco?.id, call?.sessionId]);
+    // NB: l'attivazione NON è automatica alla selezione. Selezionare un chiosco
+    // con chiamata in attesa la MOSTRA (con video), ma per gestirla bisogna
+    // premere "Riprendi" → così c'è sempre UNA sola chiamata attiva (in parlato).
 
     // Attacca i <video> alle track del CHIOSCO SELEZIONATO quando cambia lo stato.
     useEffect(() => {
@@ -229,6 +225,48 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
                             {chiosco.has_stampante && <span>🖨</span>}
                         </div>
                     </div>
+
+                    {/* Barra chiamata: Riprendi (se in attesa) / editor messaggio (se in gestione) */}
+                    {call && (chiosco.stato === 'in_chiaro' || chiosco.stato === 'in_nascosto' || chiosco.stato === 'in_parlato') && (
+                        <div className="flex items-center gap-3 px-4 py-2 shrink-0"
+                             style={{ borderBottom: '1px solid var(--color-border)',
+                                      backgroundColor: call.attiva ? 'rgba(59,130,246,0.06)' : 'rgba(245,158,11,0.10)' }}>
+                            {call.attiva ? (
+                                <>
+                                    <span className="text-xs shrink-0" style={{ color: 'var(--color-text-muted)' }}>
+                                        Messaggio di attesa:
+                                    </span>
+                                    <input
+                                        type="text"
+                                        value={snap.messaggioAttesa}
+                                        onChange={(e) => liveKitCall.setMessaggioAttesa(e.target.value)}
+                                        placeholder="Un momento e sono subito da lei"
+                                        className="flex-1 rounded px-2 py-1 text-xs outline-none"
+                                        style={{ backgroundColor: 'var(--color-bg-primary)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}
+                                    />
+                                    <span className="text-xs shrink-0" style={{ color: 'var(--color-text-muted)' }}>
+                                        (mostrato agli altri chioschi quando passi a un'altra chiamata)
+                                    </span>
+                                </>
+                            ) : (
+                                <>
+                                    <span className="flex items-center gap-1.5 text-xs font-semibold shrink-0" style={{ color: '#f59e0b' }}>
+                                        <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: '#f59e0b' }} />
+                                        Chiamata in attesa
+                                    </span>
+                                    <span className="flex-1 text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                                        Stai gestendo un altro chiosco. Premi Riprendi per tornare su questo.
+                                    </span>
+                                    <button
+                                        onClick={() => liveKitCall.setActive(chiosco.id)}
+                                        className="shrink-0 rounded px-3 py-1.5 text-xs font-semibold"
+                                        style={{ backgroundColor: '#22c55e', color: '#fff' }}>
+                                        Riprendi
+                                    </button>
+                                </>
+                            )}
+                        </div>
+                    )}
 
                     {/* Corpo principale */}
                     <div className="flex-1 flex flex-col items-center justify-center gap-6 p-6">
@@ -383,7 +421,7 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
                                                 icon={<MicIcon />}
                                             />
                                         )}
-                                        {call?.stato === 'connected' && (
+                                        {call?.attiva && call?.stato === 'connected' && (
                                             snap.condivisioneLocale ? (
                                                 <AzioneBtn
                                                     label="Ferma condivisione"
@@ -402,7 +440,7 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
                                                 />
                                             )
                                         )}
-                                        {call?.stato === 'connected' && (
+                                        {call?.attiva && call?.stato === 'connected' && (
                                             <AzioneBtn
                                                 label="Acquisisci documento"
                                                 color="#3b82f6"
@@ -481,7 +519,7 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
                                 />
                                 <div className="flex gap-3 flex-wrap justify-center">
                                     {/* Condivisione schermo — solo quando connesso */}
-                                    {call?.stato === 'connected' && (
+                                    {call?.attiva && call?.stato === 'connected' && (
                                         snap.condivisioneLocale ? (
                                             <AzioneBtn
                                                 label="Ferma condivisione"
@@ -500,7 +538,7 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
                                             />
                                         )
                                     )}
-                                    {call?.stato === 'connected' && !isRL && (
+                                    {call?.attiva && call?.stato === 'connected' && !isRL && (
                                         <AzioneBtn
                                             label="Acquisisci documento"
                                             color="#3b82f6"

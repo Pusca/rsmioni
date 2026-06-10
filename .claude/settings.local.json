@@ -32,7 +32,15 @@
       "Bash(sed -i 's/condivisione: false, remoteVer: 0,/condivisione: false, remoteVer: 0, inAttesaSent: false,/g' resources/js/services/liveKitCall.ts)",
       "Bash(grep -rniE \"collaudos\" app/ database/ routes/)",
       "Bash(php -l app/Models/Collaudo.php)",
-      "Bash(php -l database/seeders/DemoChioschiSeeder.php)"
+      "Bash(php -l database/seeders/DemoChioschiSeeder.php)",
+      "Bash(sed -i 's/    inAttesa?:          boolean;/    inAttesa?:          boolean;\\\\n    messaggioAttesa?:   string;/g' resources/js/Pages/Kiosk/Index.tsx)",
+      "Bash(sed -i 's/    inAttesa,\\\\n}/XXX/' resources/js/Pages/Kiosk/Index.tsx)",
+      "Bash(sed -i 's/{inAttesa \\\\&\\\\& <OverlayAttesa \\\\/>}/{inAttesa \\\\&\\\\& <OverlayAttesa messaggio={messaggioAttesa} \\\\/>}/g' resources/js/Pages/Kiosk/Index.tsx)",
+      "Bash(sed -i 's/                    inAttesa={lk.inAttesa}/                    inAttesa={lk.inAttesa}\\\\n                    messaggioAttesa={lk.messaggioAttesa}/g' resources/js/Pages/Kiosk/Index.tsx)",
+      "Bash(grep -n \"^    inAttesa,$\" resources/js/Pages/Kiosk/Index.tsx)",
+      "Bash(perl -0pi -e 's/^    inAttesa,\\\\n/    inAttesa,\\\\n    messaggioAttesa,\\\\n/mg' resources/js/Pages/Kiosk/Index.tsx)",
+      "Bash(grep -n \"^    messaggioAttesa,$\" resources/js/Pages/Kiosk/Index.tsx)",
+      "Bash(sed -i \"s/call?.stato === 'connected' && \\(/call?.attiva \\\\&\\\\& call?.stato === 'connected' \\\\&\\\\& \\(/g; s/call?.stato === 'connected' && !isRL && \\(/call?.attiva \\\\&\\\\& call?.stato === 'connected' \\\\&\\\\& !isRL \\\\&\\\\& \\(/g\" resources/js/Components/Portineria/AreaVideo.tsx)"
     ]
   }
 }

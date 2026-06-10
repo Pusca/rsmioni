@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { router } from '@inertiajs/react';
 
 interface ChioscoPOS {
     id:       string;
@@ -161,10 +162,13 @@ export default function ModalPagamentoPOS({ prenotazioneId, chioschi, onClose }:
     // ── Chiusura con reload prenotazione ──────────────────────────────────────
 
     const handleClose = () => {
-        // Se il pagamento è completato (qualsiasi esito), ricarica la pagina
-        // per aggiornare lo storico dei pagamenti.
+        // Se il pagamento è completato (qualsiasi esito), aggiorna lo storico
+        // pagamenti SENZA ricaricare tutta la pagina: un window.location.reload()
+        // distruggerebbe l'app e la videochiamata persistente (LiveKit) → schermo
+        // nero + riconnessione. router.reload() resta nell'SPA e tiene viva la chiamata.
         if (['ok', 'ko', 'annullato'].includes(fase)) {
-            window.location.reload();
+            onClose();
+            router.reload({ only: ['prenotazione', 'documenti'] });
         } else {
             onClose();
         }

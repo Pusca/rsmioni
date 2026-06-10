@@ -33,6 +33,7 @@ interface CallEntry {
 const calls = new Map<string, CallEntry>(); // key: chioscoId
 let activeChioscoId: string | null = null;
 let condivisioneLocale = false;              // schermo condiviso dal receptionist (nell'attiva)
+let messaggioAttesa = 'Un momento e sono subito da lei'; // mostrato ai chioschi in attesa
 
 // ── Snapshot per React (useSyncExternalStore) ───────────────────────────────
 export interface PublicCall {
@@ -48,11 +49,12 @@ export interface PublicCall {
 export interface Snapshot {
     activeChioscoId:    string | null;
     condivisioneLocale: boolean;
+    messaggioAttesa:    string;
     ver:                number;
     calls:              Record<string, PublicCall>;
 }
 
-let snapshot: Snapshot = { activeChioscoId: null, condivisioneLocale: false, ver: 0, calls: {} };
+let snapshot: Snapshot = { activeChioscoId: null, condivisioneLocale: false, messaggioAttesa, ver: 0, calls: {} };
 const listeners = new Set<() => void>();
 
 function rebuild() {
@@ -63,7 +65,7 @@ function rebuild() {
             condivisione: e.condivisione, remoteVer: e.remoteVer, attiva: id === activeChioscoId,
         };
     });
-    snapshot = { activeChioscoId, condivisioneLocale, ver: snapshot.ver + 1, calls: c };
+    snapshot = { activeChioscoId, condivisioneLocale, messaggioAttesa, ver: snapshot.ver + 1, calls: c };
     listeners.forEach((l) => l());
 }
 
@@ -115,13 +117,31 @@ async function safe(fn: () => Promise<unknown>): Promise<void> {
     try { await fn(); } catch (e) { console.warn('[LiveKitCall] op ignorata:', e); }
 }
 
-function sendTo(room: Room, topic: string) {
+function publish(room: Room, payload: object) {
     if (!isConnected(room)) return;
     try {
-        const r = room.localParticipant.publishData(new TextEncoder().encode(JSON.stringify({ topic })), { reliable: true });
+        const r = room.localParticipant.publishData(new TextEncoder().encode(JSON.stringify(payload)), { reliable: true });
         // publishData è async: cattura la rejection per evitare "Uncaught (in promise)"
         (r as unknown as Promise<unknown> | undefined)?.catch?.(() => {});
     } catch { /* ignore */ }
+}
+
+function sendTo(room: Room, topic: string) {
+    publish(room, { topic });
+}
+
+/** Invia lo stato attesa al chiosco, includendo il testo del messaggio. */
+function sendAttesa(room: Room, on: boolean) {
+    publish(room, { topic: on ? 'attesa_on' : 'attesa_off', testo: messaggioAttesa });
+}
+
+export function getMessaggioAttesa(): string { return messaggioAttesa; }
+
+/** Cambia il messaggio di attesa e lo re-invia ai chioschi attualmente in attesa. */
+export function setMessaggioAttesa(testo: string): void {
+    messaggioAttesa = testo;
+    rebuild();
+    calls.forEach((e, id) => { if (id !== activeChioscoId && isConnected(e.room)) sendAttesa(e.room, true); });
 }
 
 // ── Avvio / cambio chiamata ─────────────────────────────────────────────────
@@ -230,7 +250,7 @@ async function doReconcile(): Promise<void> {
         // Messaggio "in attesa" al chiosco solo quando cambia
         const wantAttesa = !attiva;
         if (e.inAttesaSent !== wantAttesa) {
-            sendTo(e.room, wantAttesa ? 'attesa_on' : 'attesa_off');
+            sendAttesa(e.room, wantAttesa);
             e.inAttesaSent = wantAttesa;
         }
     }
