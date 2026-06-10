@@ -31,7 +31,8 @@
       "Bash(sed -i 's/grigliaDoc={lk.grigliaDoc}/grigliaDoc={lk.grigliaDoc}\\\\n                    inAttesa={lk.inAttesa}/g' resources/js/Pages/Kiosk/Index.tsx)",
       "Bash(sed -i 's/condivisione: false, remoteVer: 0,/condivisione: false, remoteVer: 0, inAttesaSent: false,/g' resources/js/services/liveKitCall.ts)",
       "Bash(grep -rniE \"collaudos\" app/ database/ routes/)",
-      "Bash(php -l app/Models/Collaudo.php)"
+      "Bash(php -l app/Models/Collaudo.php)",
+      "Bash(php -l database/seeders/DemoChioschiSeeder.php)"
     ]
   }
 }
