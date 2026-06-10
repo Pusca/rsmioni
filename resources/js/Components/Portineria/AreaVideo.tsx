@@ -214,6 +214,13 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
                             <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
                                 {chiosco.hotel?.nome}
                             </span>
+                            {call?.attiva && (
+                                <span className="flex items-center gap-1.5 rounded px-2 py-0.5"
+                                      style={{ backgroundColor: '#3b82f6', color: '#fff', fontSize: '10px', fontWeight: 700 }}>
+                                    <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: '#fff' }} />
+                                    IN GESTIONE
+                                </span>
+                            )}
                         </div>
 
                         <div className="flex items-center gap-2" style={{ fontSize: '11px', color: '#5c6380' }}>

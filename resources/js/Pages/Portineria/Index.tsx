@@ -176,6 +176,14 @@ export default function PortineriaIndex({ chioschi: chioschiIniziali, hotel_ids,
                             }
                         </span>
                     )}
+                    {(() => {
+                        const inAttesa = Object.values(snap.calls).filter((c) => !c.attiva).length;
+                        return inAttesa > 0 ? (
+                            <span className="font-semibold" style={{ color: '#f59e0b' }}>
+                                ⏸ {inAttesa} in attesa
+                            </span>
+                        ) : null;
+                    })()}
                 </div>
 
                 {/* Demo toolbar toggle */}
@@ -263,6 +271,7 @@ export default function PortineriaIndex({ chioschi: chioschiIniziali, hotel_ids,
                             selezioneId={selezioneId}
                             puoInteragire={puoInteragire}
                             onCardClick={handleCardClick}
+                            calls={snap.calls}
                         />
                     )}
                 </div>
@@ -290,9 +299,10 @@ interface GrigliaProps {
     selezioneId:   string | null;
     puoInteragire: boolean;
     onCardClick:   (id: string) => void;
+    calls:         Record<string, { attiva: boolean }>;
 }
 
-function GrigliaChioschi({ chioschi, selezioneId, puoInteragire, onCardClick }: GrigliaProps) {
+function GrigliaChioschi({ chioschi, selezioneId, puoInteragire, onCardClick, calls }: GrigliaProps) {
     // Raggruppa per hotel
     const perHotel = chioschi.reduce<Record<string, ChioscoConStato[]>>((acc, c) => {
         const nomeHotel = c.hotel?.nome ?? c.hotel_id;
@@ -316,15 +326,20 @@ function GrigliaChioschi({ chioschi, selezioneId, puoInteragire, onCardClick }: 
                     <div className="grid gap-2.5" style={{
                         gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
                     }}>
-                        {lista.map((chiosco) => (
-                            <ChioscoCard
-                                key={chiosco.id}
-                                chiosco={chiosco}
-                                isSelezionato={chiosco.id === selezioneId}
-                                puoInteragire={puoInteragire}
-                                onClick={() => onCardClick(chiosco.id)}
-                            />
-                        ))}
+                        {lista.map((chiosco) => {
+                            const c = calls[chiosco.id];
+                            const callBadge = c ? (c.attiva ? 'attiva' : 'attesa') : null;
+                            return (
+                                <ChioscoCard
+                                    key={chiosco.id}
+                                    chiosco={chiosco}
+                                    isSelezionato={chiosco.id === selezioneId}
+                                    puoInteragire={puoInteragire}
+                                    onClick={() => onCardClick(chiosco.id)}
+                                    callBadge={callBadge}
+                                />
+                            );
+                        })}
                     </div>
                 </div>
             ))}

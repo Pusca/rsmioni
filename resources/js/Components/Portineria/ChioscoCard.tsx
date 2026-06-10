@@ -6,6 +6,8 @@ interface Props {
     isSelezionato: boolean;
     puoInteragire: boolean;
     onClick: () => void;
+    /** Stato della chiamata LiveKit per questo chiosco: attiva (in gestione) / attesa / nessuna */
+    callBadge?: 'attiva' | 'attesa' | null;
 }
 
 /** Bordo colorato per stato attivo */
@@ -81,8 +83,12 @@ function previewOverlay(stato: StatoChiosco) {
     }
 }
 
-export default function ChioscoCard({ chiosco, isSelezionato, puoInteragire, onClick }: Props) {
-    const borderColor = isSelezionato
+export default function ChioscoCard({ chiosco, isSelezionato, puoInteragire, onClick, callBadge }: Props) {
+    const borderColor = callBadge === 'attiva'
+        ? '#3b82f6'
+        : callBadge === 'attesa'
+        ? '#f59e0b'
+        : isSelezionato
         ? '#3b82f6'
         : borderColorForStato(chiosco.stato);
 
@@ -118,6 +124,21 @@ export default function ChioscoCard({ chiosco, isSelezionato, puoInteragire, onC
             <div className="relative rounded mb-2 overflow-hidden"
                  style={{ aspectRatio: '16/9', backgroundColor: 'var(--color-bg-primary)' }}>
                 {previewOverlay(chiosco.stato)}
+
+                {/* Badge chiamata: in gestione / in attesa */}
+                {callBadge === 'attiva' && (
+                    <div className="absolute top-1.5 left-1.5 flex items-center gap-1 rounded px-1.5 py-0.5"
+                         style={{ backgroundColor: '#3b82f6', color: '#fff', fontSize: '9px', fontWeight: 700, letterSpacing: '0.03em' }}>
+                        <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#fff' }} />
+                        IN GESTIONE
+                    </div>
+                )}
+                {callBadge === 'attesa' && (
+                    <div className="absolute top-1.5 left-1.5 flex items-center gap-1 rounded px-1.5 py-0.5 animate-blink"
+                         style={{ backgroundColor: 'rgba(245,158,11,0.95)', color: '#1a1d2b', fontSize: '9px', fontWeight: 700, letterSpacing: '0.03em' }}>
+                        IN ATTESA
+                    </div>
+                )}
             </div>
 
             {/* Footer: tipo + hw + azioni rapide */}
