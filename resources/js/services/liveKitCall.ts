@@ -1,4 +1,4 @@
-import { Room, RoomEvent, Track, type RemoteTrack } from 'livekit-client';
+import { Room, RoomEvent, Track, ConnectionState, type RemoteTrack } from 'livekit-client';
 
 /**
  * Gestore SINGLETON multi-room delle videochiamate LiveKit del receptionist.
@@ -105,9 +105,21 @@ function ensureHiddenVideo(entry: CallEntry): HTMLVideoElement {
     return entry.hiddenVideo;
 }
 
+function isConnected(room: Room): boolean {
+    return room.state === ConnectionState.Connected;
+}
+
+/** Esegue un'operazione async su una room ignorando errori se è chiusa/in transizione. */
+async function safe(fn: () => Promise<unknown>): Promise<void> {
+    try { await fn(); } catch (e) { console.warn('[LiveKitCall] op ignorata:', e); }
+}
+
 function sendTo(room: Room, topic: string) {
+    if (!isConnected(room)) return;
     try {
-        room.localParticipant.publishData(new TextEncoder().encode(JSON.stringify({ topic })), { reliable: true });
+        const r = room.localParticipant.publishData(new TextEncoder().encode(JSON.stringify({ topic })), { reliable: true });
+        // publishData è async: cattura la rejection per evitare "Uncaught (in promise)"
+        (r as unknown as Promise<unknown> | undefined)?.catch?.(() => {});
     } catch { /* ignore */ }
 }
 
@@ -181,31 +193,45 @@ export async function startCall(opts: {
     }
 }
 
-/** Rende attiva una chiamata: pubblica camera/mic in quella, le toglie dalla precedente. */
-export async function setActive(chioscoId: string | null): Promise<void> {
+// Gli switch vengono SERIALIZZATI in una catena di promesse: switch rapidi non
+// si accavallano (causa principale di "PC manager is closed" / negoziazioni
+// concorrenti). Ogni setActive aspetta il precedente.
+let switchChain: Promise<void> = Promise.resolve();
+
+export function setActive(chioscoId: string | null): Promise<void> {
+    switchChain = switchChain.then(() => doSetActive(chioscoId)).catch(() => {});
+    return switchChain;
+}
+
+async function doSetActive(chioscoId: string | null): Promise<void> {
     if (activeChioscoId === chioscoId) return;
 
-    // Disattiva la precedente
-    const prev = activeChioscoId ? calls.get(activeChioscoId) : null;
-    if (prev) {
-        try { await prev.room.localParticipant.setScreenShareEnabled(false); } catch { /* ignore */ }
-        try { await prev.room.localParticipant.setCameraEnabled(false); } catch { /* ignore */ }
-        try { await prev.room.localParticipant.setMicrophoneEnabled(false); } catch { /* ignore */ }
-        sendTo(prev.room, 'attesa_on'); // il chiosco mostra "un momento…"
-    }
-
+    const prevId = activeChioscoId;
+    // Imposta subito l'attiva (sincrono) per coerenza dello snapshot + anti-rientro
     activeChioscoId = chioscoId;
     condivisioneLocale = false;
+    rebuild();
+
+    // Disattiva la precedente (solo se ancora connessa)
+    const prev = prevId ? calls.get(prevId) : null;
+    if (prev && isConnected(prev.room)) {
+        sendTo(prev.room, 'attesa_on'); // il chiosco mostra "un momento…"
+        await safe(() => prev.room.localParticipant.setScreenShareEnabled(false));
+        await safe(() => prev.room.localParticipant.setCameraEnabled(false));
+        await safe(() => prev.room.localParticipant.setMicrophoneEnabled(false));
+    }
+
+    // Se nel frattempo è cambiata di nuovo l'attiva, lascia fare al prossimo job in catena
+    if (activeChioscoId !== chioscoId) return;
 
     const next = chioscoId ? calls.get(chioscoId) : null;
-    if (next) {
+    if (next && isConnected(next.room)) {
         sendTo(next.room, 'attesa_off');
-        try {
-            if (next.tipo !== 'nascosto') await next.room.localParticipant.setCameraEnabled(true);
-            if (next.tipo === 'parlato')  await next.room.localParticipant.setMicrophoneEnabled(true);
-        } catch (e) { console.warn('[LiveKitCall] pubblicazione attiva fallita', e); }
+        if (next.tipo !== 'nascosto') await safe(() => next.room.localParticipant.setCameraEnabled(true));
+        if (activeChioscoId === chioscoId && next.tipo === 'parlato') {
+            await safe(() => next.room.localParticipant.setMicrophoneEnabled(true));
+        }
     }
-    rebuild();
 }
 
 export async function stopCall(chioscoId: string): Promise<void> {
@@ -242,14 +268,13 @@ export function attachLocal(el: HTMLVideoElement | null, chioscoId?: string) {
 // ── Condivisione schermo (sull'attiva) ──────────────────────────────────────
 export async function startScreenShare(): Promise<boolean> {
     const e = activeChioscoId ? calls.get(activeChioscoId) : null;
-    if (!e || e.tipo === 'nascosto') return false;
+    if (!e || e.tipo === 'nascosto' || !isConnected(e.room)) return false;
     try { await e.room.localParticipant.setScreenShareEnabled(true); condivisioneLocale = true; rebuild(); return true; }
     catch (err) { console.warn('[LiveKitCall] screen share fallita/annullata', err); return false; }
 }
 export async function stopScreenShare(): Promise<void> {
     const e = activeChioscoId ? calls.get(activeChioscoId) : null;
-    if (!e) return;
-    try { await e.room.localParticipant.setScreenShareEnabled(false); } catch { /* ignore */ }
+    if (e && isConnected(e.room)) await safe(() => e.room.localParticipant.setScreenShareEnabled(false));
     condivisioneLocale = false; rebuild();
 }
 
