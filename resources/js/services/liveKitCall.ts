@@ -21,6 +21,7 @@ interface CallEntry {
     tipo:             TipoCall;
     chioscoId:        string;
     chioscoNome:      string;
+    hotelId:          string;
     stato:            StatoCall;
     remoteVideoTrack: RemoteTrack | null;
     hiddenVideo:      HTMLVideoElement | null;
@@ -146,7 +147,7 @@ export function setMessaggioAttesa(testo: string): void {
 
 // ── Avvio / cambio chiamata ─────────────────────────────────────────────────
 export async function startCall(opts: {
-    sessionId: string; tipo: TipoCall; chioscoId: string; chioscoNome: string;
+    sessionId: string; tipo: TipoCall; chioscoId: string; chioscoNome: string; hotelId: string;
 }): Promise<void> {
     const existing = calls.get(opts.chioscoId);
     if (existing && existing.sessionId === opts.sessionId && existing.tipo === opts.tipo) {
@@ -162,7 +163,7 @@ export async function startCall(opts: {
         // entry in errore minima
         calls.set(opts.chioscoId, {
             room: new Room(), sessionId: opts.sessionId, tipo: opts.tipo, chioscoId: opts.chioscoId,
-            chioscoNome: opts.chioscoNome, stato: 'error', remoteVideoTrack: null, hiddenVideo: null,
+            chioscoNome: opts.chioscoNome, hotelId: opts.hotelId, stato: 'error', remoteVideoTrack: null, hiddenVideo: null,
             condivisione: false, remoteVer: 0, inAttesaSent: false,
         });
         rebuild();
@@ -172,7 +173,7 @@ export async function startCall(opts: {
     const room = new Room({ adaptiveStream: true, dynacast: true });
     const entry: CallEntry = {
         room, sessionId: opts.sessionId, tipo: opts.tipo, chioscoId: opts.chioscoId,
-        chioscoNome: opts.chioscoNome, stato: 'connecting', remoteVideoTrack: null, hiddenVideo: null,
+        chioscoNome: opts.chioscoNome, hotelId: opts.hotelId, stato: 'connecting', remoteVideoTrack: null, hiddenVideo: null,
         condivisione: false, remoteVer: 0, inAttesaSent: false,
     };
     calls.set(opts.chioscoId, entry);
@@ -217,10 +218,25 @@ export async function startCall(opts: {
 
 // Imposta quale chiamata è attiva, poi riconcilia lo stato di pubblicazione.
 export function setActive(chioscoId: string | null): Promise<void> {
-    if (activeChioscoId !== chioscoId) condivisioneLocale = false;
+    const cambiata = activeChioscoId !== chioscoId;
+    if (cambiata) condivisioneLocale = false;
     activeChioscoId = chioscoId;
     rebuild();
+    // L'hotel "corrente" segue la chiamata attiva: prenotazioni/regolamento
+    // mostreranno l'hotel del chiosco con cui sto parlando.
+    if (cambiata && chioscoId) {
+        const e = calls.get(chioscoId);
+        if (e?.hotelId) setHotelCorrente(e.hotelId);
+    }
     return reconcile();
+}
+
+/** Imposta lato server l'hotel corrente (per filtrare prenotazioni/regolamento). */
+function setHotelCorrente(hotelId: string): void {
+    fetch(`/hotel-corrente/${hotelId}`, {
+        method: 'PUT',
+        headers: { 'X-CSRF-TOKEN': getCsrf(), 'Accept': 'application/json' },
+    }).catch(() => {});
 }
 
 // La riconciliazione è SERIALIZZATA (catena di promesse): porta OGNI room allo

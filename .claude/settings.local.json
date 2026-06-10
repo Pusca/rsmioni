@@ -43,7 +43,12 @@
       "Bash(sed -i \"s/call?.stato === 'connected' && \\(/call?.attiva \\\\&\\\\& call?.stato === 'connected' \\\\&\\\\& \\(/g; s/call?.stato === 'connected' && !isRL && \\(/call?.attiva \\\\&\\\\& call?.stato === 'connected' \\\\&\\\\& !isRL \\\\&\\\\& \\(/g\" resources/js/Components/Portineria/AreaVideo.tsx)",
       "Bash(php -l database/seeders/HotelProvaSeeder.php)",
       "Bash(php -l app/Http/Controllers/Kiosk/KioskController.php)",
-      "Bash(php -l app/Http/Controllers/Kiosk/KioskHeartbeatController.php)"
+      "Bash(php -l app/Http/Controllers/Kiosk/KioskHeartbeatController.php)",
+      "Bash(sed -i 's/chioscoNome: opts.chioscoNome, stato: '\\\\''error'\\\\''/chioscoNome: opts.chioscoNome, hotelId: opts.hotelId, stato: '\\\\''error'\\\\''/; s/chioscoNome: opts.chioscoNome, stato: '\\\\''connecting'\\\\''/chioscoNome: opts.chioscoNome, hotelId: opts.hotelId, stato: '\\\\''connecting'\\\\''/' resources/js/services/liveKitCall.ts)",
+      "Bash(perl -0pi -e 's/chioscoId: chiosco\\\\.id, chioscoNome: chiosco\\\\.nome,/chioscoId: chiosco.id, chioscoNome: chiosco.nome, hotelId: chiosco.hotel_id,/g' resources/js/Components/Portineria/AreaVideo.tsx)",
+      "Bash(perl -0pi -e 's/\\\\$hotelId = \\\\$request->get\\\\\\('\\\\''hotel_id'\\\\''\\\\\\);\\\\n\\(\\\\s*\\)if \\\\\\(! \\\\$hotelId \\\\|\\\\| ! in_array\\\\\\(\\\\$hotelId, \\\\$hotelIds, true\\\\\\)\\\\\\) \\\\{\\\\n\\\\s*\\\\$hotelId = \\\\$hotelIds\\\\[0\\\\] \\\\?\\\\? null;\\\\n\\\\s*\\\\}/\\\\$hotelId = \\\\$request->get\\('\\\\''hotel_id'\\\\''\\);\\\\n${1}if \\(! \\\\$hotelId || ! in_array\\(\\\\$hotelId, \\\\$hotelIds, true\\)\\) {\\\\n${1}    \\\\$sess = \\\\$request->session\\(\\)->get\\('\\\\''hotel_corrente_id'\\\\''\\);\\\\n${1}    \\\\$hotelId = in_array\\(\\\\$sess, \\\\$hotelIds, true\\) ? \\\\$sess : \\(\\\\$hotelIds[0] ?? null\\);\\\\n${1}}/g' app/Http/Controllers/Regolamento/RegolamentoController.php)",
+      "Bash(php -l app/Http/Controllers/Regolamento/RegolamentoController.php)",
+      "Bash(php -l app/Http/Controllers/Prenotazioni/PrenotazioniController.php)"
     ]
   }
 }

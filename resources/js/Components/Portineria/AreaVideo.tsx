@@ -61,7 +61,7 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
             && mediaSessionId && mediaSessionTipo) {
             liveKitCall.startCall({
                 sessionId: mediaSessionId, tipo: mediaSessionTipo,
-                chioscoId: chiosco.id, chioscoNome: chiosco.nome,
+                chioscoId: chiosco.id, chioscoNome: chiosco.nome, hotelId: chiosco.hotel_id,
             });
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -72,7 +72,7 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
         if (chiosco && chiosco.stato === 'in_parlato' && sessionId) {
             liveKitCall.startCall({
                 sessionId, tipo: 'parlato',
-                chioscoId: chiosco.id, chioscoNome: chiosco.nome,
+                chioscoId: chiosco.id, chioscoNome: chiosco.nome, hotelId: chiosco.hotel_id,
             });
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps

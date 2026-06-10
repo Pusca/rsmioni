@@ -42,7 +42,9 @@ class RegolamentoController extends Controller
         // Hotel selezionato (querystring ?hotel_id=... oppure primo disponibile)
         $hotelId = $request->get('hotel_id');
         if (! $hotelId || ! in_array($hotelId, $hotelIds, true)) {
-            $hotelId = $hotelIds[0] ?? null;
+            // Fallback: hotel corrente di sessione (segue la chiamata attiva), poi il primo
+            $sess = $request->session()->get('hotel_corrente_id');
+            $hotelId = in_array($sess, $hotelIds, true) ? $sess : ($hotelIds[0] ?? null);
         }
 
         $hotels = Hotel::whereIn('id', $hotelIds)->get(['id', 'nome', 'lingue_abilitate']);
@@ -87,7 +89,9 @@ class RegolamentoController extends Controller
         $hotelIds = $user->hotelIds();
         $hotelId  = $request->get('hotel_id');
         if (! $hotelId || ! in_array($hotelId, $hotelIds, true)) {
-            $hotelId = $hotelIds[0] ?? null;
+            // Fallback: hotel corrente di sessione (segue la chiamata attiva), poi il primo
+            $sess = $request->session()->get('hotel_corrente_id');
+            $hotelId = in_array($sess, $hotelIds, true) ? $sess : ($hotelIds[0] ?? null);
         }
 
         $regola = Regola::findOrFail($regolaId);
@@ -145,7 +149,9 @@ class RegolamentoController extends Controller
         $hotelIds = $user->hotelIds();
         $hotelId  = $request->get('hotel_id');
         if (! $hotelId || ! in_array($hotelId, $hotelIds, true)) {
-            $hotelId = $hotelIds[0] ?? null;
+            // Fallback: hotel corrente di sessione (segue la chiamata attiva), poi il primo
+            $sess = $request->session()->get('hotel_corrente_id');
+            $hotelId = in_array($sess, $hotelIds, true) ? $sess : ($hotelIds[0] ?? null);
         }
 
         $regola = Regola::findOrFail($regolaId);

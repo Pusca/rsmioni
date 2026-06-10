@@ -37,12 +37,20 @@ class PrenotazioniController extends Controller
         $user     = $request->user();
         $hotelIds = $user->hotelIds();
 
+        // Mostra solo l'hotel corrente (selettore/struttura attiva). L'hotel
+        // corrente segue anche la chiamata attiva (impostato lato client).
+        $hotelCorrente = $request->session()->get('hotel_corrente_id');
+        if (! in_array($hotelCorrente, $hotelIds, true)) {
+            $hotelCorrente = $hotelIds[0] ?? null;
+        }
+        $hotelDaMostrare = $hotelCorrente ? [$hotelCorrente] : $hotelIds;
+
         $filtri = $request->only([
             'cerca', 'data_dal', 'data_al',
             'stato_pagamento', 'stato_documento',
         ]);
 
-        $paginated = $this->service->query($user, $hotelIds, $filtri)->paginate(25)->withQueryString();
+        $paginated = $this->service->query($user, $hotelDaMostrare, $filtri)->paginate(25)->withQueryString();
 
         // Arricchisce ogni item con il flag puoCancellare (calcolato lato backend)
         $paginated->through(function (Prenotazione $pren) use ($user) {

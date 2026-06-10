@@ -10,6 +10,9 @@ import * as liveKitCall from '@/services/liveKitCall';
 
 interface Props {
     onClose: () => void;
+    /** Se fornito, la prenotazione è già fissata (dal dettaglio prenotazione) e
+        non si mostra il selettore. */
+    prenotazioneIdFissa?: string;
 }
 
 interface PrenotazioneItem { id: string; label: string; }
@@ -20,11 +23,11 @@ function getCsrf(): string {
     return document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '';
 }
 
-export default function CatturaDocumento({ onClose }: Props) {
+export default function CatturaDocumento({ onClose, prenotazioneIdFissa }: Props) {
     const videoRef = useRef<HTMLVideoElement>(null);
 
     const [prenotazioni, setPrenotazioni] = useState<PrenotazioneItem[]>([]);
-    const [prenotazioneId, setPrenotazioneId] = useState('');
+    const [prenotazioneId, setPrenotazioneId] = useState(prenotazioneIdFissa ?? '');
     const [fronteRetro, setFronteRetro] = useState(true);
     const [fase, setFase] = useState<Fase>('select');
     const [lato, setLato] = useState<Lato>('fronte');
@@ -32,14 +35,17 @@ export default function CatturaDocumento({ onClose }: Props) {
     const [snapshotUrl, setSnapshotUrl] = useState<string | null>(null);
     const [errore, setErrore] = useState<string | null>(null);
 
-    // Carica le prenotazioni candidate + accende la griglia sul chiosco
+    // Carica le prenotazioni candidate (solo se non già fissata) + griglia sul chiosco
     useEffect(() => {
         liveKitCall.sendData('doc_capture_on');
-        fetch('/portineria/cattura/prenotazioni', { headers: { Accept: 'application/json' } })
-            .then(r => r.ok ? r.json() : { prenotazioni: [] })
-            .then(d => setPrenotazioni(d.prenotazioni ?? []))
-            .catch(() => {});
+        if (!prenotazioneIdFissa) {
+            fetch('/portineria/cattura/prenotazioni', { headers: { Accept: 'application/json' } })
+                .then(r => r.ok ? r.json() : { prenotazioni: [] })
+                .then(d => setPrenotazioni(d.prenotazioni ?? []))
+                .catch(() => {});
+        }
         return () => { liveKitCall.sendData('doc_capture_off'); };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     // Aggancia il video del chiosco all'anteprima quando si è in cattura
@@ -122,15 +128,22 @@ export default function CatturaDocumento({ onClose }: Props) {
                 {/* SELECT */}
                 {fase === 'select' && (
                     <div className="space-y-3">
-                        <div>
-                            <label className="block text-xs mb-1" style={{ color: 'var(--color-text-muted)' }}>Prenotazione *</label>
-                            <select value={prenotazioneId} onChange={e => setPrenotazioneId(e.target.value)}
-                                className="w-full rounded px-3 py-2 text-xs outline-none"
-                                style={{ backgroundColor: 'var(--color-bg-primary)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}>
-                                <option value="">— Seleziona prenotazione —</option>
-                                {prenotazioni.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
-                            </select>
-                        </div>
+                        {!prenotazioneIdFissa && (
+                            <div>
+                                <label className="block text-xs mb-1" style={{ color: 'var(--color-text-muted)' }}>Prenotazione *</label>
+                                <select value={prenotazioneId} onChange={e => setPrenotazioneId(e.target.value)}
+                                    className="w-full rounded px-3 py-2 text-xs outline-none"
+                                    style={{ backgroundColor: 'var(--color-bg-primary)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}>
+                                    <option value="">— Seleziona prenotazione —</option>
+                                    {prenotazioni.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+                                </select>
+                            </div>
+                        )}
+                        {prenotazioneIdFissa && (
+                            <p className="text-xs rounded px-3 py-2" style={{ color: 'var(--color-text-secondary)', backgroundColor: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.2)' }}>
+                                Il documento sarà salvato in questa prenotazione. Serve un collegamento video attivo col chiosco.
+                            </p>
+                        )}
                         <label className="flex items-center gap-2.5 cursor-pointer select-none">
                             <input type="checkbox" checked={fronteRetro} onChange={e => setFronteRetro(e.target.checked)}
                                    className="w-4 h-4 rounded" style={{ accentColor: '#3b82f6' }} />

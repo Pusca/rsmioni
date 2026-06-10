@@ -5,7 +5,7 @@ import ReceptionistLayout from '@/Layouts/ReceptionistLayout';
 import AssegnazioneCamere from '@/Components/Prenotazioni/AssegnazioneCamere';
 import SezioneDocumenti, { DocumentoItem } from '@/Components/Documenti/SezioneDocumenti';
 import ViewerDocumenti from '@/Components/Documenti/ViewerDocumenti';
-import ModalAcquisizione from '@/Components/Documenti/ModalAcquisizione';
+import CatturaDocumento from '@/Components/Portineria/CatturaDocumento';
 import ModalPagamentoPOS from '@/Components/Pagamenti/ModalPagamentoPOS';
 import { Camera, CameraConDisponibilita, Prenotazione, Hotel, Profilo } from '@/types';
 
@@ -57,7 +57,7 @@ export default function Show({ prenotazione: pren, profilo, puoCancellare, motiv
     const isGestore = profilo === 'gestore_hotel';
     const Layout = isGestore ? GestoreHotelLayout : ReceptionistLayout;
 
-    const [modalAcquisizione,  setModalAcquisizione]  = useState(false);
+    const [modalCattura,       setModalCattura]       = useState(false);
     const [modalPagamentoPOS,  setModalPagamentoPOS]  = useState(false);
     const [viewerCamereIndice, setViewerCamereIndice] = useState<{ cameraId: string; indice: number } | null>(null);
 
@@ -327,14 +327,15 @@ export default function Show({ prenotazione: pren, profilo, puoCancellare, motiv
                                 <ActionBtn href="/prenotazioni">
                                     Torna alla lista
                                 </ActionBtn>
-                                {/* Acquisizione documento — gestore e receptionist */}
-                                {chioschi.length > 0 && profilo !== 'receptionist_lite' && (
+                                {/* Acquisizione documento dal vivo (stessa logica di Portineria):
+                                    cattura un fotogramma dal video del chiosco in collegamento */}
+                                {profilo !== 'receptionist_lite' && (
                                     <button
                                         type="button"
-                                        onClick={() => setModalAcquisizione(true)}
+                                        onClick={() => setModalCattura(true)}
                                         className="block w-full text-center text-xs py-2 rounded transition-colors"
                                         style={{ color: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.25)' }}>
-                                        Acquisisci documento da chiosco
+                                        Acquisisci documento dal collegamento
                                     </button>
                                 )}
                                 {/* Pagamento POS remoto — gestore e receptionist */}
@@ -373,11 +374,10 @@ export default function Show({ prenotazione: pren, profilo, puoCancellare, motiv
             </div>
 
             {/* ── Modali ── */}
-            {modalAcquisizione && (
-                <ModalAcquisizione
-                    prenotazioneId={pren.id}
-                    chioschi={chioschi}
-                    onClose={() => setModalAcquisizione(false)}
+            {modalCattura && (
+                <CatturaDocumento
+                    prenotazioneIdFissa={pren.id}
+                    onClose={() => setModalCattura(false)}
                 />
             )}
             {modalPagamentoPOS && (
