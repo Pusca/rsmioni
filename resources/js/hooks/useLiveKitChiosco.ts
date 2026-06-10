@@ -33,6 +33,7 @@ interface Result {
     errore:             ErroreMedia | null;
     condivisioneAttiva: boolean;
     grigliaDoc:         boolean; // il receptionist sta acquisendo un documento → mostra cornice guida
+    inAttesa:           boolean; // il receptionist sta gestendo un altro chiosco → mostra "un momento…"
 }
 
 interface TokenResp {
@@ -65,6 +66,7 @@ export function useLiveKitChiosco(): Result {
     const [errore,      setErrore]      = useState<ErroreMedia | null>(null);
     const [condivisioneAttiva, setCondivisioneAttiva] = useState(false);
     const [grigliaDoc, setGrigliaDoc] = useState(false);
+    const [inAttesa, setInAttesa] = useState(false);
 
     useEffect(() => {
         let cancelled = false;
@@ -79,6 +81,7 @@ export function useLiveKitChiosco(): Result {
             setStato('idle');
             setCondivisioneAttiva(false);
             setGrigliaDoc(false);
+            setInAttesa(false);
             if (localVideoRef.current)  localVideoRef.current.srcObject  = null;
             if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
         };
@@ -111,6 +114,8 @@ export function useLiveKitChiosco(): Result {
                         const msg = JSON.parse(new TextDecoder().decode(payload)) as { topic?: string };
                         if (msg.topic === 'doc_capture_on')  setGrigliaDoc(true);
                         if (msg.topic === 'doc_capture_off') setGrigliaDoc(false);
+                        if (msg.topic === 'attesa_on')  setInAttesa(true);
+                        if (msg.topic === 'attesa_off') setInAttesa(false);
                     } catch { /* ignora messaggi non riconosciuti */ }
                 })
                 .on(RoomEvent.Disconnected, () => { if (!cancelled) disconnect(); });
@@ -178,5 +183,5 @@ export function useLiveKitChiosco(): Result {
         };
     }, []);
 
-    return { sessionTipo, localVideoRef, remoteVideoRef, stato, errore, condivisioneAttiva, grigliaDoc };
+    return { sessionTipo, localVideoRef, remoteVideoRef, stato, errore, condivisioneAttiva, grigliaDoc, inAttesa };
 }

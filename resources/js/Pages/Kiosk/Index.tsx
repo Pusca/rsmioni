@@ -107,6 +107,7 @@ export default function KioskIndex({ chiosco, stato_iniziale, messaggio_attesa: 
                     errore={lk.errore}
                     condivisioneAttiva={lk.condivisioneAttiva}
                     grigliaDoc={lk.grigliaDoc}
+                    inAttesa={lk.inAttesa}
                 />
             ) : inChiaro ? (
                 /* Chiaro: video bidirezionale, no audio (LiveKit) */
@@ -117,6 +118,7 @@ export default function KioskIndex({ chiosco, stato_iniziale, messaggio_attesa: 
                     stato={lk.stato}
                     condivisioneAttiva={lk.condivisioneAttiva}
                     grigliaDoc={lk.grigliaDoc}
+                    inAttesa={lk.inAttesa}
                 />
             ) : stato === 'in_chiamata' ? (
                 /* Chiamata in corso: attesa risposta receptionist */
@@ -1215,6 +1217,7 @@ interface CollegamentoChiaroScreenProps {
     stato:              import('@/hooks/useWebRtcChiosco').StatoParlatoChiosco;
     condivisioneAttiva: boolean;
     grigliaDoc?:        boolean;
+    inAttesa?:          boolean;
 }
 
 /** Stile della miniatura video (angolo basso-destra). */
@@ -1223,6 +1226,23 @@ const STILE_MINIATURA: React.CSSProperties = {
     borderRadius: '12px', objectFit: 'cover', zIndex: 20, backgroundColor: '#050710',
     border: '1px solid rgba(255,255,255,0.25)',
 };
+
+/** Overlay "un momento e sono subito da lei": il receptionist sta gestendo un altro chiosco. */
+function OverlayAttesa() {
+    return (
+        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-5 px-8 text-center"
+             style={{ backgroundColor: 'rgba(5,7,16,0.94)' }}>
+            <div className="w-12 h-12 rounded-full border-2 border-t-transparent animate-spin"
+                 style={{ borderColor: 'rgba(59,130,246,0.35)', borderTopColor: '#3b82f6' }} />
+            <div>
+                <p className="text-2xl font-light" style={{ color: '#fff' }}>Un momento e sono subito da lei</p>
+                <p className="text-base mt-2" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                    Il receptionist la servirà tra pochi istanti
+                </p>
+            </div>
+        </div>
+    );
+}
 
 /** Cornice/griglia guida per il posizionamento del documento davanti alla camera. */
 function GrigliaDocumento() {
@@ -1244,6 +1264,7 @@ function CollegamentoChiaroScreen({
     stato,
     condivisioneAttiva,
     grigliaDoc,
+    inAttesa,
 }: CollegamentoChiaroScreenProps) {
     const isConnected = stato === 'connected';
 
@@ -1294,8 +1315,9 @@ function CollegamentoChiaroScreen({
                            : { ...STILE_MINIATURA, border: '1px solid rgba(34,197,94,0.3)' }} />
 
                 {grigliaDoc && <GrigliaDocumento />}
+                {inAttesa && <OverlayAttesa />}
 
-                {!isConnected && !grigliaDoc && (
+                {!isConnected && !grigliaDoc && !inAttesa && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
                         <div className="rounded-full flex items-center justify-center"
                              style={{ width: 72, height: 72,
@@ -1325,6 +1347,7 @@ interface ParlatoScreenProps {
     errore:             ErroreMedia | null;
     condivisioneAttiva: boolean;
     grigliaDoc?:        boolean;
+    inAttesa?:          boolean;
 }
 
 function ParlatoScreen({
@@ -1335,6 +1358,7 @@ function ParlatoScreen({
     errore,
     condivisioneAttiva,
     grigliaDoc,
+    inAttesa,
 }: ParlatoScreenProps) {
     const isConnected = stato === 'connected';
 
@@ -1419,6 +1443,7 @@ function ParlatoScreen({
                            : { ...STILE_MINIATURA, border: '1px solid rgba(59,130,246,0.3)' }} />
 
                 {grigliaDoc && <GrigliaDocumento />}
+                {inAttesa && <OverlayAttesa />}
             </div>
         </div>
     );

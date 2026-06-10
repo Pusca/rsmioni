@@ -1,63 +1,68 @@
 import { Room, RoomEvent, Track, type RemoteTrack } from 'livekit-client';
 
 /**
- * Gestore SINGLETON della videochiamata LiveKit del receptionist.
+ * Gestore SINGLETON multi-room delle videochiamate LiveKit del receptionist.
  *
- * Vive a livello di modulo (fuori dall'albero React), quindi la `Room`
- * sopravvive alla navigazione tra pagine Inertia (es. Portineria → Prenotazioni).
- * I componenti (AreaVideo a tutto schermo, PiP flottante) sono solo "viste":
- * si sottoscrivono allo stato e attaccano le track ai propri <video>.
+ * Tiene N chiamate (una Room per chiosco) CONNESSE insieme (fino a ~8), così il
+ * passaggio da una all'altra non richiede riconnessione → quasi istantaneo.
+ * Il receptionist pubblica camera/microfono SOLO nella chiamata "attiva"; le
+ * altre restano connesse ma in attesa (il loro chiosco mostra "un momento…").
  *
- * Tipi sessione:
- *   - chiaro:   receptionist pubblica webcam, vede il chiosco
- *   - nascosto: receptionist NON pubblica (canPublish=false lato token), solo visione
- *   - parlato:  receptionist pubblica webcam + microfono
+ * Vive a livello di modulo → sopravvive alla navigazione tra pagine Inertia.
+ * I componenti sono viste: si sottoscrivono allo snapshot e attaccano le track.
  */
 
-export type TipoCall = 'chiaro' | 'nascosto' | 'parlato';
-export type StatoCall = 'idle' | 'connecting' | 'connected' | 'error';
+export type TipoCall  = 'chiaro' | 'nascosto' | 'parlato';
+export type StatoCall  = 'connecting' | 'connected' | 'error';
 
-export interface CallState {
-    stato:        StatoCall;
-    tipo:         TipoCall | null;
-    sessionId:    string | null;
-    chioscoId:    string | null;
-    chioscoNome:  string | null;
-    condivisione:        boolean; // schermo condiviso ricevuto (remoto)
-    condivisioneLocale:  boolean; // schermo condiviso dal receptionist (locale)
-    remoteVer:    number; // incrementa quando arriva/cambia la track video remota (forza re-attach)
-    errore:       string | null;
+interface CallEntry {
+    room:             Room;
+    sessionId:        string;
+    tipo:             TipoCall;
+    chioscoId:        string;
+    chioscoNome:      string;
+    stato:            StatoCall;
+    remoteVideoTrack: RemoteTrack | null;
+    hiddenVideo:      HTMLVideoElement | null;
+    condivisione:     boolean; // schermo condiviso ricevuto (lato chiosco)
+    remoteVer:        number;
 }
 
-const STATE_INIZIALE: CallState = {
-    stato: 'idle', tipo: null, sessionId: null, chioscoId: null,
-    chioscoNome: null, condivisione: false, condivisioneLocale: false, remoteVer: 0, errore: null,
-};
+// ── Stato modulo ──────────────────────────────────────────────────────────
+const calls = new Map<string, CallEntry>(); // key: chioscoId
+let activeChioscoId: string | null = null;
+let condivisioneLocale = false;              // schermo condiviso dal receptionist (nell'attiva)
 
-let room: Room | null = null;
-let state: CallState = { ...STATE_INIZIALE };
+// ── Snapshot per React (useSyncExternalStore) ───────────────────────────────
+export interface PublicCall {
+    chioscoId:    string;
+    stato:        StatoCall;
+    tipo:         TipoCall;
+    chioscoNome:  string;
+    sessionId:    string;
+    condivisione: boolean;
+    remoteVer:    number;
+    attiva:       boolean;
+}
+export interface Snapshot {
+    activeChioscoId:    string | null;
+    condivisioneLocale: boolean;
+    ver:                number;
+    calls:              Record<string, PublicCall>;
+}
+
+let snapshot: Snapshot = { activeChioscoId: null, condivisioneLocale: false, ver: 0, calls: {} };
 const listeners = new Set<() => void>();
 
-// Track remota corrente + <video> nascosto sempre agganciato ad essa: serve a
-// (a) tenere viva la decodifica per la cattura documento, (b) permettere lo
-// snapshot anche quando nessun elemento visibile è montato.
-let remoteVideoTrack: RemoteTrack | null = null;
-let hiddenVideo: HTMLVideoElement | null = null;
-
-function ensureHiddenVideo(): HTMLVideoElement {
-    if (!hiddenVideo) {
-        hiddenVideo = document.createElement('video');
-        hiddenVideo.muted = true;
-        hiddenVideo.autoplay = true;
-        hiddenVideo.playsInline = true;
-        hiddenVideo.style.cssText = 'position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;left:-9999px;top:-9999px;';
-        document.body.appendChild(hiddenVideo);
-    }
-    return hiddenVideo;
-}
-
-function emit(patch: Partial<CallState>) {
-    state = { ...state, ...patch };
+function rebuild() {
+    const c: Record<string, PublicCall> = {};
+    calls.forEach((e, id) => {
+        c[id] = {
+            chioscoId: id, stato: e.stato, tipo: e.tipo, chioscoNome: e.chioscoNome, sessionId: e.sessionId,
+            condivisione: e.condivisione, remoteVer: e.remoteVer, attiva: id === activeChioscoId,
+        };
+    });
+    snapshot = { activeChioscoId, condivisioneLocale, ver: snapshot.ver + 1, calls: c };
     listeners.forEach((l) => l());
 }
 
@@ -65,11 +70,9 @@ export function subscribe(cb: () => void): () => void {
     listeners.add(cb);
     return () => { listeners.delete(cb); };
 }
+export function getSnapshot(): Snapshot { return snapshot; }
 
-export function getState(): CallState {
-    return state;
-}
-
+// ── Util ────────────────────────────────────────────────────────────────────
 function getCsrf(): string {
     return document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '';
 }
@@ -77,12 +80,8 @@ function getCsrf(): string {
 async function fetchToken(sessionId: string): Promise<{ url: string; token: string } | null> {
     try {
         const res = await fetch('/portineria/livekit/token', {
-            method:  'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept':       'application/json',
-                'X-CSRF-TOKEN': getCsrf(),
-            },
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': getCsrf() },
             body: JSON.stringify({ session_id: sessionId }),
         });
         if (!res.ok) { console.warn('[LiveKitCall] token error', res.status); return null; }
@@ -95,163 +94,182 @@ async function fetchToken(sessionId: string): Promise<{ url: string; token: stri
     }
 }
 
-function setRemoteVideo(track: RemoteTrack) {
-    remoteVideoTrack = track;
-    track.attach(ensureHiddenVideo());
-    // Bump remoteVer + connected: forza i componenti a ri-agganciare la track
-    // alla loro <video> visibile (l'attach effect dipende da remoteVer).
-    emit({ stato: 'connected', remoteVer: state.remoteVer + 1 });
+function ensureHiddenVideo(entry: CallEntry): HTMLVideoElement {
+    if (!entry.hiddenVideo) {
+        const v = document.createElement('video');
+        v.muted = true; v.autoplay = true; v.playsInline = true;
+        v.style.cssText = 'position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;left:-9999px;top:-9999px;';
+        document.body.appendChild(v);
+        entry.hiddenVideo = v;
+    }
+    return entry.hiddenVideo;
 }
 
-/**
- * Avvia (o cambia) la chiamata. Idempotente: se è già attiva la stessa
- * sessione+tipo non fa nulla. Se cambia, chiude la precedente e riparte.
- */
+function sendTo(room: Room, topic: string) {
+    try {
+        room.localParticipant.publishData(new TextEncoder().encode(JSON.stringify({ topic })), { reliable: true });
+    } catch { /* ignore */ }
+}
+
+// ── Avvio / cambio chiamata ─────────────────────────────────────────────────
 export async function startCall(opts: {
-    sessionId: string;
-    tipo: TipoCall;
-    chioscoId: string;
-    chioscoNome: string;
+    sessionId: string; tipo: TipoCall; chioscoId: string; chioscoNome: string;
 }): Promise<void> {
-    if (room && state.sessionId === opts.sessionId && state.tipo === opts.tipo
-        && (state.stato === 'connected' || state.stato === 'connecting')) {
-        return; // già attiva
+    const existing = calls.get(opts.chioscoId);
+    if (existing && existing.sessionId === opts.sessionId && existing.tipo === opts.tipo) {
+        await setActive(opts.chioscoId); // già presente → rendila attiva
+        return;
+    }
+    if (existing) {
+        await stopCall(opts.chioscoId); // sessione/tipo cambiati → ricrea
     }
 
-    await stopCall();
-
-    emit({
-        stato: 'connecting', tipo: opts.tipo, sessionId: opts.sessionId,
-        chioscoId: opts.chioscoId, chioscoNome: opts.chioscoNome,
-        condivisione: false, errore: null,
-    });
-
     const cred = await fetchToken(opts.sessionId);
-    // Se nel frattempo la chiamata è cambiata/chiusa, abortisci
-    if (state.sessionId !== opts.sessionId) return;
     if (!cred) {
-        emit({ stato: 'error', errore: 'Token LiveKit non disponibile.' });
+        // entry in errore minima
+        calls.set(opts.chioscoId, {
+            room: new Room(), sessionId: opts.sessionId, tipo: opts.tipo, chioscoId: opts.chioscoId,
+            chioscoNome: opts.chioscoNome, stato: 'error', remoteVideoTrack: null, hiddenVideo: null,
+            condivisione: false, remoteVer: 0,
+        });
+        rebuild();
         return;
     }
 
-    const r = new Room({ adaptiveStream: true, dynacast: true });
-    room = r;
+    const room = new Room({ adaptiveStream: true, dynacast: true });
+    const entry: CallEntry = {
+        room, sessionId: opts.sessionId, tipo: opts.tipo, chioscoId: opts.chioscoId,
+        chioscoNome: opts.chioscoNome, stato: 'connecting', remoteVideoTrack: null, hiddenVideo: null,
+        condivisione: false, remoteVer: 0,
+    };
+    calls.set(opts.chioscoId, entry);
+    rebuild();
 
-    r.on(RoomEvent.TrackSubscribed, (track: RemoteTrack) => {
-        if (track.kind === Track.Kind.Video) {
-            if (track.source === Track.Source.ScreenShare) emit({ condivisione: true });
-            setRemoteVideo(track);
-        }
-        if (track.kind === Track.Kind.Audio) track.attach();
-    });
-    r.on(RoomEvent.TrackUnsubscribed, (track: RemoteTrack) => {
-        if (track.source === Track.Source.ScreenShare) emit({ condivisione: false });
-        if (track === remoteVideoTrack) remoteVideoTrack = null;
-    });
-    r.on(RoomEvent.Disconnected, () => {
-        if (room === r) {
-            room = null;
-            remoteVideoTrack = null;
-            emit({ ...STATE_INIZIALE });
-        }
-    });
+    const setRemote = (track: RemoteTrack) => {
+        if (track.kind !== Track.Kind.Video) { if (track.kind === Track.Kind.Audio) track.attach(); return; }
+        entry.remoteVideoTrack = track;
+        track.attach(ensureHiddenVideo(entry));
+        if (track.source === Track.Source.ScreenShare) entry.condivisione = true;
+        entry.stato = 'connected';
+        entry.remoteVer += 1;
+        rebuild();
+    };
 
-    try {
-        await r.connect(cred.url, cred.token);
-        if (room !== r) { r.disconnect(); return; } // superata da un'altra start/stop
-        console.log('[LiveKitCall] connesso', opts.sessionId, opts.tipo);
-
-        if (opts.tipo === 'chiaro' || opts.tipo === 'parlato') {
-            await r.localParticipant.setCameraEnabled(true);
-            if (room !== r) return; // superata durante la pubblicazione
-            if (opts.tipo === 'parlato') {
-                await r.localParticipant.setMicrophoneEnabled(true);
-                if (room !== r) return;
-            }
-        }
-
-        // Track remote già presenti (chiosco entrato per primo)
-        r.remoteParticipants.forEach((p) => {
-            p.trackPublications.forEach((pub) => {
-                if (pub.track) {
-                    const t = pub.track as RemoteTrack;
-                    if (t.kind === Track.Kind.Video) setRemoteVideo(t);
-                    if (t.kind === Track.Kind.Audio) t.attach();
-                }
-            });
+    room
+        .on(RoomEvent.TrackSubscribed, (track: RemoteTrack) => setRemote(track))
+        .on(RoomEvent.TrackUnsubscribed, (track: RemoteTrack) => {
+            if (track.source === Track.Source.ScreenShare) { entry.condivisione = false; rebuild(); }
+            if (track === entry.remoteVideoTrack) entry.remoteVideoTrack = null;
+        })
+        .on(RoomEvent.Disconnected, () => {
+            if (calls.get(opts.chioscoId) === entry) { calls.delete(opts.chioscoId); if (activeChioscoId === opts.chioscoId) activeChioscoId = null; rebuild(); }
         });
 
-        if (state.stato === 'connecting') emit({ stato: 'connected' });
+    try {
+        await room.connect(cred.url, cred.token);
+        if (calls.get(opts.chioscoId) !== entry) { room.disconnect(); return; } // superata
+        if (entry.stato === 'connecting') { entry.stato = 'connected'; }
+
+        // track remote già presenti
+        room.remoteParticipants.forEach((p) => p.trackPublications.forEach((pub) => { if (pub.track) setRemote(pub.track as RemoteTrack); }));
+
+        rebuild();
+        await setActive(opts.chioscoId); // la nuova chiamata diventa attiva
     } catch (err) {
         console.error('[LiveKitCall] connessione fallita', err);
-        if (room === r) { room = null; emit({ stato: 'error', errore: 'Connessione fallita.' }); }
+        if (calls.get(opts.chioscoId) === entry) { entry.stato = 'error'; rebuild(); }
     }
 }
 
-export async function stopCall(): Promise<void> {
-    const r = room;
-    room = null;
-    remoteVideoTrack = null;
-    if (r) {
-        try { r.disconnect(); } catch { /* ignore */ }
+/** Rende attiva una chiamata: pubblica camera/mic in quella, le toglie dalla precedente. */
+export async function setActive(chioscoId: string | null): Promise<void> {
+    if (activeChioscoId === chioscoId) return;
+
+    // Disattiva la precedente
+    const prev = activeChioscoId ? calls.get(activeChioscoId) : null;
+    if (prev) {
+        try { await prev.room.localParticipant.setScreenShareEnabled(false); } catch { /* ignore */ }
+        try { await prev.room.localParticipant.setCameraEnabled(false); } catch { /* ignore */ }
+        try { await prev.room.localParticipant.setMicrophoneEnabled(false); } catch { /* ignore */ }
+        sendTo(prev.room, 'attesa_on'); // il chiosco mostra "un momento…"
     }
-    if (state.stato !== 'idle') emit({ ...STATE_INIZIALE });
+
+    activeChioscoId = chioscoId;
+    condivisioneLocale = false;
+
+    const next = chioscoId ? calls.get(chioscoId) : null;
+    if (next) {
+        sendTo(next.room, 'attesa_off');
+        try {
+            if (next.tipo !== 'nascosto') await next.room.localParticipant.setCameraEnabled(true);
+            if (next.tipo === 'parlato')  await next.room.localParticipant.setMicrophoneEnabled(true);
+        } catch (e) { console.warn('[LiveKitCall] pubblicazione attiva fallita', e); }
+    }
+    rebuild();
 }
 
-/** Attacca la track video remota a un <video> visibile. */
-export function attachRemote(el: HTMLVideoElement | null) {
-    if (el && remoteVideoTrack && remoteVideoTrack.kind === Track.Kind.Video) {
-        remoteVideoTrack.attach(el);
-    }
+export async function stopCall(chioscoId: string): Promise<void> {
+    const e = calls.get(chioscoId);
+    if (!e) return;
+    calls.delete(chioscoId);
+    if (activeChioscoId === chioscoId) activeChioscoId = null;
+    try { e.room.disconnect(); } catch { /* ignore */ }
+    if (e.hiddenVideo && e.hiddenVideo.parentNode) e.hiddenVideo.parentNode.removeChild(e.hiddenVideo);
+    if (calls.size === 0) condivisioneLocale = false;
+    rebuild();
 }
 
-/** Attacca la webcam locale del receptionist a un <video> visibile. */
-export function attachLocal(el: HTMLVideoElement | null) {
-    if (!el || !room) return;
-    const pub = room.localParticipant.getTrackPublication(Track.Source.Camera);
+export async function stopActive(): Promise<void> {
+    if (activeChioscoId) await stopCall(activeChioscoId);
+}
+
+// ── Attach video ────────────────────────────────────────────────────────────
+export function attachRemote(el: HTMLVideoElement | null, chioscoId?: string) {
+    const id = chioscoId ?? activeChioscoId;
+    if (!el || !id) return;
+    const e = calls.get(id);
+    if (e?.remoteVideoTrack) e.remoteVideoTrack.attach(el);
+}
+
+export function attachLocal(el: HTMLVideoElement | null, chioscoId?: string) {
+    const id = chioscoId ?? activeChioscoId;
+    if (!el || !id) return;
+    const e = calls.get(id);
+    const pub = e?.room.localParticipant.getTrackPublication(Track.Source.Camera);
     if (pub?.track) pub.track.attach(el);
 }
 
+// ── Condivisione schermo (sull'attiva) ──────────────────────────────────────
 export async function startScreenShare(): Promise<boolean> {
-    if (!room || state.tipo === 'nascosto') return false;
-    try {
-        await room.localParticipant.setScreenShareEnabled(true);
-        emit({ condivisioneLocale: true });
-        return true;
-    } catch (e) {
-        console.warn('[LiveKitCall] screen share fallita/annullata', e);
-        return false;
-    }
+    const e = activeChioscoId ? calls.get(activeChioscoId) : null;
+    if (!e || e.tipo === 'nascosto') return false;
+    try { await e.room.localParticipant.setScreenShareEnabled(true); condivisioneLocale = true; rebuild(); return true; }
+    catch (err) { console.warn('[LiveKitCall] screen share fallita/annullata', err); return false; }
 }
-
 export async function stopScreenShare(): Promise<void> {
-    if (!room) return;
-    try { await room.localParticipant.setScreenShareEnabled(false); } catch { /* ignore */ }
-    emit({ condivisioneLocale: false });
+    const e = activeChioscoId ? calls.get(activeChioscoId) : null;
+    if (!e) return;
+    try { await e.room.localParticipant.setScreenShareEnabled(false); } catch { /* ignore */ }
+    condivisioneLocale = false; rebuild();
 }
 
-/** Invia un messaggio dati (topic) agli altri partecipanti (es. il chiosco). */
-export function sendData(topic: string): void {
-    if (!room) return;
-    try {
-        const payload = new TextEncoder().encode(JSON.stringify({ topic }));
-        room.localParticipant.publishData(payload, { reliable: true });
-    } catch (e) {
-        console.warn('[LiveKitCall] publishData fallita', e);
-    }
+// ── Messaggio dati al chiosco (default: attivo) ─────────────────────────────
+export function sendData(topic: string, chioscoId?: string): void {
+    const id = chioscoId ?? activeChioscoId;
+    const e = id ? calls.get(id) : null;
+    if (e) sendTo(e.room, topic);
 }
 
-/** Cattura un fotogramma dal video remoto (chiosco) come JPEG Blob. */
-export async function captureRemoteFrame(): Promise<Blob | null> {
-    const v = hiddenVideo;
+// ── Cattura fotogramma dal video del chiosco (default: attivo) ──────────────
+export async function captureRemoteFrame(chioscoId?: string): Promise<Blob | null> {
+    const id = chioscoId ?? activeChioscoId;
+    const e = id ? calls.get(id) : null;
+    const v = e?.hiddenVideo;
     if (!v || !v.videoWidth) return null;
     const canvas = document.createElement('canvas');
-    canvas.width  = v.videoWidth;
-    canvas.height = v.videoHeight;
+    canvas.width = v.videoWidth; canvas.height = v.videoHeight;
     const ctx = canvas.getContext('2d');
     if (!ctx) return null;
     ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
-    return new Promise<Blob | null>((resolve) => {
-        canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.92);
-    });
+    return new Promise<Blob | null>((resolve) => canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.92));
 }

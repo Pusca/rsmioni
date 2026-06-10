@@ -11,20 +11,22 @@ import CatturaDocumento from './Portineria/CatturaDocumento';
  * es. su /prenotazioni). Legge dal gestore singleton liveKitCall.
  */
 export default function PipOverlay() {
-    const call     = useLiveKitCall();
+    const snap     = useLiveKitCall();
     const videoRef = useRef<HTMLVideoElement>(null);
     const currentUrl = usePage().url;
     const [showCattura, setShowCattura] = useState(false);
 
+    // Il PiP mostra la chiamata ATTIVA
+    const call = snap.activeChioscoId ? snap.calls[snap.activeChioscoId] : undefined;
     const onPortineria = currentUrl.startsWith('/portineria');
-    const attivo = call.stato === 'connecting' || call.stato === 'connected';
+    const attivo = !!call && (call.stato === 'connecting' || call.stato === 'connected');
 
-    // Aggancia la track remota al video del PiP
+    // Aggancia la track remota dell'attiva al video del PiP
     useEffect(() => {
         if (videoRef.current) liveKitCall.attachRemote(videoRef.current);
-    }, [call.stato, call.condivisione, call.sessionId, call.remoteVer]);
+    }, [call?.stato, call?.condivisione, call?.sessionId, call?.remoteVer]);
 
-    if (!attivo || onPortineria) return null;
+    if (!attivo || onPortineria || !call) return null;
 
     const colore = call.tipo === 'parlato' ? '#3b82f6'
                  : call.tipo === 'nascosto' ? '#eab308'
@@ -35,8 +37,8 @@ export default function PipOverlay() {
 
     const termina = async () => {
         const cid = call.chioscoId;
-        await liveKitCall.stopCall();
-        if (cid) { try { await cambiaStato(cid, 'idle'); } catch { /* best-effort */ } }
+        await liveKitCall.stopCall(cid);
+        try { await cambiaStato(cid, 'idle'); } catch { /* best-effort */ }
     };
 
     return (

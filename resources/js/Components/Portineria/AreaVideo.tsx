@@ -34,8 +34,10 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
     const isRL = profilo === 'receptionist_lite';
     const [showCattura, setShowCattura] = useState(false);
 
-    // Stato della videochiamata dal gestore singleton (persiste tra le pagine)
-    const call = useLiveKitCall();
+    // Snapshot multi-room dal gestore singleton (persiste tra le pagine).
+    // `call` = stato della chiamata DEL CHIOSCO SELEZIONATO (può non esserci).
+    const snap = useLiveKitCall();
+    const call = chiosco ? snap.calls[chiosco.id] : undefined;
     const localVideoRef  = useRef<HTMLVideoElement | null>(null);
     const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
 
@@ -76,18 +78,26 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [chiosco?.id, chiosco?.stato, sessionId]);
 
-    // Attacca i <video> alle track del gestore quando cambia lo stato chiamata
+    // Selezionando un chiosco che ha già una chiamata → rendila attiva (switch).
     useEffect(() => {
-        liveKitCall.attachRemote(remoteVideoRef.current);
-        liveKitCall.attachLocal(localVideoRef.current);
-        // chiosco?.stato/id: al rientro in Portineria (dal PiP) la vista del chiosco
-        // si rimonta → riaggancia il video, altrimenti resta nero.
-    }, [call.stato, call.tipo, call.condivisione, call.condivisioneLocale, call.remoteVer, chiosco?.stato, chiosco?.id]);
+        if (chiosco && snap.calls[chiosco.id] && snap.activeChioscoId !== chiosco.id) {
+            liveKitCall.setActive(chiosco.id);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [chiosco?.id, call?.sessionId]);
+
+    // Attacca i <video> alle track del CHIOSCO SELEZIONATO quando cambia lo stato.
+    useEffect(() => {
+        liveKitCall.attachRemote(remoteVideoRef.current, chiosco?.id);
+        liveKitCall.attachLocal(localVideoRef.current, chiosco?.id);
+        // chiosco?.stato/id: al rientro in Portineria (dal PiP) la vista si rimonta
+        // → riaggancia il video, altrimenti resta nero.
+    }, [call?.stato, call?.condivisione, snap.condivisioneLocale, call?.remoteVer, chiosco?.stato, chiosco?.id]);
 
     // Viste: adattano lo stato del gestore all'interfaccia delle sub-view
-    const statoCollegamento: StatoCollegamento = call.stato;
-    const erroreMedia: ErroreMedia | null = call.errore
-        ? { tipo: 'sconosciuto', messaggio: call.errore, suggerimento: 'Chiudi e riprova il collegamento.' }
+    const statoCollegamento: StatoCollegamento = call?.stato ?? 'connecting';
+    const erroreMedia: ErroreMedia | null = call?.stato === 'error'
+        ? { tipo: 'sconosciuto', messaggio: 'Connessione non riuscita.', suggerimento: 'Chiudi e riprova il collegamento.' }
         : null;
 
     // ── Helper: chiudi sessione media attiva (chiaro/nascosto) ─────────────
@@ -132,8 +142,8 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
                 const tipo: TipoCollegamento = nuovoStato === 'in_chiaro' ? 'chiaro' : 'nascosto';
                 await avviaSessioneMedia(tipo);
             } else {
-                // Stato senza media (es. idle): chiudi la chiamata persistente
-                liveKitCall.stopCall();
+                // Stato senza media (es. idle): chiudi la chiamata di QUESTO chiosco
+                liveKitCall.stopCall(chiosco.id);
             }
         } else {
             setErrore(res.error ?? 'Errore');
@@ -169,7 +179,7 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
     const chiudiParlato = async () => {
         if (!chiosco || !sessionId || loading) return;
         // Ferma la condivisione schermo prima di chiudere la sessione
-        if (call.condivisioneLocale) liveKitCall.stopScreenShare();
+        if (snap.condivisioneLocale) liveKitCall.stopScreenShare();
         setLoading(true);
         setErrore(null);
         await chiudiSessioneParlato(sessionId, chiosco.id);
@@ -366,8 +376,8 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
                                                 icon={<MicIcon />}
                                             />
                                         )}
-                                        {call.stato === 'connected' && (
-                                            call.condivisioneLocale ? (
+                                        {call?.stato === 'connected' && (
+                                            snap.condivisioneLocale ? (
                                                 <AzioneBtn
                                                     label="Ferma condivisione"
                                                     color="#f59e0b"
@@ -385,7 +395,7 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
                                                 />
                                             )
                                         )}
-                                        {call.stato === 'connected' && (
+                                        {call?.stato === 'connected' && (
                                             <AzioneBtn
                                                 label="Acquisisci documento"
                                                 color="#3b82f6"
@@ -458,14 +468,14 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
                                 <ParlatoView
                                     localVideoRef={localVideoRef}
                                     remoteVideoRef={remoteVideoRef}
-                                    stato={call.stato}
+                                    stato={statoCollegamento}
                                     errore={erroreMedia}
-                                    condivisioneSchermo={call.condivisioneLocale}
+                                    condivisioneSchermo={snap.condivisioneLocale}
                                 />
                                 <div className="flex gap-3 flex-wrap justify-center">
                                     {/* Condivisione schermo — solo quando connesso */}
-                                    {call.stato === 'connected' && (
-                                        call.condivisioneLocale ? (
+                                    {call?.stato === 'connected' && (
+                                        snap.condivisioneLocale ? (
                                             <AzioneBtn
                                                 label="Ferma condivisione"
                                                 color="#f59e0b"
@@ -483,7 +493,7 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
                                             />
                                         )
                                     )}
-                                    {call.stato === 'connected' && !isRL && (
+                                    {call?.stato === 'connected' && !isRL && (
                                         <AzioneBtn
                                             label="Acquisisci documento"
                                             color="#3b82f6"

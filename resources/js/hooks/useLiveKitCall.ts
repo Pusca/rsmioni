@@ -1,10 +1,11 @@
 import { useSyncExternalStore } from 'react';
-import { subscribe, getState, type CallState } from '@/services/liveKitCall';
+import { subscribe, getSnapshot, type Snapshot } from '@/services/liveKitCall';
 
 /**
- * Espone lo stato del gestore singleton della videochiamata LiveKit.
- * Il componente si ri-renderizza ad ogni cambiamento di stato della chiamata.
+ * Espone lo snapshot multi-room delle videochiamate LiveKit.
+ * Il componente si ri-renderizza ad ogni cambiamento (nuova chiamata, switch
+ * attiva, arrivo track remota, condivisione, ecc.).
  */
-export function useLiveKitCall(): CallState {
-    return useSyncExternalStore(subscribe, getState, getState);
+export function useLiveKitCall(): Snapshot {
+    return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 }

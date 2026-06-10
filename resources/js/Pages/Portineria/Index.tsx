@@ -34,12 +34,13 @@ export default function PortineriaIndex({ chioschi: chioschiIniziali, hotel_ids,
 
     // Se rientro in Portineria con una chiamata attiva (persistita nel PiP),
     // riseleziono automaticamente il suo chiosco per riaprire la vista piena.
-    const call = useLiveKitCall();
+    const snap = useLiveKitCall();
     useEffect(() => {
-        if (call.chioscoId && !selezioneId && chioschi.some((c) => c.id === call.chioscoId)) {
-            setSelezioneId(call.chioscoId);
+        const active = snap.activeChioscoId;
+        if (active && !selezioneId && chioschi.some((c) => c.id === active)) {
+            setSelezioneId(active);
         }
-    }, [call.chioscoId, selezioneId, chioschi]);
+    }, [snap.activeChioscoId, selezioneId, chioschi]);
 
     // ── Aggiornamento stato da evento realtime ────────────────────────────
     const handleStatoCambiato = useCallback((update: StatoAggiornato) => {

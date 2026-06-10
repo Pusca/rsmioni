@@ -25,7 +25,10 @@
       "Bash(grep -nE \"^\\\\s*</div>\\\\s*$|^\\\\s*\\\\\\);\\\\s*$|^}\\\\s*$|function NessunaSeleziona|ScreenStopIcon\\\\\\(\\\\\\)\" resources/js/Components/Portineria/AreaVideo.tsx)",
       "Bash(php -l app/Http/Controllers/Portineria/CatturaDocumentoController.php)",
       "Bash(php artisan *)",
-      "Bash(php -l database/seeders/ChioscoDemo1Seeder.php)"
+      "Bash(php -l database/seeders/ChioscoDemo1Seeder.php)",
+      "Bash(git tag *)",
+      "Bash(cd /c/dev/rsMioni)",
+      "Bash(sed -i 's/grigliaDoc={lk.grigliaDoc}/grigliaDoc={lk.grigliaDoc}\\\\n                    inAttesa={lk.inAttesa}/g' resources/js/Pages/Kiosk/Index.tsx)"
     ]
   }
 }
