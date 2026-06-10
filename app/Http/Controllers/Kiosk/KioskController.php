@@ -30,6 +30,12 @@ class KioskController extends Controller
             return redirect()->route('kiosk.seleziona');
         }
 
+        // Il chiosco sta caricando la propria pagina → è presente: se lo stato è
+        // Offline (es. cache svuotata da un deploy/optimize:clear) lo riporta a Idle.
+        if ($this->portineria->statoChiosco($chiosco->id) === StatoChiosco::Offline) {
+            $this->portineria->impostaStato($chiosco, StatoChiosco::Idle);
+        }
+
         return Inertia::render('Kiosk/Index', [
             'chiosco'          => $chiosco,
             // Stato runtime e messaggio passati come valori iniziali (SSR).

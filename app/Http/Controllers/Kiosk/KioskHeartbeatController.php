@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers\Kiosk;
 
+use App\Enums\StatoChiosco;
 use App\Http\Controllers\Controller;
 use App\Models\Chiosco;
 use App\Services\DiagnosticaChioscoService;
+use App\Services\PortineriaService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -26,7 +28,10 @@ use Illuminate\Http\Request;
  */
 class KioskHeartbeatController extends Controller
 {
-    public function __construct(private readonly DiagnosticaChioscoService $diagnostica) {}
+    public function __construct(
+        private readonly DiagnosticaChioscoService $diagnostica,
+        private readonly PortineriaService         $portineria,
+    ) {}
 
     public function store(Request $request): JsonResponse
     {
@@ -58,6 +63,12 @@ class KioskHeartbeatController extends Controller
             'chiosco_id'  => $chiosco->id,
             'chiosco_nome'=> $chiosco->nome,
         ]);
+
+        // Auto-recupero: un chiosco che invia heartbeat è presente → se lo stato
+        // Portineria è Offline (es. cache svuotata) lo riporta a Idle.
+        if ($this->portineria->statoChiosco($chiosco->id) === StatoChiosco::Offline) {
+            $this->portineria->impostaStato($chiosco, StatoChiosco::Idle);
+        }
 
         return response()->json(['ok' => true]);
     }
