@@ -11,6 +11,10 @@ class Collaudo extends Model
 {
     use HasUuids;
 
+    // La tabella è 'collaudi' (la migration la crea così); senza questa riga
+    // Eloquent cercherebbe 'collaudos' → errore "table doesn't exist".
+    protected $table = 'collaudi';
+
     protected $fillable = [
         'chiosco_id',
         'hotel_id',
