@@ -26,6 +26,7 @@ interface CallEntry {
     hiddenVideo:      HTMLVideoElement | null;
     condivisione:     boolean; // schermo condiviso ricevuto (lato chiosco)
     remoteVer:        number;
+    inAttesaSent:     boolean; // ultimo stato attesa inviato al chiosco (evita spam dati)
 }
 
 // ── Stato modulo ──────────────────────────────────────────────────────────
@@ -142,7 +143,7 @@ export async function startCall(opts: {
         calls.set(opts.chioscoId, {
             room: new Room(), sessionId: opts.sessionId, tipo: opts.tipo, chioscoId: opts.chioscoId,
             chioscoNome: opts.chioscoNome, stato: 'error', remoteVideoTrack: null, hiddenVideo: null,
-            condivisione: false, remoteVer: 0,
+            condivisione: false, remoteVer: 0, inAttesaSent: false,
         });
         rebuild();
         return;
@@ -152,7 +153,7 @@ export async function startCall(opts: {
     const entry: CallEntry = {
         room, sessionId: opts.sessionId, tipo: opts.tipo, chioscoId: opts.chioscoId,
         chioscoNome: opts.chioscoNome, stato: 'connecting', remoteVideoTrack: null, hiddenVideo: null,
-        condivisione: false, remoteVer: 0,
+        condivisione: false, remoteVer: 0, inAttesaSent: false,
     };
     calls.set(opts.chioscoId, entry);
     rebuild();
@@ -175,7 +176,8 @@ export async function startCall(opts: {
         })
         .on(RoomEvent.Disconnected, () => {
             if (calls.get(opts.chioscoId) === entry) { calls.delete(opts.chioscoId); if (activeChioscoId === opts.chioscoId) activeChioscoId = null; rebuild(); }
-        });
+        })
+        .on(RoomEvent.Reconnected, () => { reconcile(); });
 
     try {
         await room.connect(cred.url, cred.token);
@@ -193,43 +195,43 @@ export async function startCall(opts: {
     }
 }
 
-// Gli switch vengono SERIALIZZATI in una catena di promesse: switch rapidi non
-// si accavallano (causa principale di "PC manager is closed" / negoziazioni
-// concorrenti). Ogni setActive aspetta il precedente.
-let switchChain: Promise<void> = Promise.resolve();
-
+// Imposta quale chiamata è attiva, poi riconcilia lo stato di pubblicazione.
 export function setActive(chioscoId: string | null): Promise<void> {
-    switchChain = switchChain.then(() => doSetActive(chioscoId)).catch(() => {});
-    return switchChain;
+    if (activeChioscoId !== chioscoId) condivisioneLocale = false;
+    activeChioscoId = chioscoId;
+    rebuild();
+    return reconcile();
 }
 
-async function doSetActive(chioscoId: string | null): Promise<void> {
-    if (activeChioscoId === chioscoId) return;
+// La riconciliazione è SERIALIZZATA (catena di promesse): porta OGNI room allo
+// stato desiderato in base all'attiva corrente. È idempotente, quindi può girare
+// quante volte serve (anche quando una room finisce di connettersi) senza
+// accavallamenti né operazioni su engine chiusi.
+let reconcileChain: Promise<void> = Promise.resolve();
 
-    const prevId = activeChioscoId;
-    // Imposta subito l'attiva (sincrono) per coerenza dello snapshot + anti-rientro
-    activeChioscoId = chioscoId;
-    condivisioneLocale = false;
-    rebuild();
+function reconcile(): Promise<void> {
+    reconcileChain = reconcileChain.then(() => doReconcile()).catch(() => {});
+    return reconcileChain;
+}
 
-    // Disattiva la precedente (solo se ancora connessa)
-    const prev = prevId ? calls.get(prevId) : null;
-    if (prev && isConnected(prev.room)) {
-        sendTo(prev.room, 'attesa_on'); // il chiosco mostra "un momento…"
-        await safe(() => prev.room.localParticipant.setScreenShareEnabled(false));
-        await safe(() => prev.room.localParticipant.setCameraEnabled(false));
-        await safe(() => prev.room.localParticipant.setMicrophoneEnabled(false));
-    }
+async function doReconcile(): Promise<void> {
+    for (const [id, e] of calls) {
+        if (!isConnected(e.room)) continue;
+        const lp     = e.room.localParticipant;
+        const attiva = id === activeChioscoId;
+        const wantCam = attiva && e.tipo !== 'nascosto';
+        const wantMic = attiva && e.tipo === 'parlato';
 
-    // Se nel frattempo è cambiata di nuovo l'attiva, lascia fare al prossimo job in catena
-    if (activeChioscoId !== chioscoId) return;
+        // Tocca camera/mic SOLO se lo stato attuale differisce da quello voluto
+        if (lp.isCameraEnabled !== wantCam)     await safe(() => lp.setCameraEnabled(wantCam));
+        if (lp.isMicrophoneEnabled !== wantMic) await safe(() => lp.setMicrophoneEnabled(wantMic));
+        if (!attiva && lp.isScreenShareEnabled) await safe(() => lp.setScreenShareEnabled(false));
 
-    const next = chioscoId ? calls.get(chioscoId) : null;
-    if (next && isConnected(next.room)) {
-        sendTo(next.room, 'attesa_off');
-        if (next.tipo !== 'nascosto') await safe(() => next.room.localParticipant.setCameraEnabled(true));
-        if (activeChioscoId === chioscoId && next.tipo === 'parlato') {
-            await safe(() => next.room.localParticipant.setMicrophoneEnabled(true));
+        // Messaggio "in attesa" al chiosco solo quando cambia
+        const wantAttesa = !attiva;
+        if (e.inAttesaSent !== wantAttesa) {
+            sendTo(e.room, wantAttesa ? 'attesa_on' : 'attesa_off');
+            e.inAttesaSent = wantAttesa;
         }
     }
 }

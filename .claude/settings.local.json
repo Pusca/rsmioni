@@ -28,7 +28,8 @@
       "Bash(php -l database/seeders/ChioscoDemo1Seeder.php)",
       "Bash(git tag *)",
       "Bash(cd /c/dev/rsMioni)",
-      "Bash(sed -i 's/grigliaDoc={lk.grigliaDoc}/grigliaDoc={lk.grigliaDoc}\\\\n                    inAttesa={lk.inAttesa}/g' resources/js/Pages/Kiosk/Index.tsx)"
+      "Bash(sed -i 's/grigliaDoc={lk.grigliaDoc}/grigliaDoc={lk.grigliaDoc}\\\\n                    inAttesa={lk.inAttesa}/g' resources/js/Pages/Kiosk/Index.tsx)",
+      "Bash(sed -i 's/condivisione: false, remoteVer: 0,/condivisione: false, remoteVer: 0, inAttesaSent: false,/g' resources/js/services/liveKitCall.ts)"
     ]
   }
 }
