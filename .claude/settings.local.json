@@ -40,7 +40,8 @@
       "Bash(grep -n \"^    inAttesa,$\" resources/js/Pages/Kiosk/Index.tsx)",
       "Bash(perl -0pi -e 's/^    inAttesa,\\\\n/    inAttesa,\\\\n    messaggioAttesa,\\\\n/mg' resources/js/Pages/Kiosk/Index.tsx)",
       "Bash(grep -n \"^    messaggioAttesa,$\" resources/js/Pages/Kiosk/Index.tsx)",
-      "Bash(sed -i \"s/call?.stato === 'connected' && \\(/call?.attiva \\\\&\\\\& call?.stato === 'connected' \\\\&\\\\& \\(/g; s/call?.stato === 'connected' && !isRL && \\(/call?.attiva \\\\&\\\\& call?.stato === 'connected' \\\\&\\\\& !isRL \\\\&\\\\& \\(/g\" resources/js/Components/Portineria/AreaVideo.tsx)"
+      "Bash(sed -i \"s/call?.stato === 'connected' && \\(/call?.attiva \\\\&\\\\& call?.stato === 'connected' \\\\&\\\\& \\(/g; s/call?.stato === 'connected' && !isRL && \\(/call?.attiva \\\\&\\\\& call?.stato === 'connected' \\\\&\\\\& !isRL \\\\&\\\\& \\(/g\" resources/js/Components/Portineria/AreaVideo.tsx)",
+      "Bash(php -l database/seeders/HotelProvaSeeder.php)"
     ]
   }
 }
