@@ -152,10 +152,18 @@ class PrenotazioniController extends Controller
         $hotels = Hotel::whereIn('id', $hotelIds)
             ->get(['id', 'nome', 'overbooking_permesso', 'giorni_visibilita_calendario']);
 
+        // Default sull'hotel corrente (segue la chiamata attiva), così creando una
+        // prenotazione mentre parli con un chiosco di Hotel Prova la crei su Hotel Prova.
+        $hotelCorrente = $request->session()->get('hotel_corrente_id');
+        if (! in_array($hotelCorrente, $hotelIds, true)) {
+            $hotelCorrente = $hotelIds[0] ?? null;
+        }
+
         return Inertia::render('Prenotazioni/Create', [
-            'hotels'  => $hotels,
-            'profilo' => $user->profilo->value,
-            'oggi'    => now()->toDateString(),
+            'hotels'         => $hotels,
+            'profilo'        => $user->profilo->value,
+            'oggi'           => now()->toDateString(),
+            'hotel_corrente' => $hotelCorrente,
         ]);
     }
 

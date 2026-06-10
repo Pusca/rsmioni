@@ -10,9 +10,10 @@ interface Props {
     hotels: HotelConfig[];
     profilo: Profilo;
     oggi: string;
+    hotel_corrente?: string | null;
 }
 
-export default function Create({ hotels, profilo, oggi }: Props) {
+export default function Create({ hotels, profilo, oggi, hotel_corrente }: Props) {
     const isGestore = profilo === 'gestore_hotel';
     const Layout = isGestore ? GestoreHotelLayout : ReceptionistLayout;
 
@@ -34,6 +35,7 @@ export default function Create({ hotels, profilo, oggi }: Props) {
                     hotels={hotels}
                     profilo={profilo}
                     oggi={oggi}
+                    hotelDefault={hotel_corrente ?? undefined}
                     submitLabel="Salva prenotazione"
                     onSubmit={(form) => {
                         form.transform((data) => ({

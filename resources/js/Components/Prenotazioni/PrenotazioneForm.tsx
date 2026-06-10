@@ -30,11 +30,13 @@ interface Props {
     onSubmit: (form: ReturnType<typeof useForm<FormValues>>) => void;
     submitLabel: string;
     isEdit?: boolean;
+    /** Hotel su cui creare di default (es. hotel corrente / della chiamata attiva) */
+    hotelDefault?: string;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function buildDefaults(prenotazione?: Props['prenotazione'], hotels?: HotelConfig[]): FormValues {
+function buildDefaults(prenotazione?: Props['prenotazione'], hotels?: HotelConfig[], hotelDefault?: string): FormValues {
     if (prenotazione) {
         return {
             hotel_id:           prenotazione.hotel_id,
@@ -55,7 +57,7 @@ function buildDefaults(prenotazione?: Props['prenotazione'], hotels?: HotelConfi
         };
     }
     return {
-        hotel_id:           hotels?.[0]?.id ?? '',
+        hotel_id:           hotelDefault ?? hotels?.[0]?.id ?? '',
         codice:             '',
         codice_chiave:      '',
         nome:               '',
@@ -75,8 +77,8 @@ function buildDefaults(prenotazione?: Props['prenotazione'], hotels?: HotelConfi
 
 // ── Componente ────────────────────────────────────────────────────────────────
 
-export default function PrenotazioneForm({ hotels, profilo, oggi, prenotazione, onSubmit, submitLabel, isEdit = false }: Props) {
-    const form = useForm<FormValues>(buildDefaults(prenotazione, hotels));
+export default function PrenotazioneForm({ hotels, profilo, oggi, prenotazione, onSubmit, submitLabel, isEdit = false, hotelDefault }: Props) {
+    const form = useForm<FormValues>(buildDefaults(prenotazione, hotels, hotelDefault));
     const { data, setData, processing } = form;
     // Il server restituisce errori con chiavi dot-notation (pax.adulti) che non compaiono
     // nel tipo FormValues — usiamo un cast esplicito per accedervi senza errori TypeScript.

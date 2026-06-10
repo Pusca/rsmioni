@@ -60,8 +60,23 @@ export default function CatturaDocumento({ onClose, prenotazioneIdFissa }: Props
     };
 
     const cattura = async () => {
-        const blob = await liveKitCall.captureRemoteFrame();
-        if (!blob) { setErrore('Nessun fotogramma disponibile dal video del chiosco.'); setFase('error'); return; }
+        // Cattura dal <video> VISIBILE dell'anteprima: agganciato a un elemento
+        // visibile, la track non viene messa in pausa da adaptiveStream (che
+        // causava il fotogramma nero quando si catturava dal video nascosto).
+        const v = videoRef.current;
+        if (!v || !v.videoWidth) {
+            setErrore('Nessun video dal chiosco. Verifica che il collegamento video sia attivo.');
+            setFase('error');
+            return;
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width  = v.videoWidth;
+        canvas.height = v.videoHeight;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) { setErrore('Errore nella cattura del fotogramma.'); setFase('error'); return; }
+        ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
+        const blob = await new Promise<Blob | null>((res) => canvas.toBlob((b) => res(b), 'image/jpeg', 0.92));
+        if (!blob) { setErrore('Errore nella cattura del fotogramma.'); setFase('error'); return; }
         setSnapshot(blob);
         setSnapshotUrl(URL.createObjectURL(blob));
         setFase('preview');
