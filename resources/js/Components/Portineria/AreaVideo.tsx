@@ -121,9 +121,11 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
         setLoading(true);
         setErrore(null);
 
-        // Chiudi sessione media attiva prima della transizione
-        if (mediaSessionId) {
-            await chiudiSessioneCollegamento(mediaSessionId, chiosco.id);
+        // Chiudi sessione media attiva prima della transizione.
+        // sid dal gestore: il mediaSessionId locale è azzerato al cambio chiosco.
+        const sidMedia = mediaSessionId ?? (call && call.tipo !== 'parlato' ? call.sessionId : null);
+        if (sidMedia) {
+            await chiudiSessioneCollegamento(sidMedia, chiosco.id);
             setMediaSessionId(null);
             setMediaSessionTipo(null);
         }
@@ -171,19 +173,38 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
         }
     };
 
-    // ── Chiudi parlato → ritorna in_chiaro + riavvia sessione media chiaro ─
+    // ── Chiudi parlato ─────────────────────────────────────────────────────
+    // Il session id viene dal gestore (call.sessionId), perché il sessionId locale
+    // è azzerato quando si cambia chiosco: senza questo, "Chiudi parlato" su una
+    // chiamata in attesa non faceva nulla.
+    //  - chiamata IN GESTIONE → torna in chiaro (continui a vedere il chiosco)
+    //  - chiamata IN ATTESA   → chiusura completa (idle), perché la stai spegnendo
     const chiudiParlato = async () => {
-        if (!chiosco || !sessionId || loading) return;
-        // Ferma la condivisione schermo prima di chiudere la sessione
+        if (!chiosco || loading) return;
+        const sid = call?.sessionId ?? sessionId;
+        const eraAttiva = call?.attiva ?? true;
+
         if (snap.condivisioneLocale) liveKitCall.stopScreenShare();
         setLoading(true);
         setErrore(null);
-        await chiudiSessioneParlato(sessionId, chiosco.id);
+
+        if (sid) await chiudiSessioneParlato(sid, chiosco.id);
         setSessionId(null);
-        setLoading(false);
-        onStatoChanged(chiosco.id, 'in_chiaro');
-        // Riavvia la sessione video chiaro dopo il ritorno dal parlato
-        await avviaSessioneMedia('chiaro');
+
+        if (eraAttiva) {
+            // resta collegato in chiaro
+            onStatoChanged(chiosco.id, 'in_chiaro');
+            setLoading(false);
+            await avviaSessioneMedia('chiaro');
+        } else {
+            // era in attesa → spegni del tutto
+            liveKitCall.stopCall(chiosco.id);
+            await cambiaStato(chiosco.id, 'idle');
+            onStatoChanged(chiosco.id, 'idle');
+            setMediaSessionId(null);
+            setMediaSessionTipo(null);
+            setLoading(false);
+        }
     };
 
     return (
