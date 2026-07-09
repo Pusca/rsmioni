@@ -86,6 +86,28 @@ export async function creaSessioneParlato(
 }
 
 /**
+ * POST /portineria/ai/subentra
+ * Il receptionist prende in mano una sessione self check-in condotta dall'AI:
+ * la sessione diventa 'umano' e l'agent viene rimosso dalla stanza.
+ */
+export async function subentraSessioneAi(
+    chioscoId: string,
+): Promise<{ ok: true; sessionId: string } | { ok: false; error: string }> {
+    try {
+        const res = await fetch('/portineria/ai/subentra', {
+            method: 'POST',
+            headers: headers(),
+            body: JSON.stringify({ chiosco_id: chioscoId }),
+        });
+        const data = await res.json();
+        if (!res.ok) return { ok: false, error: data.error ?? 'Errore server' };
+        return { ok: true, sessionId: data.session_id as string };
+    } catch {
+        return { ok: false, error: 'Errore di rete' };
+    }
+}
+
+/**
  * POST /portineria/webrtc/signal
  * Relay di un messaggio SDP/ICE al peer remoto via Reverb.
  */

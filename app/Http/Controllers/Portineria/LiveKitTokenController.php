@@ -40,7 +40,9 @@ class LiveKitTokenController extends Controller
         $sessionId = $request->session_id;
         $session   = $this->sessioni->trova($sessionId);
 
-        if (! $session || ! $this->sessioni->appartiene($sessionId, $request->user()->id)) {
+        // Accesso per hotel (non per creatore): serve anche per osservare le
+        // sessioni AI, il cui "receptionist" è l'account chiosco.
+        if (! $session || ! in_array($session['hotel_id'] ?? '', $request->user()->hotelIds(), true)) {
             return response()->json(['error' => 'Sessione non valida o scaduta.'], 403);
         }
 

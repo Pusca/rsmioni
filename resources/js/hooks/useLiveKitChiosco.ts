@@ -25,8 +25,21 @@ const POLL_MS = 2_000;
 
 type TipoMedia = 'chiaro' | 'nascosto' | 'parlato';
 
+/** Dati del check-in/out AI mostrati in tempo reale sullo schermo del chiosco. */
+export interface AiUiState {
+    form:      { nome?: string; cognome?: string; check_in?: string; check_out?: string;
+                 adulti?: number; ragazzi?: number; bambini?: number };
+    camera:    { nome?: string; piano?: number | null; tipo?: string } | null;
+    codice:    string | null;
+    pagamento: { importo?: number; stato?: 'in_corso' | 'ok' | 'ko' } | null;
+    fase:      string | null; // fase FSM del processo (stepper): dati, conferma, salvata, camera, documento...
+}
+
+const AI_UI_INIZIALE: AiUiState = { form: {}, camera: null, codice: null, pagamento: null, fase: null };
+
 interface Result {
     sessionTipo:        TipoMedia | null;
+    gestitaDa:          'umano' | 'ai' | null; // chi conduce la sessione (AI = self check-in vocale)
     localVideoRef:      React.RefObject<HTMLVideoElement | null>;
     remoteVideoRef:     React.RefObject<HTMLVideoElement | null>;
     stato:              StatoChiosco;
@@ -35,6 +48,8 @@ interface Result {
     grigliaDoc:         boolean; // il receptionist sta acquisendo un documento → mostra cornice guida
     inAttesa:           boolean; // il receptionist sta gestendo un altro chiosco → mostra messaggio attesa
     messaggioAttesa:    string;  // testo del messaggio di attesa (impostato dal receptionist)
+    aiUi:               AiUiState; // recap live del check-in AI (form, camera, codice)
+    remoteAudioTrack:   MediaStreamTrack | null; // audio del remoto (voce AI) per visualizzazioni reattive
 }
 
 interface TokenResp {
@@ -42,6 +57,7 @@ interface TokenResp {
     token?:      string | null;
     session_id?: string | null;
     tipo?:       string | null;
+    gestita_da?: string | null;
 }
 
 async function fetchToken(): Promise<TokenResp | null> {
@@ -63,12 +79,15 @@ export function useLiveKitChiosco(): Result {
     const connectedRef   = useRef<string | null>(null); // sessionId attualmente connesso
 
     const [sessionTipo, setSessionTipo] = useState<TipoMedia | null>(null);
+    const [gestitaDa,   setGestitaDa]   = useState<'umano' | 'ai' | null>(null);
     const [stato,       setStato]       = useState<StatoChiosco>('idle');
     const [errore,      setErrore]      = useState<ErroreMedia | null>(null);
     const [condivisioneAttiva, setCondivisioneAttiva] = useState(false);
     const [grigliaDoc, setGrigliaDoc] = useState(false);
     const [inAttesa, setInAttesa] = useState(false);
     const [messaggioAttesa, setMessaggioAttesa] = useState('Un momento e sono subito da lei');
+    const [aiUi, setAiUi] = useState<AiUiState>(AI_UI_INIZIALE);
+    const [remoteAudioTrack, setRemoteAudioTrack] = useState<MediaStreamTrack | null>(null);
 
     useEffect(() => {
         let cancelled = false;
@@ -80,6 +99,9 @@ export function useLiveKitChiosco(): Result {
             }
             connectedRef.current = null;
             setSessionTipo(null);
+            setGestitaDa(null);
+            setAiUi(AI_UI_INIZIALE);
+            setRemoteAudioTrack(null);
             setStato('idle');
             setCondivisioneAttiva(false);
             setGrigliaDoc(false);
@@ -103,7 +125,11 @@ export function useLiveKitChiosco(): Result {
                     if (track.source === Track.Source.ScreenShare) setCondivisioneAttiva(true);
                     if (!cancelled) setStato('connected');
                 }
-                if (track.kind === Track.Kind.Audio) track.attach();
+                if (track.kind === Track.Kind.Audio) {
+                    track.attach();
+                    // Espone la track per le visualizzazioni audio-reattive (voce AI)
+                    if (track.mediaStreamTrack) setRemoteAudioTrack(track.mediaStreamTrack);
+                }
             };
 
             room
@@ -113,11 +139,23 @@ export function useLiveKitChiosco(): Result {
                 })
                 .on(RoomEvent.DataReceived, (payload: Uint8Array) => {
                     try {
-                        const msg = JSON.parse(new TextDecoder().decode(payload)) as { topic?: string; testo?: string };
+                        const msg = JSON.parse(new TextDecoder().decode(payload)) as {
+                            topic?: string; testo?: string; tipo?: string;
+                            form?: AiUiState['form']; camera?: AiUiState['camera']; codice?: string;
+                            pagamento?: AiUiState['pagamento']; fase?: string;
+                        };
                         if (msg.topic === 'doc_capture_on')  setGrigliaDoc(true);
                         if (msg.topic === 'doc_capture_off') setGrigliaDoc(false);
                         if (msg.topic === 'attesa_on')  { setInAttesa(true); if (msg.testo) setMessaggioAttesa(msg.testo); }
                         if (msg.topic === 'attesa_off') setInAttesa(false);
+                        // Recap live del check-in AI: i dati detti a voce appaiono scritti
+                        if (msg.topic === 'ai_ui') {
+                            if (msg.tipo === 'form'   && msg.form)   setAiUi((p) => ({ ...p, form: { ...p.form, ...msg.form } }));
+                            if (msg.tipo === 'camera' && msg.camera) setAiUi((p) => ({ ...p, camera: msg.camera ?? null }));
+                            if (msg.tipo === 'codice' && msg.codice) setAiUi((p) => ({ ...p, codice: msg.codice ?? null }));
+                            if (msg.tipo === 'pagamento' && msg.pagamento) setAiUi((p) => ({ ...p, pagamento: msg.pagamento ?? null }));
+                            if (msg.tipo === 'fase' && msg.fase) setAiUi((p) => ({ ...p, fase: msg.fase ?? null }));
+                        }
                     } catch { /* ignora messaggi non riconosciuti */ }
                 })
                 .on(RoomEvent.Disconnected, () => { if (!cancelled) disconnect(); });
@@ -168,6 +206,10 @@ export function useLiveKitChiosco(): Result {
                 return;
             }
 
+            // gestita_da può cambiare a sessione invariata (subentro del
+            // receptionist sull'AI): sincronizza a ogni poll.
+            setGestitaDa(resp.gestita_da === 'ai' ? 'ai' : 'umano');
+
             // Nuova sessione da connettere (o cambio di sessione)
             if (sid !== connectedRef.current) {
                 if (connectedRef.current) disconnect();
@@ -185,5 +227,5 @@ export function useLiveKitChiosco(): Result {
         };
     }, []);
 
-    return { sessionTipo, localVideoRef, remoteVideoRef, stato, errore, condivisioneAttiva, grigliaDoc, inAttesa, messaggioAttesa };
+    return { sessionTipo, gestitaDa, localVideoRef, remoteVideoRef, stato, errore, condivisioneAttiva, grigliaDoc, inAttesa, messaggioAttesa, aiUi, remoteAudioTrack };
 }

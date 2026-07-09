@@ -73,6 +73,16 @@ return [
             'replace_placeholders' => true,
         ],
 
+        // Audit del receptionist AI: ogni azione dell'agent (chi/cosa/quando/esito)
+        // per tracciabilità e collaudo (docs/09 §6). File separato, 30 giorni.
+        'ai_audit' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/ai-audit.log'),
+            'level' => 'info',
+            'days' => 30,
+            'replace_placeholders' => true,
+        ],
+
         'slack' => [
             'driver' => 'slack',
             'url' => env('LOG_SLACK_WEBHOOK_URL'),

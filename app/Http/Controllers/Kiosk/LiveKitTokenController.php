@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Kiosk;
 
 use App\Http\Controllers\Controller;
 use App\Services\LiveKitTokenService;
+use App\Services\PortineriaService;
 use App\Services\WebRtcSessionService;
 use Illuminate\Http\JsonResponse;
 
@@ -24,6 +25,7 @@ class LiveKitTokenController extends Controller
     public function __construct(
         private readonly LiveKitTokenService  $livekit,
         private readonly WebRtcSessionService $sessioni,
+        private readonly PortineriaService    $portineria,
     ) {}
 
     public function token(): JsonResponse
@@ -42,6 +44,11 @@ class LiveKitTokenController extends Controller
             return response()->json(['session_id' => null, 'token' => null, 'tipo' => null]);
         }
 
+        // TTL scorrevole: il poll del chiosco tiene viva la sessione E lo stato
+        // Portineria finché il chiosco è online (la chiusura resta esplicita).
+        $this->sessioni->rinnova($sessionId);
+        $this->portineria->rinnovaStato($chioscoId);
+
         $session = $this->sessioni->trova($sessionId);
         $tipo    = $session['tipo'] ?? 'parlato';
 
@@ -57,6 +64,7 @@ class LiveKitTokenController extends Controller
             'token'      => $token,
             'session_id' => $sessionId,
             'tipo'       => $tipo,
+            'gestita_da' => $session['gestita_da'] ?? 'umano',
         ])->header('Cache-Control', 'no-store');
     }
 }

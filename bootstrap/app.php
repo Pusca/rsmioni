@@ -20,6 +20,12 @@ return Application::configure(basePath: dirname(__DIR__))
             HandleInertiaRequests::class,
         ]);
 
+        // Il worker AI è un client server-to-server: niente sessione browser,
+        // autenticato da AgentServiceAuth (X-Agent-Token)
+        $middleware->validateCsrfTokens(except: [
+            'agent/*',
+        ]);
+
         $middleware->alias([
             'role'         => RoleGuard::class,
             'ip_whitelist' => IpWhitelist::class,

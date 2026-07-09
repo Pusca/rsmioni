@@ -14,11 +14,13 @@ import { Room, RoomEvent, Track, ConnectionState, type RemoteTrack } from 'livek
 
 export type TipoCall  = 'chiaro' | 'nascosto' | 'parlato';
 export type StatoCall  = 'connecting' | 'connected' | 'error';
+export type GestitaDa  = 'umano' | 'ai';
 
 interface CallEntry {
     room:             Room;
     sessionId:        string;
     tipo:             TipoCall;
+    gestitaDa:        GestitaDa;
     chioscoId:        string;
     chioscoNome:      string;
     hotelId:          string;
@@ -34,13 +36,24 @@ interface CallEntry {
 const calls = new Map<string, CallEntry>(); // key: chioscoId
 let activeChioscoId: string | null = null;
 let condivisioneLocale = false;              // schermo condiviso dal receptionist (nell'attiva)
-let messaggioAttesa = 'Un momento e sono subito da lei'; // mostrato ai chioschi in attesa
+
+// Persistenza leggera in sessionStorage: sopravvive al reload della pagina
+// (le chiamate restano vive lato server/chiosco → recoverCalls le riaggancia).
+const ACTIVE_KEY = 'lk_active_chiosco';
+const MSG_KEY    = 'lk_messaggio_attesa';
+function ssGet(key: string): string | null { try { return sessionStorage.getItem(key); } catch { return null; } }
+function ssSet(key: string, val: string | null): void {
+    try { val === null ? sessionStorage.removeItem(key) : sessionStorage.setItem(key, val); } catch { /* ignore */ }
+}
+
+let messaggioAttesa = ssGet(MSG_KEY) ?? 'Un momento e sono subito da lei'; // mostrato ai chioschi in attesa
 
 // ── Snapshot per React (useSyncExternalStore) ───────────────────────────────
 export interface PublicCall {
     chioscoId:    string;
     stato:        StatoCall;
     tipo:         TipoCall;
+    gestitaDa:    GestitaDa;
     chioscoNome:  string;
     sessionId:    string;
     condivisione: boolean;
@@ -62,7 +75,7 @@ function rebuild() {
     const c: Record<string, PublicCall> = {};
     calls.forEach((e, id) => {
         c[id] = {
-            chioscoId: id, stato: e.stato, tipo: e.tipo, chioscoNome: e.chioscoNome, sessionId: e.sessionId,
+            chioscoId: id, stato: e.stato, tipo: e.tipo, gestitaDa: e.gestitaDa, chioscoNome: e.chioscoNome, sessionId: e.sessionId,
             condivisione: e.condivisione, remoteVer: e.remoteVer, attiva: id === activeChioscoId,
         };
     });
@@ -141,17 +154,20 @@ export function getMessaggioAttesa(): string { return messaggioAttesa; }
 /** Cambia il messaggio di attesa e lo re-invia ai chioschi attualmente in attesa. */
 export function setMessaggioAttesa(testo: string): void {
     messaggioAttesa = testo;
+    ssSet(MSG_KEY, testo);
     rebuild();
-    calls.forEach((e, id) => { if (id !== activeChioscoId && isConnected(e.room)) sendAttesa(e.room, true); });
+    calls.forEach((e, id) => { if (id !== activeChioscoId && e.tipo !== 'nascosto' && isConnected(e.room)) sendAttesa(e.room, true); });
 }
 
 // ── Avvio / cambio chiamata ─────────────────────────────────────────────────
+// `activate=false` connette la chiamata SENZA renderla attiva (usato dal
+// recupero post-reload: le chiamate in attesa restano in attesa).
 export async function startCall(opts: {
-    sessionId: string; tipo: TipoCall; chioscoId: string; chioscoNome: string; hotelId: string;
-}): Promise<void> {
+    sessionId: string; tipo: TipoCall; chioscoId: string; chioscoNome: string; hotelId: string; gestitaDa?: GestitaDa;
+}, activate = true): Promise<void> {
     const existing = calls.get(opts.chioscoId);
     if (existing && existing.sessionId === opts.sessionId && existing.tipo === opts.tipo) {
-        await setActive(opts.chioscoId); // già presente → rendila attiva
+        if (activate) await setActive(opts.chioscoId); // già presente → rendila attiva
         return;
     }
     if (existing) {
@@ -162,7 +178,7 @@ export async function startCall(opts: {
     if (!cred) {
         // entry in errore minima
         calls.set(opts.chioscoId, {
-            room: new Room(), sessionId: opts.sessionId, tipo: opts.tipo, chioscoId: opts.chioscoId,
+            room: new Room(), sessionId: opts.sessionId, tipo: opts.tipo, gestitaDa: opts.gestitaDa ?? 'umano', chioscoId: opts.chioscoId,
             chioscoNome: opts.chioscoNome, hotelId: opts.hotelId, stato: 'error', remoteVideoTrack: null, hiddenVideo: null,
             condivisione: false, remoteVer: 0, inAttesaSent: false,
         });
@@ -172,7 +188,7 @@ export async function startCall(opts: {
 
     const room = new Room({ adaptiveStream: true, dynacast: true });
     const entry: CallEntry = {
-        room, sessionId: opts.sessionId, tipo: opts.tipo, chioscoId: opts.chioscoId,
+        room, sessionId: opts.sessionId, tipo: opts.tipo, gestitaDa: opts.gestitaDa ?? 'umano', chioscoId: opts.chioscoId,
         chioscoNome: opts.chioscoNome, hotelId: opts.hotelId, stato: 'connecting', remoteVideoTrack: null, hiddenVideo: null,
         condivisione: false, remoteVer: 0, inAttesaSent: false,
     };
@@ -209,7 +225,11 @@ export async function startCall(opts: {
         room.remoteParticipants.forEach((p) => p.trackPublications.forEach((pub) => { if (pub.track) setRemote(pub.track as RemoteTrack); }));
 
         rebuild();
-        await setActive(opts.chioscoId); // la nuova chiamata diventa attiva
+        if (activate) {
+            await setActive(opts.chioscoId); // la nuova chiamata diventa attiva
+        } else {
+            await reconcile(); // resta in attesa: mute + messaggio attesa al chiosco
+        }
     } catch (err) {
         console.error('[LiveKitCall] connessione fallita', err);
         if (calls.get(opts.chioscoId) === entry) { entry.stato = 'error'; rebuild(); }
@@ -221,6 +241,7 @@ export function setActive(chioscoId: string | null): Promise<void> {
     const cambiata = activeChioscoId !== chioscoId;
     if (cambiata) condivisioneLocale = false;
     activeChioscoId = chioscoId;
+    ssSet(ACTIVE_KEY, chioscoId);
     rebuild();
     // L'hotel "corrente" segue la chiamata attiva: prenotazioni/regolamento
     // mostreranno l'hotel del chiosco con cui sto parlando.
@@ -263,8 +284,9 @@ async function doReconcile(): Promise<void> {
         if (lp.isMicrophoneEnabled !== wantMic) await safe(() => lp.setMicrophoneEnabled(wantMic));
         if (!attiva && lp.isScreenShareEnabled) await safe(() => lp.setScreenShareEnabled(false));
 
-        // Messaggio "in attesa" al chiosco solo quando cambia
-        const wantAttesa = !attiva;
+        // Messaggio "in attesa" al chiosco solo quando cambia.
+        // Mai alle room 'nascosto': mostrarlo svelerebbe il monitoraggio.
+        const wantAttesa = !attiva && e.tipo !== 'nascosto';
         if (e.inAttesaSent !== wantAttesa) {
             sendAttesa(e.room, wantAttesa);
             e.inAttesaSent = wantAttesa;
@@ -276,7 +298,7 @@ export async function stopCall(chioscoId: string): Promise<void> {
     const e = calls.get(chioscoId);
     if (!e) return;
     calls.delete(chioscoId);
-    if (activeChioscoId === chioscoId) activeChioscoId = null;
+    if (activeChioscoId === chioscoId) { activeChioscoId = null; ssSet(ACTIVE_KEY, null); }
     try { e.room.disconnect(); } catch { /* ignore */ }
     if (e.hiddenVideo && e.hiddenVideo.parentNode) e.hiddenVideo.parentNode.removeChild(e.hiddenVideo);
     if (calls.size === 0) condivisioneLocale = false;
@@ -285,6 +307,38 @@ export async function stopCall(chioscoId: string): Promise<void> {
 
 export async function stopActive(): Promise<void> {
     if (activeChioscoId) await stopCall(activeChioscoId);
+}
+
+// ── Recupero chiamate dopo un reload della pagina ───────────────────────────
+// Le sessioni restano vive lato server/chiosco anche se il browser del
+// receptionist si ricarica: qui le riagganciamo tutte, ripristinando come
+// attiva quella che lo era prima (memorizzata in sessionStorage).
+export async function recoverCalls(chioschi: { id: string; nome: string; hotel_id: string; stato: string }[]): Promise<void> {
+    const restoreActive = activeChioscoId ?? ssGet(ACTIVE_KEY);
+    const candidati = chioschi.filter((c) =>
+        ['in_chiaro', 'in_nascosto', 'in_parlato'].includes(c.stato) && !calls.has(c.id));
+
+    await Promise.all(candidati.map(async (c) => {
+        try {
+            const res = await fetch(`/portineria/chioschi/${c.id}/stato`, { headers: { 'Accept': 'application/json' } });
+            if (!res.ok) return;
+            const data = await res.json() as { session_id?: string | null; session_tipo?: string | null; gestita_da?: string | null };
+            const tipo = data.session_tipo;
+            if (!data.session_id || (tipo !== 'chiaro' && tipo !== 'nascosto' && tipo !== 'parlato')) return;
+
+            // Sessione condotta dall'AI → il receptionist entra da OSSERVATORE:
+            // tipo locale 'nascosto' (non pubblica nulla, vede e ascolta), mai attiva.
+            const isAi = data.gestita_da === 'ai';
+            await startCall(
+                {
+                    sessionId: data.session_id, tipo: isAi ? 'nascosto' : tipo,
+                    chioscoId: c.id, chioscoNome: c.nome, hotelId: c.hotel_id,
+                    gestitaDa: isAi ? 'ai' : 'umano',
+                },
+                !isAi && c.id === restoreActive,
+            );
+        } catch { /* chiosco senza sessione recuperabile: ignora */ }
+    }));
 }
 
 // ── Attach video ────────────────────────────────────────────────────────────

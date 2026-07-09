@@ -101,6 +101,34 @@ export async function chiamaReceptionist(): Promise<{ ok: boolean; stato?: strin
     }
 }
 
+// ── Self check-in AI ──────────────────────────────────────────────────────
+
+/**
+ * POST /kiosk/ai/avvia — avvia la sessione vocale con il receptionist AI.
+ * scopo: 'checkin' (self check-in) | 'checkout' (con pagamento POS) | 'info'.
+ */
+export async function avviaSessioneAi(scopo: 'checkin' | 'checkout' | 'info'): Promise<{ ok: boolean; error?: string }> {
+    try {
+        const res = await fetch('/kiosk/ai/avvia', {
+            method: 'POST',
+            headers: headers(),
+            body: JSON.stringify({ scopo }),
+        });
+        const data = await res.json() as { error?: string };
+        if (! res.ok) return { ok: false, error: data.error ?? "Assistente non disponibile" };
+        return { ok: true };
+    } catch {
+        return { ok: false, error: 'Errore di rete' };
+    }
+}
+
+/** POST /kiosk/ai/termina — l'ospite chiude la conversazione con l'AI. */
+export async function terminaSessioneAi(): Promise<void> {
+    try {
+        await fetch('/kiosk/ai/termina', { method: 'POST', headers: headers(), body: '{}' });
+    } catch { /* best-effort */ }
+}
+
 /**
  * POST /kiosk/annulla-chiamata
  * Annulla la chiamata in corso, torna a idle.

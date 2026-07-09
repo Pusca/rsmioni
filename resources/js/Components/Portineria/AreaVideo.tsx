@@ -7,6 +7,7 @@ import {
     chiudiSessioneParlato,
     creaSessioneCollegamento,
     chiudiSessioneCollegamento,
+    subentraSessioneAi,
     type TipoCollegamento,
 } from '@/services/portineriaApi';
 import type { StatoCollegamento } from '@/hooks/useLiveKitMedia';
@@ -78,9 +79,16 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [chiosco?.id, chiosco?.stato, sessionId]);
 
-    // NB: l'attivazione NON è automatica alla selezione. Selezionare un chiosco
-    // con chiamata in attesa la MOSTRA (con video), ma per gestirla bisogna
-    // premere "Riprendi" → così c'è sempre UNA sola chiamata attiva (in parlato).
+    // Passaggio fluido: selezionare un chiosco con chiamata connessa la rende
+    // subito attiva (la precedente va in attesa da sola, resta UNA sola attiva).
+    // Le room 'nascosto' NON si attivano da sole: guardare un monitoraggio non
+    // deve interrompere la chiamata in corso (per quelle resta "Riprendi").
+    useEffect(() => {
+        if (chiosco && call && !call.attiva && call.stato === 'connected' && call.tipo !== 'nascosto') {
+            liveKitCall.setActive(chiosco.id);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [chiosco?.id, call?.stato]);
 
     // Attacca i <video> alle track del CHIOSCO SELEZIONATO quando cambia lo stato.
     useEffect(() => {
@@ -173,6 +181,40 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
         }
     };
 
+    // ── Subentra sull'AI: la sessione diventa umana, l'agent esce ──────────
+    // La stanza resta la stessa: qui si promuove la call locale da osservatore
+    // nascosto a parlato attivo (pubblica camera+mic). Da questo momento
+    // valgono le regole umane, incluso il messaggio di attesa.
+    const subentraAi = async () => {
+        if (!chiosco || !call || loading) return;
+        setLoading(true);
+        setErrore(null);
+        const res = await subentraSessioneAi(chiosco.id);
+        if (res.ok) {
+            const sid = res.sessionId;
+            liveKitCall.stopCall(chiosco.id);
+            await liveKitCall.startCall({
+                sessionId: sid, tipo: 'parlato',
+                chioscoId: chiosco.id, chioscoNome: chiosco.nome, hotelId: chiosco.hotel_id,
+            });
+            setSessionId(sid);
+        } else {
+            setErrore(res.error);
+        }
+        setLoading(false);
+    };
+
+    // ── Termina sessione AI (supervisione umana: il receptionist può sempre) ─
+    const terminaAi = async () => {
+        if (!chiosco || !call || loading) return;
+        setLoading(true);
+        await chiudiSessioneParlato(call.sessionId, chiosco.id); // elimina la sessione → chiosco e agent si scollegano
+        liveKitCall.stopCall(chiosco.id);
+        await cambiaStato(chiosco.id, 'idle');
+        onStatoChanged(chiosco.id, 'idle');
+        setLoading(false);
+    };
+
     // ── Chiudi parlato ─────────────────────────────────────────────────────
     // Il session id viene dal gestore (call.sessionId), perché il sessionId locale
     // è azzerato quando si cambia chiosco: senza questo, "Chiudi parlato" su una
@@ -236,6 +278,13 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
                                       style={{ backgroundColor: '#3b82f6', color: '#fff', fontSize: '10px', fontWeight: 700 }}>
                                     <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: '#fff' }} />
                                     IN GESTIONE
+                                </span>
+                            )}
+                            {call?.gestitaDa === 'ai' && (
+                                <span className="flex items-center gap-1.5 rounded px-2 py-0.5"
+                                      style={{ backgroundColor: '#8b5cf6', color: '#fff', fontSize: '10px', fontWeight: 700 }}>
+                                    <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: '#fff' }} />
+                                    RECEPTIONIST AI
                                 </span>
                             )}
                         </div>
@@ -528,8 +577,46 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
                             </div>
                         )}
 
+                        {/* ── IN PARLATO gestito dall'AI — monitoraggio nascosto ── */}
+                        {chiosco.stato === 'in_parlato' && call?.gestitaDa === 'ai' && (
+                            <div className="w-full flex flex-col items-center gap-4">
+                                <CollegamentoView
+                                    localVideoRef={localVideoRef}
+                                    remoteVideoRef={remoteVideoRef}
+                                    stato={statoCollegamento}
+                                    errore={erroreMedia}
+                                    tipo="nascosto"
+                                    mostraLocale={false}
+                                />
+                                <div className="rounded-lg border px-4 py-3 text-center"
+                                     style={{ borderColor: 'rgba(139,92,246,0.4)', backgroundColor: 'rgba(139,92,246,0.08)' }}>
+                                    <p className="text-xs" style={{ color: '#c4b5fd' }}>
+                                        Self check-in condotto dal receptionist AI · stai osservando in nascosto (audio e video)
+                                    </p>
+                                </div>
+                                {!isRL && (
+                                    <div className="flex gap-3 flex-wrap justify-center">
+                                        <AzioneBtn
+                                            label="Subentra"
+                                            color="#22c55e"
+                                            onClick={subentraAi}
+                                            loading={loading}
+                                            icon={<MicIcon />}
+                                        />
+                                        <AzioneBtn
+                                            label="Termina sessione AI"
+                                            color="#ef4444"
+                                            onClick={terminaAi}
+                                            loading={loading}
+                                            icon={<XIcon />}
+                                        />
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
                         {/* ── IN PARLATO — WebRTC ── */}
-                        {chiosco.stato === 'in_parlato' && (
+                        {chiosco.stato === 'in_parlato' && call?.gestitaDa !== 'ai' && (
                             <div className="w-full flex flex-col items-center gap-4">
                                 <ParlatoView
                                     localVideoRef={localVideoRef}

@@ -7,6 +7,7 @@ import AreaVideo from '@/Components/Portineria/AreaVideo';
 import MessaggioAttesaModal from '@/Components/Portineria/MessaggioAttesaModal';
 import { usePortineriaRealtime, usePortineriaPolling, StatoAggiornato } from '@/hooks/usePortineriaRealtime';
 import { cambiaStato, demoSimula, demoReset } from '@/services/portineriaApi';
+import * as liveKitCall from '@/services/liveKitCall';
 import { ChioscoConStato, StatoChiosco, SharedProps } from '@/types';
 
 interface Props {
@@ -31,6 +32,23 @@ export default function PortineriaIndex({ chioschi: chioschiIniziali, hotel_ids,
         () => chioschi.find((c) => c.id === selezioneId) ?? null,
         [chioschi, selezioneId],
     );
+
+    // Aggancio automatico delle chiamate vive (idempotente, gira a ogni cambio stato):
+    //  - post-reload: riaggancia le chiamate ancora vive lato server/chiosco
+    //    (quella che era in gestione torna attiva, le altre restano in attesa);
+    //  - sessioni AI: appena un chiosco entra in sessione col receptionist AI,
+    //    la portineria si collega da osservatore nascosto (vede e ascolta);
+    //  - pulizia: chiude le room rimaste appese di chioschi tornati idle/offline.
+    useEffect(() => {
+        const snap = liveKitCall.getSnapshot();
+        chioschi
+            .filter((c) => (c.stato === 'idle' || c.stato === 'offline') && snap.calls[c.id])
+            .forEach((c) => liveKitCall.stopCall(c.id));
+
+        liveKitCall.recoverCalls(chioschi.map((c) => ({
+            id: c.id, nome: c.nome, hotel_id: c.hotel_id, stato: c.stato,
+        })));
+    }, [chioschi]);
 
     // Se rientro in Portineria con una chiamata attiva (persistita nel PiP),
     // riseleziono automaticamente il suo chiosco per riaprire la vista piena.

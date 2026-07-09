@@ -1,0 +1,13 @@
+# Worker AI Self Check-in — LiveKit Agents (Python)
+# Vedi docs/09-ai-self-checkin.md
+
+# Framework agenti + plugin voce/cervello.
+# Gli extra installano i plugin: Anthropic (LLM), Deepgram (STT),
+# ElevenLabs (TTS), Silero (VAD), turn-detector (endpointing multilingua).
+livekit-agents[anthropic,deepgram,elevenlabs,silero,turn-detector]~=1.0
+
+# Caricamento .env in sviluppo
+python-dotenv~=1.0
+
+# Client HTTP per le tool call verso Laravel (Fase 2+)
+httpx~=0.27

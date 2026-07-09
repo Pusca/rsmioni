@@ -6,6 +6,7 @@ use App\Enums\StatoChiosco;
 use App\Http\Controllers\Controller;
 use App\Models\Chiosco;
 use App\Services\PortineriaService;
+use App\Services\WebRtcSessionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -16,7 +17,10 @@ use Illuminate\Validation\Rule;
  */
 class StatoChioscoController extends Controller
 {
-    public function __construct(private readonly PortineriaService $portineria) {}
+    public function __construct(
+        private readonly PortineriaService    $portineria,
+        private readonly WebRtcSessionService $webRtcSession,
+    ) {}
 
     /**
      * PATCH /portineria/chioschi/{chiosco}/stato
@@ -64,15 +68,29 @@ class StatoChioscoController extends Controller
     /**
      * GET /portineria/chioschi/{chiosco}/stato
      * Polling fallback per quando Reverb non è attivo.
+     *
+     * Include anche la sessione WebRTC attiva (session_id + session_tipo):
+     * la Portineria la usa per riagganciarsi alle chiamate ancora vive dopo
+     * un ricaricamento della pagina (le chiamate non muoiono col browser).
      */
-    public function show(string $chioscoId): JsonResponse
+    public function show(Request $request, string $chioscoId): JsonResponse
     {
         $chiosco = Chiosco::findOrFail($chioscoId);
 
+        if (! in_array($chiosco->hotel_id, $request->user()->hotelIds(), true)) {
+            return response()->json(['error' => 'Accesso non consentito'], 403);
+        }
+
+        $sessionId = $this->webRtcSession->sessioneAttivaPerChiosco($chiosco->id);
+        $session   = $sessionId ? $this->webRtcSession->trova($sessionId) : null;
+
         return response()->json([
-            'chiosco_id' => $chiosco->id,
-            'stato'      => $this->portineria->statoChiosco($chiosco->id)->value,
-            'messaggio'  => $this->portineria->messaggioAttesa($chiosco->id),
+            'chiosco_id'   => $chiosco->id,
+            'stato'        => $this->portineria->statoChiosco($chiosco->id)->value,
+            'messaggio'    => $this->portineria->messaggioAttesa($chiosco->id),
+            'session_id'   => $sessionId,
+            'session_tipo' => $session['tipo'] ?? null,
+            'gestita_da'   => $session['gestita_da'] ?? null,
         ]);
     }
 }

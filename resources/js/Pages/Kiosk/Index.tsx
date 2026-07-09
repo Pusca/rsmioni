@@ -7,7 +7,7 @@ import { useKioskHeartbeat } from '@/hooks/useKioskHeartbeat';
 import { useKioskStato } from '@/hooks/useKioskStato';
 import { useKioskAcquisizione } from '@/hooks/useKioskAcquisizione';
 import { useKioskStampa } from '@/hooks/useKioskStampa';
-import { chiamaReceptionist, annullaChiamata, uploadDocumentoAcquisito, annullaAcquisizione, getDocumentoPerStampa, segnalaStampaCompletata, annullaStampa, segnalaEsitoPagamento, annullaPagamento } from '@/services/kioskApi';
+import { annullaChiamata, avviaSessioneAi, terminaSessioneAi, uploadDocumentoAcquisito, annullaAcquisizione, getDocumentoPerStampa, segnalaStampaCompletata, annullaStampa, segnalaEsitoPagamento, annullaPagamento } from '@/services/kioskApi';
 import { useKioskPagamento } from '@/hooks/useKioskPagamento';
 import type { ErroreMedia } from '@/services/webrtcMedia';
 
@@ -30,8 +30,6 @@ interface Props {
  *   offline       → OfflineScreen
  */
 export default function KioskIndex({ chiosco, stato_iniziale, messaggio_attesa: messaggioIniziale }: Props) {
-    const [chiamataLoading, setChiamataLoading] = useState(false);
-
     // ── Heartbeat — invia presenza al server ogni 60s ───────────────────────
     useKioskHeartbeat();
 
@@ -55,21 +53,60 @@ export default function KioskIndex({ chiosco, stato_iniziale, messaggio_attesa: 
     const lk = useLiveKitChiosco();
 
     // Routing — usa il sessionTipo riportato dall'hook LiveKit
-    const inParlato = stato === 'in_parlato' && lk.sessionTipo === 'parlato';
+    const inAi      = stato === 'in_parlato' && lk.sessionTipo === 'parlato' && lk.gestitaDa === 'ai';
+    const inParlato = stato === 'in_parlato' && lk.sessionTipo === 'parlato' && ! inAi;
     const inChiaro  = stato === 'in_chiaro'  && lk.sessionTipo === 'chiaro';
 
-    // ── Handler chiamata (touch) ────────────────────────────────────────────
-    const handleChiama = async () => {
-        if (chiamataLoading || stato !== 'idle') return;
-        setChiamataLoading(true);
-        await chiamaReceptionist();
-        setChiamataLoading(false);
-        // Lo stato si aggiorna via Reverb / polling in useKioskStato
-    };
-
+    // ── Handler annullo chiamata (stato in_chiamata raggiungibile da demo) ──
     const handleAnnullaChiamata = async () => {
         await annullaChiamata();
     };
+
+    // ── Handler self check-in / check-out AI ────────────────────────────────
+    type ScopoAi = 'checkin' | 'checkout' | 'info';
+    const [aiLoading, setAiLoading] = useState<ScopoAi | null>(null);
+    const [aiScopo,   setAiScopo]   = useState<ScopoAi>('checkin');
+    const [aiErrore,  setAiErrore]  = useState<string | null>(null);
+
+    const handleAvviaAi = async (scopo: ScopoAi) => {
+        if (aiLoading || stato !== 'idle') return;
+        setAiLoading(scopo);
+        setAiErrore(null);
+        const res = await avviaSessioneAi(scopo);
+        if (! res.ok) setAiErrore(res.error ?? "L'assistente non è disponibile.");
+        else setAiScopo(scopo);
+        setAiLoading(null);
+        // Lo stato passa a in_parlato via Reverb/polling; il media si aggancia
+        // col normale polling del token LiveKit (gestita_da='ai' → AiScreen).
+    };
+
+    const handleTerminaAi = async () => {
+        await terminaSessioneAi();
+    };
+
+    // ── Schermata finale: il riepilogo resta visibile dopo la sessione AI ───
+    // aiUi si azzera alla disconnessione → se ne conserva una copia mentre la
+    // sessione è viva; alla chiusura con esito utile la si mostra per 45s.
+    const ultimoAiRef = useRef<{ ui: typeof lk.aiUi; scopo: ScopoAi } | null>(null);
+    const [fineSessione, setFineSessione] = useState<{ ui: typeof lk.aiUi; scopo: ScopoAi } | null>(null);
+    const eraInAi = useRef(false);
+    useEffect(() => {
+        if (inAi) {
+            ultimoAiRef.current = { ui: lk.aiUi, scopo: aiScopo };
+            eraInAi.current = true;
+            return;
+        }
+        if (eraInAi.current) {
+            eraInAi.current = false;
+            const u = ultimoAiRef.current;
+            const utile = u && (u.ui.codice || u.ui.pagamento?.stato === 'ok');
+            if (utile) {
+                setFineSessione(u);
+                const t = setTimeout(() => setFineSessione(null), 45_000);
+                return () => clearTimeout(t);
+            }
+        }
+    }, [inAi, lk.aiUi, aiScopo]);
 
     // ── Rendering condizionale per stato ───────────────────────────────────
     return (
@@ -97,6 +134,15 @@ export default function KioskIndex({ chiosco, stato_iniziale, messaggio_attesa: 
                     fronteRetro={acquisizione.fronte_retro}
                     onCompletata={annullaAcquisizione}
                     onAnnulla={annullaAcquisizione}
+                />
+            ) : inAi ? (
+                <AiScreen
+                    scopo={aiScopo}
+                    statoMedia={lk.stato}
+                    localVideoRef={lk.localVideoRef}
+                    aiUi={lk.aiUi}
+                    audioTrack={lk.remoteAudioTrack}
+                    onTermina={handleTerminaAi}
                 />
             ) : inParlato ? (
                 <ParlatoScreen
@@ -137,12 +183,20 @@ export default function KioskIndex({ chiosco, stato_iniziale, messaggio_attesa: 
             ) : stato === 'offline' ? (
                 /* Chiosco offline */
                 <OfflineScreen chiosco={chiosco} />
+            ) : fineSessione ? (
+                /* Riepilogo finale dopo la sessione AI: codice/camera restano leggibili */
+                <CompletatoScreen
+                    dati={fineSessione.ui}
+                    scopo={fineSessione.scopo}
+                    onChiudi={() => setFineSessione(null)}
+                />
             ) : (
                 /* idle / in_nascosto (guest non sa) / stati sconosciuti → schermata attesa */
                 <AttesoScreen
                     chiosco={chiosco}
-                    onChiama={handleChiama}
-                    loading={chiamataLoading}
+                    onAvviaAi={handleAvviaAi}
+                    aiLoading={aiLoading}
+                    aiErrore={aiErrore}
                 />
             )}
         </KioskLayout>
@@ -905,16 +959,350 @@ function AcquisizioneScreen({ chiosco, titolo, fronteRetro, onCompletata, onAnnu
     );
 }
 
+// ── AiScreen ─────────────────────────────────────────────────────────────────
+// Sessione vocale con il receptionist AI (self check-in o informazioni).
+// Nessun avatar: indicatore vocale al centro, autoritratto camera in basso.
+// La reception vede/ascolta già la conversazione in nascosto e può intervenire.
+
+interface AiScreenProps {
+    scopo:         'checkin' | 'checkout' | 'info';
+    statoMedia:    'idle' | 'connecting' | 'connected' | 'error';
+    localVideoRef: React.RefObject<HTMLVideoElement | null>;
+    aiUi:          import('@/hooks/useLiveKitChiosco').AiUiState;
+    audioTrack:    MediaStreamTrack | null;
+    onTermina:     () => void;
+}
+
+/** Riga del recap live: etichetta + valore, flash animato a ogni aggiornamento. */
+function RecapRiga({ label, value }: { label: string; value: string | null }) {
+    const ok = value !== null && value !== '';
+    return (
+        <div className="flex items-center justify-between gap-4 py-2.5"
+             style={{ borderBottom: '1px solid rgba(148,163,184,0.12)' }}>
+            <span className="text-sm shrink-0" style={{ color: 'var(--color-text-muted)' }}>{label}</span>
+            {/* key={value}: rimonta al cambio → riparte l'animazione di ingresso */}
+            <span key={value ?? 'vuoto'}
+                  className={`flex items-center gap-2 text-right font-medium px-1.5 ${ok ? 'ai-field-in' : ''}`}
+                  style={{ fontSize: 16, color: ok ? 'var(--color-text-primary)' : 'rgba(148,163,184,0.35)' }}>
+                {ok ? value : '—'}
+                {ok && (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5">
+                        <path d="M20 6L9 17l-5-5" />
+                    </svg>
+                )}
+            </span>
+        </div>
+    );
+}
+
+/**
+ * Stepper di fase del processo (dalla FSM dell'agent): mostra all'ospite
+ * a che punto è il check-in/out. Discreto, sotto il titolo del recap.
+ */
+function FaseStepper({ fase, scopo }: { fase: string | null; scopo: 'checkin' | 'checkout' | 'info' }) {
+    const passi: { chiavi: string[]; label: string }[] = scopo === 'checkout'
+        ? [
+            { chiavi: ['ricerca'],   label: 'Ricerca' },
+            { chiavi: ['trovata'],   label: 'Prenotazione' },
+            { chiavi: ['pagamento'], label: 'Pagamento' },
+            { chiavi: ['congedo'],   label: 'Fine' },
+        ]
+        : [
+            { chiavi: ['accoglienza', 'dati'], label: 'Dati' },
+            { chiavi: ['conferma'],            label: 'Conferma' },
+            { chiavi: ['salvata', 'camera'],   label: 'Camera' },
+            { chiavi: ['documento'],           label: 'Documento' },
+            { chiavi: ['congedo'],             label: 'Fine' },
+        ];
+    const idxCorrente = Math.max(0, passi.findIndex((p) => p.chiavi.includes(fase ?? '')));
+
+    return (
+        <div className="flex items-center gap-1.5 mb-4">
+            {passi.map((p, i) => {
+                const fatto    = i < idxCorrente;
+                const corrente = i === idxCorrente;
+                return (
+                    <div key={p.label} className="flex items-center gap-1.5 flex-1">
+                        <div className="flex flex-col items-center gap-1 flex-1">
+                            <div className="w-full rounded-full transition-all duration-500"
+                                 style={{ height: 4,
+                                          backgroundColor: fatto ? '#22c55e' : corrente ? '#3b82f6' : 'rgba(148,163,184,0.2)' }} />
+                            <span className="text-[10px] uppercase tracking-wide transition-colors duration-500"
+                                  style={{ color: fatto ? '#4ade80' : corrente ? '#93c5fd' : 'rgba(148,163,184,0.4)',
+                                           fontWeight: corrente ? 700 : 400 }}>
+                                {p.label}
+                            </span>
+                        </div>
+                    </div>
+                );
+            })}
+        </div>
+    );
+}
+
+/**
+ * Equalizer audio-reattivo: 5 barre che seguono la voce dell'AI in tempo reale
+ * (WebAudio AnalyserNode sulla track remota). Manipola il DOM direttamente
+ * via ref — niente re-render React a 60fps.
+ */
+function VoceEqualizer({ track }: { track: MediaStreamTrack | null }) {
+    const barsRef = useRef<(HTMLDivElement | null)[]>([]);
+
+    useEffect(() => {
+        if (!track) return;
+        const ctx = new AudioContext();
+        const analyser = ctx.createAnalyser();
+        analyser.fftSize = 64;
+        analyser.smoothingTimeConstant = 0.75;
+        const src = ctx.createMediaStreamSource(new MediaStream([track]));
+        src.connect(analyser);
+        const data = new Uint8Array(analyser.frequencyBinCount);
+
+        let raf = 0;
+        const loop = () => {
+            analyser.getByteFrequencyData(data);
+            // 5 bande: media di fasce diverse dello spettro (voce ≈ bande basse/medie)
+            const bande = [
+                [1, 3], [3, 6], [6, 10], [10, 16], [16, 24],
+            ].map(([a, b]) => {
+                let s = 0;
+                for (let i = a; i < b; i++) s += data[i];
+                return s / (b - a) / 255;
+            });
+            barsRef.current.forEach((el, i) => {
+                if (el) el.style.height = `${8 + Math.min(1, bande[i] * 1.6) * 30}px`;
+            });
+            raf = requestAnimationFrame(loop);
+        };
+        loop();
+
+        return () => {
+            cancelAnimationFrame(raf);
+            src.disconnect();
+            ctx.close().catch(() => {});
+        };
+    }, [track]);
+
+    return (
+        <div className="flex items-center justify-center gap-1.5" style={{ height: 40 }}>
+            {[0, 1, 2, 3, 4].map((i) => (
+                <div key={i} ref={(el) => { barsRef.current[i] = el; }}
+                     className="ai-eq-bar" style={{ width: 5, height: 8 }} />
+            ))}
+        </div>
+    );
+}
+
+function AiScreen({ scopo, statoMedia, localVideoRef, aiUi, audioTrack, onTermina }: AiScreenProps) {
+    const connesso = statoMedia === 'connected';
+    const titolo   = scopo === 'checkin' ? 'Check-in con l’assistente'
+        : scopo === 'checkout' ? 'Check-out' : 'Informazioni';
+
+    // "Sta scrivendo…": puntini animati sul recap per ~1.6s dopo ogni aggiornamento
+    const [scrivendo, setScrivendo] = useState(false);
+    const primaRender = useRef(true);
+    useEffect(() => {
+        if (primaRender.current) { primaRender.current = false; return; }
+        setScrivendo(true);
+        const t = setTimeout(() => setScrivendo(false), 1600);
+        return () => clearTimeout(t);
+    }, [aiUi]);
+
+    const dataIt = (iso?: string) => iso
+        ? new Date(iso + 'T00:00:00').toLocaleDateString('it-IT', { day: 'numeric', month: 'long' })
+        : null;
+    const f = aiUi.form;
+    const ospiti = f.adulti
+        ? `${f.adulti} adult${f.adulti === 1 ? 'o' : 'i'}`
+            + (f.ragazzi ? `, ${f.ragazzi} ragazz${f.ragazzi === 1 ? 'o' : 'i'}` : '')
+            + (f.bambini ? `, ${f.bambini} bambin${f.bambini === 1 ? 'o' : 'i'}` : '')
+        : null;
+    const cameraTxt = aiUi.camera?.nome
+        ? `Camera ${aiUi.camera.nome}` + (aiUi.camera.piano !== null && aiUi.camera.piano !== undefined ? ` · piano ${aiUi.camera.piano}` : '')
+        : null;
+    const mostraRecap = scopo !== 'info';
+    const pag = aiUi.pagamento;
+
+    return (
+        <div className="w-full h-full flex items-center justify-center relative gap-14 px-10">
+            {/* Colonna sinistra: orb vocale audio-reattivo */}
+            <div className="flex flex-col items-center shrink-0">
+                <div className="relative flex items-center justify-center mb-8" style={{ width: 180, height: 180 }}>
+                    {/* Alone conico rotante */}
+                    {connesso && <div className="ai-orb-halo absolute rounded-full" style={{ width: 150, height: 150 }} />}
+                    <div className="ai-orb-core rounded-full flex items-center justify-center relative"
+                         style={{ width: 104, height: 104,
+                                  background: 'radial-gradient(circle at 35% 30%, rgba(96,165,250,0.40), rgba(30,41,80,0.85))',
+                                  border: '1px solid rgba(96,165,250,0.55)',
+                                  boxShadow: '0 0 40px rgba(59,130,246,0.25), inset 0 0 24px rgba(59,130,246,0.15)' }}>
+                        {connesso
+                            ? <VoceEqualizer track={audioTrack} />
+                            : (
+                                <span className="flex gap-1.5">
+                                    <span className="ai-dot w-2 h-2 rounded-full" style={{ backgroundColor: '#93c5fd' }} />
+                                    <span className="ai-dot w-2 h-2 rounded-full" style={{ backgroundColor: '#93c5fd' }} />
+                                    <span className="ai-dot w-2 h-2 rounded-full" style={{ backgroundColor: '#93c5fd' }} />
+                                </span>
+                            )}
+                    </div>
+                </div>
+
+                <h1 className="font-light mb-2 text-center" style={{ fontSize: 28, color: 'var(--color-text-primary)' }}>{titolo}</h1>
+                <p className="text-base text-center" style={{ color: connesso ? '#93c5fd' : 'var(--color-text-muted)' }}>
+                    {connesso ? 'Parla pure — l’assistente ti ascolta' : 'Connessione in corso…'}
+                </p>
+                <p className="text-xs mt-2 text-center" style={{ color: 'var(--color-text-muted)' }}>
+                    Un receptionist può intervenire in ogni momento.
+                </p>
+            </div>
+
+            {/* Colonna destra: recap live di quello che dici */}
+            {mostraRecap && (
+                <div className="rounded-2xl p-7 w-full"
+                     style={{ maxWidth: 430, backgroundColor: 'rgba(148,163,184,0.05)',
+                              border: '1px solid rgba(148,163,184,0.18)' }}>
+                    <FaseStepper fase={aiUi.fase} scopo={scopo} />
+                    <div className="flex items-center justify-between mb-3">
+                        <p className="text-xs uppercase tracking-widest" style={{ color: 'var(--color-text-muted)' }}>
+                            {scopo === 'checkout' ? 'Il tuo check-out' : 'La tua prenotazione'}
+                        </p>
+                        {scrivendo && (
+                            <span className="flex items-center gap-1">
+                                <span className="ai-dot w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#60a5fa' }} />
+                                <span className="ai-dot w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#60a5fa' }} />
+                                <span className="ai-dot w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#60a5fa' }} />
+                            </span>
+                        )}
+                    </div>
+                    <RecapRiga label="Nome"     value={f.nome && f.cognome ? `${f.nome} ${f.cognome}` : f.nome ?? f.cognome ?? null} />
+                    <RecapRiga label="Arrivo"   value={dataIt(f.check_in)} />
+                    <RecapRiga label="Partenza" value={dataIt(f.check_out)} />
+                    {scopo === 'checkin' && <RecapRiga label="Ospiti" value={ospiti} />}
+                    <RecapRiga label="Camera"   value={cameraTxt} />
+
+                    {/* Pagamento POS (check-out) */}
+                    {pag?.importo !== undefined && (
+                        <div className="ai-pop-in mt-5 rounded-xl py-3.5 px-5 flex items-center justify-between"
+                             style={{
+                                 backgroundColor: pag.stato === 'ok' ? 'rgba(34,197,94,0.10)' : pag.stato === 'ko' ? 'rgba(239,68,68,0.08)' : 'rgba(245,158,11,0.08)',
+                                 border: `1px solid ${pag.stato === 'ok' ? 'rgba(34,197,94,0.45)' : pag.stato === 'ko' ? 'rgba(239,68,68,0.4)' : 'rgba(245,158,11,0.4)'}`,
+                             }}>
+                            <span className="text-sm" style={{ color: 'var(--color-text-muted)' }}>Pagamento</span>
+                            <span className="font-semibold" style={{ fontSize: 18,
+                                  color: pag.stato === 'ok' ? '#86efac' : pag.stato === 'ko' ? '#fca5a5' : '#fcd34d' }}>
+                                € {Number(pag.importo).toFixed(2)}{' '}
+                                {pag.stato === 'ok' ? '· Pagato ✓' : pag.stato === 'ko' ? '· Non riuscito' : '· Segui il POS'}
+                            </span>
+                        </div>
+                    )}
+
+                    {/* Codice prenotazione — grande, appare al salvataggio */}
+                    {aiUi.codice && (
+                        <div className="ai-pop-in mt-5 rounded-xl py-4 px-5 text-center"
+                             style={{ backgroundColor: 'rgba(34,197,94,0.10)', border: '1px solid rgba(34,197,94,0.45)' }}>
+                            <p className="text-xs uppercase tracking-widest mb-1" style={{ color: '#4ade80' }}>
+                                Codice prenotazione
+                            </p>
+                            <p className="font-mono font-bold" style={{ fontSize: 30, letterSpacing: '0.12em', color: '#86efac' }}>
+                                {aiUi.codice}
+                            </p>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* Autoritratto camera — sempre attiva, in basso a destra */}
+            <video ref={localVideoRef} autoPlay muted playsInline
+                   className="absolute rounded-xl"
+                   style={{ right: 20, bottom: 20, width: 170, height: 128, objectFit: 'cover',
+                            backgroundColor: '#060810', border: '1px solid var(--color-border)', transform: 'scaleX(-1)' }} />
+
+            {/* Termina — discreto ma raggiungibile */}
+            <button onClick={onTermina}
+                    className="absolute rounded-xl px-6 py-3 text-sm transition-all active:scale-95"
+                    style={{ left: 20, bottom: 20, color: '#ef4444', border: '1px solid rgba(239,68,68,0.35)' }}>
+                Termina conversazione
+            </button>
+        </div>
+    );
+}
+
+// ── CompletatoScreen ─────────────────────────────────────────────────────────
+// Riepilogo finale dopo la sessione AI: codice e camera restano leggibili
+// (45s o finché l'ospite tocca Chiudi), senza sparire con la chiusura audio.
+
+interface CompletatoScreenProps {
+    dati:     import('@/hooks/useLiveKitChiosco').AiUiState;
+    scopo:    'checkin' | 'checkout' | 'info';
+    onChiudi: () => void;
+}
+
+function CompletatoScreen({ dati, scopo, onChiudi }: CompletatoScreenProps) {
+    const checkout = scopo === 'checkout';
+    return (
+        <div className="w-full h-full flex flex-col items-center justify-center px-8">
+            <div className="rounded-full flex items-center justify-center mb-6"
+                 style={{ width: 84, height: 84, backgroundColor: 'rgba(34,197,94,0.10)', border: '2px solid rgba(34,197,94,0.5)' }}>
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2">
+                    <path d="M20 6L9 17l-5-5" />
+                </svg>
+            </div>
+            <h1 className="font-light mb-2" style={{ fontSize: 34, color: 'var(--color-text-primary)' }}>
+                {checkout ? 'Check-out completato' : 'Check-in completato'}
+            </h1>
+            <p className="mb-8" style={{ color: 'var(--color-text-muted)' }}>
+                {checkout ? 'Grazie del soggiorno — buon viaggio!' : 'Benvenuto — buon soggiorno!'}
+            </p>
+
+            <div className="flex items-stretch gap-4 mb-10 flex-wrap justify-center">
+                {dati.codice && (
+                    <div className="rounded-xl py-4 px-8 text-center"
+                         style={{ backgroundColor: 'rgba(34,197,94,0.10)', border: '1px solid rgba(34,197,94,0.45)' }}>
+                        <p className="text-xs uppercase tracking-widest mb-1" style={{ color: '#4ade80' }}>Codice prenotazione</p>
+                        <p className="font-mono font-bold" style={{ fontSize: 32, letterSpacing: '0.12em', color: '#86efac' }}>{dati.codice}</p>
+                    </div>
+                )}
+                {!checkout && dati.camera?.nome && (
+                    <div className="rounded-xl py-4 px-8 text-center"
+                         style={{ backgroundColor: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.4)' }}>
+                        <p className="text-xs uppercase tracking-widest mb-1" style={{ color: '#93c5fd' }}>La tua camera</p>
+                        <p className="font-bold" style={{ fontSize: 32, color: '#bfdbfe' }}>
+                            {dati.camera.nome}
+                            {dati.camera.piano !== null && dati.camera.piano !== undefined && (
+                                <span className="font-normal" style={{ fontSize: 15, color: '#93c5fd' }}> · piano {dati.camera.piano}</span>
+                            )}
+                        </p>
+                    </div>
+                )}
+                {checkout && dati.pagamento?.stato === 'ok' && dati.pagamento.importo !== undefined && (
+                    <div className="rounded-xl py-4 px-8 text-center"
+                         style={{ backgroundColor: 'rgba(34,197,94,0.10)', border: '1px solid rgba(34,197,94,0.45)' }}>
+                        <p className="text-xs uppercase tracking-widest mb-1" style={{ color: '#4ade80' }}>Pagamento</p>
+                        <p className="font-bold" style={{ fontSize: 32, color: '#86efac' }}>€ {Number(dati.pagamento.importo).toFixed(2)} ✓</p>
+                    </div>
+                )}
+            </div>
+
+            <button onClick={onChiudi}
+                    className="rounded-xl px-8 py-3 text-sm transition-all active:scale-95"
+                    style={{ color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}>
+                Chiudi
+            </button>
+        </div>
+    );
+}
+
 // ── AttesoScreen ─────────────────────────────────────────────────────────────
 // Mostrata in idle e in_nascosto (monitoraggio silenzioso: il guest non sa nulla).
 
 interface AttesoScreenProps {
-    chiosco:  Chiosco;
-    onChiama: () => void;
-    loading:  boolean;
+    chiosco:   Chiosco;
+    onAvviaAi: (scopo: 'checkin' | 'checkout' | 'info') => void;
+    aiLoading: 'checkin' | 'checkout' | 'info' | null;
+    aiErrore:  string | null;
 }
 
-function AttesoScreen({ chiosco, onChiama, loading }: AttesoScreenProps) {
+function AttesoScreen({ chiosco, onAvviaAi, aiLoading, aiErrore }: AttesoScreenProps) {
     const handleLogout = () => {
         if (confirm('Disconnettere il chiosco?')) {
             router.post('/logout');
@@ -946,90 +1334,100 @@ function AttesoScreen({ chiosco, onChiama, loading }: AttesoScreenProps) {
 
             {/* Area principale */}
             <div className="w-full h-full flex flex-col items-center justify-center">
-                {/* Placeholder video receptionist */}
-                <div className="rounded-2xl flex items-center justify-center mb-8"
-                     style={{
-                         width: '480px', height: '360px',
-                         maxWidth: '80vw', maxHeight: '60vh',
-                         backgroundColor: '#060810',
-                         border: '1px solid var(--color-border)',
-                     }}>
-                    <div className="text-center" style={{ color: 'var(--color-text-muted)' }}>
-                        <div className="mb-3">
-                            <svg width="56" height="56" viewBox="0 0 24 24" fill="none"
-                                 stroke="var(--color-border)" strokeWidth="1" className="mx-auto">
-                                <path d="M15 10l4.553-2.069A1 1 0 0121 8.87v6.26a1 1 0 01-1.447.894L15 14M4 6h8a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V8a2 2 0 012-2z" />
-                            </svg>
-                        </div>
-                        <p className="text-sm">In attesa del receptionist</p>
-                    </div>
+                {/* Benvenuto */}
+                <div className="text-center mb-10 px-8">
+                    <h1 className="font-light mb-2" style={{ fontSize: 40, color: 'var(--color-text-primary)' }}>
+                        Benvenuto
+                    </h1>
+                    <p style={{ fontSize: 16, color: 'var(--color-text-muted)' }}>
+                        Welcome · Tocca un pulsante per iniziare
+                    </p>
                 </div>
 
-                {/* Touch kiosk — tasto/area touch per chiamare */}
-                {chiosco.tipo === 'touch' && (
-                    <div className="text-center px-8">
-                        <button
-                            onClick={onChiama}
-                            disabled={loading}
-                            className="rounded-2xl transition-all active:scale-95"
-                            style={{
-                                padding:         '20px 48px',
-                                backgroundColor: loading ? 'rgba(34,197,94,0.05)' : 'rgba(34,197,94,0.08)',
-                                border:          `2px solid ${loading ? 'rgba(34,197,94,0.2)' : 'rgba(34,197,94,0.4)'}`,
-                                cursor:          loading ? 'default' : 'pointer',
-                            }}
-                        >
-                            <div className="flex flex-col items-center gap-3">
-                                <svg width="36" height="36" viewBox="0 0 24 24" fill="none"
-                                     stroke="#22c55e" strokeWidth="1.5"
-                                     style={{ opacity: loading ? 0.4 : 1 }}>
-                                    <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/>
-                                </svg>
-                                <span className="text-lg font-light" style={{ color: '#22c55e' }}>
-                                    {loading ? 'Chiamata in corso…' : 'Chiama il receptionist'}
-                                </span>
-                                <span className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
-                                    Call reception
-                                </span>
-                            </div>
-                        </button>
-                    </div>
-                )}
-
-                {/* Analogico — istruzione per campanello fisico */}
-                {chiosco.tipo === 'analogico' && (
-                    <div className="text-center px-8">
-                        <div className="mb-4">
-                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none"
-                                 stroke="rgba(34,197,94,0.5)" strokeWidth="1" className="mx-auto">
-                                <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" />
+                {/* Self check-in / check-out AI — azioni principali del chiosco */}
+                <div className="flex items-stretch justify-center gap-5 mb-8 px-8 w-full" style={{ maxWidth: 1020 }}>
+                    <button
+                        onClick={() => onAvviaAi('checkin')}
+                        disabled={aiLoading !== null}
+                        className="flex-1 rounded-2xl transition-all active:scale-95"
+                        style={{
+                            padding:    '26px 32px',
+                            background: aiLoading === 'checkin'
+                                ? 'rgba(59,130,246,0.10)'
+                                : 'linear-gradient(180deg, rgba(59,130,246,0.22), rgba(59,130,246,0.10))',
+                            border:     '2px solid rgba(59,130,246,0.55)',
+                            cursor:     aiLoading ? 'default' : 'pointer',
+                            boxShadow:  '0 8px 30px rgba(59,130,246,0.15)',
+                        }}
+                    >
+                        <div className="flex flex-col items-center gap-2.5">
+                            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="1.5">
+                                <path d="M9 12l2 2 4-4" />
+                                <path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
+                            <span className="text-xl font-medium" style={{ color: '#93c5fd' }}>
+                                {aiLoading === 'checkin' ? 'Un attimo…' : 'Esegui il check-in'}
+                            </span>
+                            <span className="text-sm" style={{ color: 'var(--color-text-muted)' }}>Self check-in</span>
                         </div>
-                        <p className="text-lg font-light" style={{ color: 'var(--color-text-secondary)' }}>
-                            Suonare il campanello per chiamare il receptionist
-                        </p>
-                        <p className="text-base mt-1" style={{ color: 'var(--color-text-muted)' }}>
-                            Ring the bell to call reception
-                        </p>
+                    </button>
 
-                        {/* Simulazione campanello — solo in DEV (analogico non ha hardware reale in test) */}
-                        {import.meta.env.DEV && (
-                            <button
-                                onClick={onChiama}
-                                disabled={loading}
-                                className="mt-6 rounded-lg px-4 py-2 text-xs font-mono transition-all"
-                                style={{
-                                    color:           'var(--color-text-muted)',
-                                    border:          '1px solid var(--color-border)',
-                                    backgroundColor: 'var(--color-bg-secondary)',
-                                    cursor:          loading ? 'not-allowed' : 'pointer',
-                                }}
-                            >
-                                [DEV] Simula campanello
-                            </button>
-                        )}
-                    </div>
+                    <button
+                        onClick={() => onAvviaAi('checkout')}
+                        disabled={aiLoading !== null}
+                        className="flex-1 rounded-2xl transition-all active:scale-95"
+                        style={{
+                            padding:    '26px 32px',
+                            background: aiLoading === 'checkout'
+                                ? 'rgba(245,158,11,0.08)'
+                                : 'linear-gradient(180deg, rgba(245,158,11,0.18), rgba(245,158,11,0.08))',
+                            border:     '2px solid rgba(245,158,11,0.5)',
+                            cursor:     aiLoading ? 'default' : 'pointer',
+                        }}
+                    >
+                        <div className="flex flex-col items-center gap-2.5">
+                            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" strokeWidth="1.5">
+                                <rect x="2" y="5" width="20" height="14" rx="2" />
+                                <path d="M2 10h20" />
+                            </svg>
+                            <span className="text-xl font-medium" style={{ color: '#fcd34d' }}>
+                                {aiLoading === 'checkout' ? 'Un attimo…' : 'Esegui il check-out'}
+                            </span>
+                            <span className="text-sm" style={{ color: 'var(--color-text-muted)' }}>Check-out &amp; payment</span>
+                        </div>
+                    </button>
+
+                    <button
+                        onClick={() => onAvviaAi('info')}
+                        disabled={aiLoading !== null}
+                        className="flex-1 rounded-2xl transition-all active:scale-95"
+                        style={{
+                            padding:         '26px 32px',
+                            backgroundColor: aiLoading === 'info' ? 'rgba(148,163,184,0.06)' : 'rgba(148,163,184,0.08)',
+                            border:          '2px solid rgba(148,163,184,0.35)',
+                            cursor:          aiLoading ? 'default' : 'pointer',
+                        }}
+                    >
+                        <div className="flex flex-col items-center gap-2.5">
+                            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" strokeWidth="1.5">
+                                <circle cx="12" cy="12" r="9" />
+                                <path d="M12 16v-4M12 8h.01" />
+                            </svg>
+                            <span className="text-xl font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+                                {aiLoading === 'info' ? 'Un attimo…' : 'Richiedi informazioni'}
+                            </span>
+                            <span className="text-sm" style={{ color: 'var(--color-text-muted)' }}>Ask for information</span>
+                        </div>
+                    </button>
+                </div>
+
+                {aiErrore && (
+                    <p className="mb-6 text-sm rounded-lg px-4 py-2"
+                       style={{ color: '#fca5a5', border: '1px solid rgba(239,68,68,0.3)', backgroundColor: 'rgba(239,68,68,0.07)' }}>
+                        {aiErrore}
+                    </p>
                 )}
+
             </div>
 
             {/* Info chiosco — bottom left, solo dev */}

@@ -53,4 +53,10 @@ return [
         'url'        => env('LIVEKIT_URL'),
     ],
 
+    // ── Worker AI (ai-receptionist) — segreto condiviso service-to-service ─
+    // Stesso valore di RSMIONI_AGENT_HMAC_SECRET nel .env del worker Python.
+    'agent' => [
+        'token' => env('AGENT_SERVICE_TOKEN'),
+    ],
+
 ];

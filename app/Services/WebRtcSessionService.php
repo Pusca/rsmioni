@@ -8,7 +8,10 @@ use Illuminate\Support\Str;
 /**
  * Gestione sessioni WebRTC per collegamento in chiaro, nascosto e parlato.
  *
- * Le sessioni sono ephemere: vivono in Cache con TTL 30 minuti.
+ * Le sessioni vivono in Cache con TTL 30 minuti "scorrevole": il polling del
+ * chiosco (GET /kiosk/livekit/token, ogni 2s) le rinnova via rinnova(), quindi
+ * una sessione non scade MAI finché il chiosco è online — termina solo per
+ * chiusura esplicita dalla Portineria o se il chiosco sparisce per oltre 30'.
  * Una sessione lega:
  *   sessionId → { receptionist_id, chiosco_id, hotel_id, tipo, creata_at }
  *
@@ -29,9 +32,10 @@ class WebRtcSessionService
      * Crea una nuova sessione WebRTC e restituisce il sessionId (UUID).
      * Sovrascrive eventuali sessioni precedenti per lo stesso chiosco.
      *
-     * @param string $tipo 'chiaro' | 'nascosto' | 'parlato'
+     * @param string $tipo      'chiaro' | 'nascosto' | 'parlato'
+     * @param string $gestitaDa 'umano' | 'ai' — chi conduce la sessione (docs/09)
      */
-    public function crea(string $receptionistId, string $chioscoId, string $hotelId, string $tipo = 'parlato'): string
+    public function crea(string $receptionistId, string $chioscoId, string $hotelId, string $tipo = 'parlato', string $gestitaDa = 'umano'): string
     {
         $sessionId = (string) Str::uuid();
 
@@ -40,6 +44,7 @@ class WebRtcSessionService
             'chiosco_id'      => $chioscoId,
             'hotel_id'        => $hotelId,
             'tipo'            => $tipo,
+            'gestita_da'      => $gestitaDa,
             'creata_at'       => now()->toIso8601String(),
         ], self::TTL);
 
@@ -78,6 +83,24 @@ class WebRtcSessionService
         }
 
         return $sessionId;
+    }
+
+    /**
+     * Rinnova la scadenza della sessione (TTL scorrevole).
+     *
+     * Chiamato dal polling del chiosco: finché il chiosco è online la sessione
+     * resta viva indefinitamente. NON va chiamato dai poll della Portineria,
+     * altrimenti una sessione sopravvivrebbe anche a chiosco spento.
+     */
+    public function rinnova(string $sessionId): void
+    {
+        $session = $this->trova($sessionId);
+        if (! $session) {
+            return;
+        }
+
+        Cache::put("webrtc_session:{$sessionId}", $session, self::TTL);
+        Cache::put("webrtc_sessione_chiosco:{$session['chiosco_id']}", $sessionId, self::TTL);
     }
 
     /**
@@ -138,9 +161,47 @@ class WebRtcSessionService
         $session = $this->trova($sessionId);
 
         Cache::forget("webrtc_session:{$sessionId}");
+        Cache::forget("ai_form:{$sessionId}");
 
         if ($session) {
             Cache::forget("webrtc_sessione_chiosco:{$session['chiosco_id']}");
         }
+    }
+
+    /**
+     * Subentro umano su una sessione AI: il receptionist prende la chiamata.
+     * La stanza LiveKit resta la stessa (nessuna riconnessione lato chiosco).
+     */
+    public function subentroUmano(string $sessionId, string $receptionistId): void
+    {
+        $session = $this->trova($sessionId);
+        if (! $session) {
+            return;
+        }
+
+        $session['gestita_da']      = 'umano';
+        $session['receptionist_id'] = $receptionistId;
+        Cache::put("webrtc_session:{$sessionId}", $session, self::TTL);
+    }
+
+    // ── Form AI (self check-in vocale) ────────────────────────────────────
+
+    /**
+     * Registra/aggiorna incrementalmente i campi del form prenotazione che
+     * l'AI raccoglie a voce durante il self check-in. I campi nuovi si
+     * fondono con quelli già raccolti (l'ospite può correggersi).
+     */
+    public function aggiornaForm(string $sessionId, array $campi): array
+    {
+        $form = array_merge($this->form($sessionId), array_filter($campi, fn ($v) => $v !== null));
+        Cache::put("ai_form:{$sessionId}", $form, self::TTL);
+
+        return $form;
+    }
+
+    /** Campi del form prenotazione raccolti finora dall'AI. */
+    public function form(string $sessionId): array
+    {
+        return Cache::get("ai_form:{$sessionId}", []);
     }
 }

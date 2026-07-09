@@ -127,6 +127,19 @@ class PortineriaService
     }
 
     /**
+     * Rinnova il TTL dello stato corrente senza cambiarlo (sessioni lunghe).
+     * Chiamato dal polling del chiosco: una chiamata che dura più del TTL
+     * non deve far apparire il chiosco Offline in Portineria.
+     */
+    public function rinnovaStato(string $chioscoId): void
+    {
+        $raw = Cache::get($this->keyStato($chioscoId));
+        if ($raw !== null) {
+            Cache::put($this->keyStato($chioscoId), $raw, self::TTL_STATO);
+        }
+    }
+
+    /**
      * Forza uno stato (uso interno / demo / kiosk-agent).
      */
     public function impostaStato(

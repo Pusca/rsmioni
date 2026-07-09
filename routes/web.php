@@ -80,6 +80,9 @@ Route::middleware(['auth', 'ip_whitelist', 'role:receptionist,receptionist_lite'
         Route::post('/webrtc/sessione', [WebRtcController::class, 'creaSessione'])->name('webrtc.sessione');
         Route::post('/webrtc/signal',   [WebRtcController::class, 'signal'])->name('webrtc.signal');
         Route::post('/webrtc/chiudi',   [WebRtcController::class, 'chiudi'])->name('webrtc.chiudi');
+
+        // Subentro sul self check-in AI
+        Route::post('/ai/subentra', [\App\Http\Controllers\Portineria\AiSubentroController::class, 'subentra'])->name('ai.subentra');
         Route::get('/webrtc/{sessionId}/poll', [WebRtcController::class, 'poll'])->name('webrtc.poll');
 
         // Media — sessioni chiaro/nascosto (senza transizione stato)
@@ -300,11 +303,37 @@ Route::middleware(['auth', 'role:chiosco'])
         Route::get('/collaudo',  [KioskCollaudoController::class, 'show'])->name('collaudo.show');
         Route::post('/collaudo', [KioskCollaudoController::class, 'store'])->name('collaudo.store');
 
+        // Self check-in AI — avvio/chiusura sessione vocale con l'agent (docs/09)
+        Route::post('/ai/avvia',   [\App\Http\Controllers\Kiosk\KioskAiController::class, 'avvia'])->name('ai.avvia');
+        Route::post('/ai/termina', [\App\Http\Controllers\Kiosk\KioskAiController::class, 'termina'])->name('ai.termina');
+
         // Heartbeat — il kiosk lo invia ogni 60s (M5D)
         Route::post('/heartbeat', [KioskHeartbeatController::class, 'store'])->name('heartbeat.store');
 
         // Auto-diagnostica kiosk-side (M5D)
         Route::get('/diagnostica', [KioskDiagnosticaController::class, 'show'])->name('diagnostica.show');
+    });
+
+/*
+|--------------------------------------------------------------------------
+| Agent AI — API service-to-service del worker ai-receptionist (docs/09)
+| Autenticazione: header X-Agent-Token (middleware AgentServiceAuth).
+| CSRF escluso in bootstrap/app.php (il worker non ha sessione browser).
+|--------------------------------------------------------------------------
+*/
+Route::middleware([\App\Http\Middleware\AgentServiceAuth::class])
+    ->prefix('agent')
+    ->name('agent.')
+    ->group(function () {
+        Route::post('/form',                [\App\Http\Controllers\Agent\AgentCheckinController::class, 'aggiornaForm'])->name('form');
+        Route::post('/prenotazione',        [\App\Http\Controllers\Agent\AgentCheckinController::class, 'creaPrenotazione'])->name('prenotazione');
+        Route::post('/camera',              [\App\Http\Controllers\Agent\AgentCheckinController::class, 'assegnaCamera'])->name('camera');
+        Route::post('/acquisizione',        [\App\Http\Controllers\Agent\AgentCheckinController::class, 'avviaAcquisizione'])->name('acquisizione');
+        Route::post('/acquisizione/stato',  [\App\Http\Controllers\Agent\AgentCheckinController::class, 'statoAcquisizione'])->name('acquisizione.stato');
+        Route::post('/prenotazione/cerca',  [\App\Http\Controllers\Agent\AgentCheckinController::class, 'cercaPrenotazione'])->name('prenotazione.cerca');
+        Route::post('/pagamento',           [\App\Http\Controllers\Agent\AgentCheckinController::class, 'avviaPagamento'])->name('pagamento');
+        Route::post('/pagamento/stato',     [\App\Http\Controllers\Agent\AgentCheckinController::class, 'statoPagamento'])->name('pagamento.stato');
+        Route::post('/termina',             [\App\Http\Controllers\Agent\AgentCheckinController::class, 'termina'])->name('termina');
     });
 
 /*

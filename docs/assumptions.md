@@ -217,6 +217,76 @@ Per il **Restart PC**: il chiosco riceve un comando Socket.IO e lancia `shutdown
 
 ---
 
+## ASSUNZIONE A21 — Identità e autorizzazione dell'AI verso il dominio
+
+**Punto ambiguo**: Il manuale non prevede un attore AI. Non è definito con quali permessi l'AI esegue azioni (creazione prenotazione, pagamento, ecc.).
+
+**Assunzione adottata**: L'AI agisce come un **service-account con i permessi di un Receptionist** dell'hotel della sessione. Ogni azione passa dalle stesse action/Policy del receptionist umano, autenticata con un service token + firma HMAC. L'AI non ha permessi superiori a quelli di un receptionist.
+
+**Impatto**: Middleware service-auth, audit log, eventuale modello `AiAgent`/service user.
+
+---
+
+## ASSUNZIONE A22 — Pagamento POS gestito autonomamente dall'AI
+
+**Punto ambiguo**: Il manuale assume un operatore umano che verifica l'esito POS leggendo il file di output. Non è previsto che lo faccia un'AI.
+
+**Assunzione adottata** (decisione committente): L'AI gestisce il pagamento **in autonomia** (imposta importo, guida l'ospite, verifica esito). Escala al receptionist umano **solo** in caso di: esito KO, assenza file dopo timeout, mismatch fra importo richiesto ed esito, o data transazione non coerente. Ogni tentativo è loggato.
+
+**Impatto**: Tool `avvia_pagamento`/`verifica_pagamento` nel worker, soglie di anomalia, audit. Da rivalutare se il rischio operativo risulta alto in collaudo.
+
+---
+
+## ASSUNZIONE A23 — Attivazione AI-first con fallback umano
+
+**Punto ambiguo**: Non definito chi risponde alla chiamata del chiosco quando l'AI è attiva.
+
+**Assunzione adottata** (decisione committente): La chiamata va **subito all'AI**; il receptionist riceve comunque la notifica in portineria e può subentrare. Se nessun worker AI è disponibile (down/saturazione), la chiamata ricade sul comportamento umano standard (FLOW 05).
+
+**Impatto**: Logica di dispatch chiamata, health-check worker, flag su chiosco/hotel.
+
+---
+
+## ASSUNZIONE A24 — Voce multilingua automatica
+
+**Punto ambiguo**: Lingue supportate dalla voce AI non specificate (il manuale cita solo il messaggio attesa multilingua, A17).
+
+**Assunzione adottata** (decisione committente): L'AI **rileva automaticamente** la lingua dell'ospite e risponde nella stessa (STT con language detection + TTS multilingua). Set iniziale allineato ad A17 (IT/EN/FR/ES/DE) con possibilità di estensione.
+
+**Impatto**: Scelta provider STT/TTS multilingua, prompt di sistema, test per lingua.
+
+---
+
+## ASSUNZIONE A25 — Privacy e retention audio/video della sessione AI
+
+**Punto ambiguo**: Il manuale non tratta registrazione/retention della conversazione con un'AI (rilevante GDPR).
+
+**Assunzione adottata**: Sul chiosco viene mostrata un'informativa sulla presenza di assistente automatico. Audio/video non vengono registrati in modo persistente salvo necessità (es. frame documento, che segue la retention documenti A09/A20). Il transcript è conservato per audit con retention configurabile. Da validare con DPO/committente.
+
+**Impatto**: Informativa UI kiosk, configurazione retention, audit log.
+
+---
+
+## A26 — Autenticazione worker AI: bearer statico in MVP (no HMAC per-richiesta)
+
+**Contesto**: docs/09 §4 prevede "Service token + firma HMAC" per le chiamate agent→Laravel.
+
+**Assunzione adottata**: In FASE 2 (MVP) il worker si autentica con un segreto condiviso statico nell'header `X-Agent-Token` (`AGENT_SERVICE_TOKEN` lato Laravel = `RSMIONI_AGENT_HMAC_SECRET` lato worker), confrontato con `hash_equals`. La firma HMAC per-richiesta (anti-replay) è rimandata all'hardening pre-produzione. Ogni endpoint agent è comunque vincolato a una sessione WebRTC viva con `gestita_da='ai'`: l'hotel di destinazione viene sempre dalla sessione, mai dal payload.
+
+**Impatto**: `AgentServiceAuth` middleware, rotazione segreto manuale, hardening da pianificare.
+
+---
+
+## A27 — Scaletta self check-in AI e campi prenotazione
+
+**Contesto**: il committente chiede che l'AI faccia "domande semplici da albergatore" e salvi una prenotazione reale.
+
+**Assunzione adottata**: La scaletta raccoglie solo i campi del form prenotazione esistente: nome, cognome, check-in/check-out, pax (adulti/ragazzi/bambini). Il modello non ha campi contatto (telefono/email), quindi non vengono chiesti. La prenotazione nasce con `tipo_pagamento=da_pagare`, `documento_identita=da_acquisire`, codice `AI-XXXXXX`, `inserito_da` = account chiosco con profilo Chiosco. Acquisizione documento e pagamento POS in sessione AI arrivano con la FASE 3.
+
+**Impatto**: `AgentCheckinController`, prompt dell'agent, filtri/ricerca prenotazioni (codice AI-*).
+
+---
+
 ## Da Validare Prima dell'Implementazione
 
 | ID | Assunzione | Urgenza |
@@ -230,3 +300,8 @@ Per il **Restart PC**: il chiosco riceve un comando Socket.IO e lancia `shutdown
 | A12 | Aggiornamento manuale prezzo dopo POS | Bassa |
 | A15 | Condivisione schermo vs video receptionist | Media |
 | A17 | Lingue messaggio attesa | Bassa |
+| A21 | Identità/permessi dell'AI verso il dominio | Alta |
+| A22 | Pagamento POS gestito autonomamente dall'AI | Alta |
+| A23 | Attivazione AI-first con fallback umano | Media |
+| A24 | Voce multilingua automatica | Media |
+| A25 | Privacy/retention audio-video sessione AI | Alta |
