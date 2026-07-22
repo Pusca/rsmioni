@@ -138,6 +138,17 @@ async def entrypoint(ctx: agents.JobContext) -> None:
         ),
     )
 
+    # Guasto non recuperabile della pipeline voce (es. TTS senza credito):
+    # meglio chiudere subito la sessione che lasciare l'ospite davanti a un
+    # assistente muto. La shutdown callback riporta il chiosco a idle.
+    @session.on("error")
+    def _on_session_error(ev) -> None:
+        err = getattr(ev, "error", None)
+        if err is not None and getattr(err, "recoverable", True):
+            return  # transitorio: la pipeline riprova da sola
+        logger.error("errore non recuperabile nella pipeline voce, chiudo la sessione: %s", err)
+        ctx.shutdown(reason="pipeline_voce_guasta")
+
     # Stepper di fase iniziale + saluto proattivo (l'ospite non parla per primo)
     await schermo.fase(stato.fase)
     await session.generate_reply(instructions=apertura)
