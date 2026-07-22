@@ -152,6 +152,9 @@ export function useLiveKitChiosco(): Result {
                     track.attach();
                     // Espone la track per le visualizzazioni audio-reattive (voce AI)
                     if (track.mediaStreamTrack) setRemoteAudioTrack(track.mediaStreamTrack);
+                    // L'AI pubblica solo audio (nessun video remoto): anche l'audio
+                    // segna la connessione, altrimenti lo stato resta "connecting".
+                    if (!cancelled) setStato('connected');
                 }
             };
 
