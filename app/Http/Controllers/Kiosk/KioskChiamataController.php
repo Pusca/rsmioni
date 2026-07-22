@@ -6,6 +6,7 @@ use App\Enums\StatoChiosco;
 use App\Http\Controllers\Controller;
 use App\Models\Chiosco;
 use App\Services\PortineriaService;
+use App\Services\WebRtcSessionService;
 use Illuminate\Http\JsonResponse;
 
 /**
@@ -17,12 +18,19 @@ use Illuminate\Http\JsonResponse;
  */
 class KioskChiamataController extends Controller
 {
-    public function __construct(private readonly PortineriaService $portineria) {}
+    public function __construct(
+        private readonly PortineriaService    $portineria,
+        private readonly WebRtcSessionService $sessioni,
+    ) {}
 
     /**
      * POST /kiosk/chiama
      * Transita il chiosco a in_chiamata.
-     * Solo ammissibile da idle.
+     *
+     * Ammessa da idle, offline (il tocco stesso prova che il chiosco è vivo)
+     * e in_nascosto: l'ospite non sa del monitoraggio covert e il suo gesto
+     * non deve mai cadere nel vuoto — la sessione covert viene chiusa e la
+     * Portineria vede la chiamata in arrivo (stesse regole dell'avvio AI).
      */
     public function chiama(): JsonResponse
     {
@@ -33,11 +41,19 @@ class KioskChiamataController extends Controller
 
         $attuale = $this->portineria->statoChiosco($chiosco->id);
 
-        if ($attuale !== StatoChiosco::Idle) {
+        if (! in_array($attuale, [StatoChiosco::Idle, StatoChiosco::Offline, StatoChiosco::InNascosto], true)) {
             return response()->json([
                 'error' => 'Chiamata non possibile dallo stato attuale',
                 'stato' => $attuale->value,
             ], 422);
+        }
+
+        // Monitoraggio covert in corso: chiudilo prima di squillare
+        if ($attuale === StatoChiosco::InNascosto) {
+            $vecchia = $this->sessioni->sessioneAttivaPerChiosco($chiosco->id);
+            if ($vecchia) {
+                $this->sessioni->chiudi($vecchia);
+            }
         }
 
         $this->portineria->impostaStato($chiosco, StatoChiosco::InChiamata);

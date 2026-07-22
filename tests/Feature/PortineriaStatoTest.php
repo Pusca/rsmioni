@@ -341,4 +341,55 @@ class PortineriaStatoTest extends TestCase
 
         $this->patchStato($this->receptionist, 'in_parlato')->assertOk();
     }
+
+    // ── Azioni dell'ospite con monitoraggio nascosto attivo ────────────────
+    // L'ospite non sa di essere osservato: chiamata touch e avvio AI non
+    // devono mai cadere nel vuoto — la sessione covert viene chiusa.
+
+    private function kioskUser(): User
+    {
+        return $this->creaUtente(Profilo::Chiosco);
+    }
+
+    public function test_chiamata_touch_parte_anche_da_monitoraggio_nascosto(): void
+    {
+        $this->forzaStato(StatoChiosco::InNascosto);
+        $sessioni = app(\App\Services\WebRtcSessionService::class);
+        $covert   = $sessioni->crea($this->receptionist->id, $this->chiosco->id, $this->hotel->id, 'nascosto');
+
+        $this->actingAs($this->kioskUser())
+            ->withSession(['chiosco_id' => $this->chiosco->id])
+            ->postJson('/kiosk/chiama')
+            ->assertOk()
+            ->assertJsonPath('stato', 'in_chiamata');
+
+        // La sessione covert è stata chiusa e lo stato è in_chiamata
+        $this->assertNull($sessioni->sessioneAttivaPerChiosco($this->chiosco->id));
+        $this->assertSame(
+            StatoChiosco::InChiamata,
+            app(PortineriaService::class)->statoChiosco($this->chiosco->id)
+        );
+        $this->assertNull($sessioni->trova($covert));
+    }
+
+    public function test_chiamata_touch_parte_da_offline(): void
+    {
+        $this->forzaStato(StatoChiosco::Offline);
+
+        $this->actingAs($this->kioskUser())
+            ->withSession(['chiosco_id' => $this->chiosco->id])
+            ->postJson('/kiosk/chiama')
+            ->assertOk()
+            ->assertJsonPath('stato', 'in_chiamata');
+    }
+
+    public function test_chiamata_touch_rifiutata_durante_un_collegamento_attivo(): void
+    {
+        $this->forzaStato(StatoChiosco::InParlato);
+
+        $this->actingAs($this->kioskUser())
+            ->withSession(['chiosco_id' => $this->chiosco->id])
+            ->postJson('/kiosk/chiama')
+            ->assertStatus(422);
+    }
 }
