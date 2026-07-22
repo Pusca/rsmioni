@@ -362,20 +362,28 @@ class ReceptionistAgent(Agent):
         cognome: str | None = None,
         codice: str | None = None,
     ) -> str:
-        """Cerca la prenotazione dell'ospite per il check-out, per cognome
-        e/o codice. Se trovata, i dati appaiono sullo schermo.
+        """Cerca la prenotazione dell'ospite nel gestionale, per cognome e/o
+        codice. Nel CHECK-OUT trova il soggiorno in corso; nel CHECK-IN trova
+        una prenotazione già esistente in arrivo (fatta al telefono, dal
+        gestore o online) così da NON crearne una doppia. Se trovata, i dati
+        appaiono sullo schermo.
 
         Args:
             cognome: Cognome dell'ospite.
             codice: Codice prenotazione (es. AI-ABC123), se il cognome non basta.
         """
-        if self.stato.scopo != "checkout":
-            return "La ricerca prenotazione serve solo nel check-out."
+        if self.stato.scopo == "info":
+            return "La ricerca prenotazione non serve nella modalità informazioni."
         if not cognome and not codice:
             return "Serve almeno il cognome o il codice: chiedili all'ospite."
 
-        esito = await self._backend.cerca_prenotazione(cognome, codice)
+        ambito = "arrivo" if self.stato.scopo == "checkin" else "soggiorno"
+        esito = await self._backend.cerca_prenotazione(cognome, codice, ambito)
         if not esito.ok:
+            if self.stato.scopo == "checkin":
+                # Nessuna prenotazione in arrivo: NON è un errore — si crea da zero
+                return ("Nessuna prenotazione esistente a questo nome: procedi con il "
+                        "check-in normale (raccogli date e persone e creane una nuova).")
             return self._fallimento(f"Ricerca fallita: {esito.errore}")
 
         p = esito.get("prenotazione", {})
@@ -388,6 +396,25 @@ class ReceptionistAgent(Agent):
         if p.get("codice"):
             await self._schermo.codice(p["codice"])
             self.stato.codice = p["codice"]
+
+        if self.stato.scopo == "checkin":
+            # Prenotazione del gestionale agganciata: si salta la creazione.
+            pax = p.get("pax") or {}
+            self.stato.registra({
+                "nome": p.get("nome"), "cognome": p.get("cognome"),
+                "check_in": p.get("check_in"), "check_out": p.get("check_out"),
+                "adulti": pax.get("adulti"),
+            })
+            self.stato.avanza_a(Fase.SALVATA)
+            await self._schermo.fase(self.stato.fase)
+            camera = (f"camera già assegnata: {p['camera']}" if p.get("camera")
+                      else "nessuna camera ancora assegnata: proponila con lista_camere e assegna_camera")
+            return await self._successo(
+                None,
+                f"Prenotazione esistente trovata e agganciata: {p.get('nome')} {p.get('cognome')}, "
+                f"arrivo {p.get('check_in')}, partenza {p.get('check_out')}, {camera}. "
+                "Conferma i dati in UNA frase e prosegui con i documenti "
+                "(acquisisci_documento) — NON creare una nuova prenotazione.")
 
         pagato = "GIÀ PAGATA" if p.get("pagato") else (
             f"da saldare {p['prezzo']} euro" if p.get("prezzo") else "senza importo impostato (receptionist)")

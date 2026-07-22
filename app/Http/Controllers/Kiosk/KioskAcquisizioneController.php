@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Kiosk;
 
 use App\Enums\ContestoDocumento;
+use App\Enums\StatoDocumentoIdentita;
 use App\Http\Controllers\Controller;
+use App\Models\Prenotazione;
 use App\Services\DocumentoService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -90,6 +92,12 @@ class KioskAcquisizioneController extends Controller
         if (! $parziale) {
             Cache::forget("acquisizione_pendente:chiosco_{$chioscoId}");
             Cache::put("acquisizione_completata:chiosco_{$chioscoId}", true, self::TTL_COMPLETATA);
+
+            // Allinea il gestionale: il badge "Documento" della prenotazione
+            // passa a Fornito (come fa la cattura dal receptionist).
+            Prenotazione::where('id', $payload['prenotazione_id'])
+                ->where('documento_identita', '!=', StatoDocumentoIdentita::GiaFornito)
+                ->update(['documento_identita' => StatoDocumentoIdentita::GiaFornito]);
         }
 
         return response()->json(['ok' => true]);

@@ -87,8 +87,10 @@ class BackendRsmioni:
     async def aggiorna_intestatario(self, nome: str, cognome: str) -> EsitoApi:
         return await self._post("/agent/intestatario", {"nome": nome, "cognome": cognome})
 
-    async def cerca_prenotazione(self, cognome: str | None, codice: str | None) -> EsitoApi:
-        campi = {k: v for k, v in {"cognome": cognome, "codice": codice}.items() if v}
+    async def cerca_prenotazione(
+        self, cognome: str | None, codice: str | None, ambito: str = "soggiorno"
+    ) -> EsitoApi:
+        campi = {k: v for k, v in {"cognome": cognome, "codice": codice, "ambito": ambito}.items() if v}
         return await self._post("/agent/prenotazione/cerca", campi)
 
     async def avvia_pagamento(self) -> EsitoApi:

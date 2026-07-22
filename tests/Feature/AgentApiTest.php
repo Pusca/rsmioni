@@ -261,4 +261,82 @@ class AgentApiTest extends TestCase
         // La sessione non esiste più → le azioni successive sono rifiutate
         $this->agentPost('/agent/form', ['nome' => 'Mario'])->assertStatus(404);
     }
+
+    // ── Integrazione col gestionale ────────────────────────────────────────
+
+    private function prenotazioneGestionale(array $extra = []): Prenotazione
+    {
+        return Prenotazione::create(array_merge([
+            'id'         => Str::uuid()->toString(),
+            'hotel_id'   => $this->hotel->id,
+            'codice'     => 'BKG-T01',
+            'nome'       => 'Giulia',
+            'cognome'    => 'Ferri',
+            'check_in'   => now()->toDateString(),
+            'check_out'  => now()->addDays(2)->toDateString(),
+            'pax'        => ['adulti' => 2, 'ragazzi' => 0, 'bambini' => 0],
+            'tipo_pagamento'      => 'da_pagare',
+            'documento_identita'  => 'da_acquisire',
+            'checkin_confermato'  => false,
+            'inserito_da_profilo' => 'gestore_hotel',
+        ], $extra));
+    }
+
+    public function test_cerca_con_ambito_arrivo_trova_la_prenotazione_del_gestionale(): void
+    {
+        $pren = $this->prenotazioneGestionale();
+
+        $this->agentPost('/agent/prenotazione/cerca', ['cognome' => 'Ferri', 'ambito' => 'arrivo'])
+            ->assertOk()
+            ->assertJsonPath('prenotazione.codice', 'BKG-T01')
+            ->assertJsonPath('prenotazione.checkin_confermato', false)
+            ->assertJsonPath('prenotazione.pax.adulti', 2);
+
+        // La prenotazione è agganciata alla sessione: crea è idempotente su di essa
+        $this->agentPost('/agent/prenotazione')
+            ->assertOk()
+            ->assertJsonPath('prenotazione_id', $pren->id);
+    }
+
+    public function test_cerca_arrivo_ignora_le_prenotazioni_gia_confermate(): void
+    {
+        $this->prenotazioneGestionale(['checkin_confermato' => true, 'checkin_confermato_at' => now()]);
+
+        $this->agentPost('/agent/prenotazione/cerca', ['cognome' => 'Ferri', 'ambito' => 'arrivo'])
+            ->assertStatus(404);
+    }
+
+    public function test_termina_conferma_il_checkin_se_ci_sono_documenti(): void
+    {
+        $pren = $this->prenotazioneGestionale();
+        $this->agentPost('/agent/prenotazione/cerca', ['cognome' => 'Ferri', 'ambito' => 'arrivo'])->assertOk();
+
+        \App\Models\Documento::create([
+            'id'                  => Str::uuid()->toString(),
+            'contesto_tipo'       => 'prenotazione',
+            'contesto_id'         => $pren->id,
+            'titolo'              => 'Documento test',
+            'estensione'          => 'jpg',
+            'storage_path'        => 'documenti/test/doc.jpg',
+            'lingua'              => 'it',
+            'tipo_documento'      => 'documento_identita',
+            'inserito_da'         => $this->accountChiosco->id,
+            'inserito_da_profilo' => 'chiosco',
+        ]);
+
+        $this->agentPost('/agent/termina')->assertOk();
+
+        $this->assertTrue($pren->fresh()->checkin_confermato);
+        $this->assertNotNull($pren->fresh()->checkin_confermato_at);
+    }
+
+    public function test_termina_non_conferma_il_checkin_senza_documenti(): void
+    {
+        $pren = $this->prenotazioneGestionale();
+        $this->agentPost('/agent/prenotazione/cerca', ['cognome' => 'Ferri', 'ambito' => 'arrivo'])->assertOk();
+
+        $this->agentPost('/agent/termina')->assertOk();
+
+        $this->assertFalse($pren->fresh()->checkin_confermato);
+    }
 }

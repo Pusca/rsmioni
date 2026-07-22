@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Agent;
 
+use App\Enums\ContestoDocumento;
 use App\Enums\EsitoPOS;
 use App\Enums\Profilo;
 use App\Enums\StatoChiosco;
@@ -11,6 +12,7 @@ use App\Enums\TipoPOS;
 use App\Http\Controllers\Controller;
 use App\Models\Camera;
 use App\Models\Chiosco;
+use App\Models\Documento;
 use App\Models\Pagamento;
 use App\Models\Prenotazione;
 use App\Services\CameraService;
@@ -496,14 +498,23 @@ class AgentCheckinController extends Controller
         $validated = $request->validate([
             'cognome' => ['nullable', 'string', 'max:200'],
             'codice'  => ['nullable', 'string', 'max:100'],
+            'ambito'  => ['nullable', 'string', 'in:soggiorno,arrivo'],
         ]);
         if (empty($validated['cognome']) && empty($validated['codice'])) {
             return response()->json(['error' => 'Serve almeno il cognome o il codice prenotazione.'], 422);
         }
 
-        $q = Prenotazione::where('hotel_id', $sessione['hotel_id'])
-            ->where('check_out', '>=', now()->toDateString())
-            ->where('check_in', '<=', now()->toDateString());
+        $q = Prenotazione::where('hotel_id', $sessione['hotel_id']);
+        if (($validated['ambito'] ?? 'soggiorno') === 'arrivo') {
+            // Check-in: prenotazioni del gestionale in arrivo (finestra
+            // ieri..domani, per arrivi notturni) non ancora confermate.
+            $q->whereBetween('check_in', [now()->subDay()->toDateString(), now()->addDay()->toDateString()])
+              ->where('checkin_confermato', false);
+        } else {
+            // Check-out: soggiorno in corso
+            $q->where('check_out', '>=', now()->toDateString())
+              ->where('check_in', '<=', now()->toDateString());
+        }
         if (! empty($validated['codice'])) {
             $q->where('codice', 'like', trim($validated['codice']));
         }
@@ -544,6 +555,10 @@ class AgentCheckinController extends Controller
                 'camera'    => $pren->camere()->first()?->nome,
                 'prezzo'    => $pren->prezzo !== null ? (float) $pren->prezzo : null,
                 'pagato'    => $pagato,
+                'pax'       => $pren->pax,
+                'checkin_confermato' => (bool) $pren->checkin_confermato,
+                'documenti' => Documento::where('contesto_tipo', ContestoDocumento::Prenotazione)
+                    ->where('contesto_id', $pren->id)->count(),
             ],
         ]);
     }
@@ -635,6 +650,22 @@ class AgentCheckinController extends Controller
         if (! $sessione) {
             // Già chiusa (es. dall'ospite o dal receptionist): idempotente
             return response()->json(['ok' => true]);
+        }
+
+        // Conferma automatica del check-in nel gestionale: come farebbe il
+        // receptionist con "Conferma check-in", ma solo se il self check-in
+        // ha davvero prodotto i documenti (almeno uno agganciato). Idempotente.
+        $form = $this->sessioni->form($request->session_id);
+        if (! empty($form['prenotazione_id'])) {
+            $pren = Prenotazione::find($form['prenotazione_id']);
+            if ($pren && ! $pren->checkin_confermato) {
+                $haDocumenti = Documento::where('contesto_tipo', ContestoDocumento::Prenotazione)
+                    ->where('contesto_id', $pren->id)->exists();
+                if ($haDocumenti) {
+                    $pren->update(['checkin_confermato' => true, 'checkin_confermato_at' => now()]);
+                    $this->audit('checkin.conferma', $request, $sessione, true, ['prenotazione_id' => $pren->id]);
+                }
+            }
         }
 
         $this->sessioni->chiudi($request->session_id);
