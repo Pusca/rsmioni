@@ -88,7 +88,11 @@ export default function KioskIndex({ chiosco, stato_iniziale, messaggio_attesa: 
     const [aiErrore,  setAiErrore]  = useState<string | null>(null);
 
     const handleAvviaAi = async (scopo: ScopoAi) => {
-        if (aiLoading || stato !== 'idle') return;
+        // Stessi stati di partenza consentiti dal backend (KioskAiController):
+        // anche in_nascosto — l'ospite non sa del monitoraggio e il suo tap
+        // deve funzionare (la vecchia sessione covert viene chiusa) — e
+        // offline, da cui l'heartbeat recupera da solo.
+        if (aiLoading || ! ['idle', 'in_nascosto', 'offline'].includes(stato)) return;
         setAiLoading(scopo);
         setAiErrore(null);
         const res = await avviaSessioneAi(scopo);
