@@ -14,9 +14,8 @@ class HotelSelectionController extends Controller
     public function update(Request $request, string $hotelId): JsonResponse
     {
         $user = $request->user();
-        $hotelIds = $user->hotelIds();
 
-        if (! in_array($hotelId, $hotelIds, true)) {
+        if (! $user->possiedeHotel($hotelId)) {
             return response()->json(['errore' => 'Hotel non accessibile.'], 403);
         }
 

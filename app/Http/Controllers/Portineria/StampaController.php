@@ -37,12 +37,11 @@ class StampaController extends Controller
             'documento_id' => ['required', 'uuid', 'exists:documenti,id'],
         ]);
 
-        $utente   = $request->user();
-        $hotelIds = $utente->hotelIds();
+        $utente = $request->user();
 
         // Verifica chiosco: deve appartenere all'hotel, essere attivo e avere stampante
         $chiosco = Chiosco::findOrFail($validated['chiosco_id']);
-        if (! in_array($chiosco->hotel_id, $hotelIds, true)) {
+        if (! $utente->possiedeHotel($chiosco->hotel_id)) {
             abort(403, 'Chiosco non accessibile.');
         }
         if (! $chiosco->attivo) {
@@ -54,8 +53,8 @@ class StampaController extends Controller
 
         // Verifica documento: deve appartenere a un hotel accessibile
         $documento = Documento::findOrFail($validated['documento_id']);
-        $hotelIdDoc = $this->resolveHotelId($documento);
-        if ($hotelIdDoc !== null && ! in_array($hotelIdDoc, $hotelIds, true)) {
+        $hotelIdDoc = $documento->hotelId();
+        if ($hotelIdDoc !== null && ! $utente->possiedeHotel($hotelIdDoc)) {
             abort(403, 'Documento non accessibile.');
         }
 
@@ -79,7 +78,7 @@ class StampaController extends Controller
         $utente  = $request->user();
         $chiosco = Chiosco::findOrFail($chioscoId);
 
-        if (! in_array($chiosco->hotel_id, $utente->hotelIds(), true)) {
+        if (! $utente->possiedeHotel($chiosco->hotel_id)) {
             abort(403);
         }
 
@@ -105,23 +104,12 @@ class StampaController extends Controller
         $utente  = $request->user();
         $chiosco = Chiosco::findOrFail($chioscoId);
 
-        if (! in_array($chiosco->hotel_id, $utente->hotelIds(), true)) {
+        if (! $utente->possiedeHotel($chiosco->hotel_id)) {
             abort(403);
         }
 
         Cache::forget("stampa_pendente:chiosco_{$chioscoId}");
 
         return response()->json(['ok' => true]);
-    }
-
-    // ── Helpers ───────────────────────────────────────────────────────────────
-
-    private function resolveHotelId(Documento $documento): ?string
-    {
-        return match ($documento->contesto_tipo->value) {
-            'prenotazione' => \App\Models\Prenotazione::find($documento->contesto_id)?->hotel_id,
-            'camera'       => \App\Models\Camera::find($documento->contesto_id)?->hotel_id,
-            default        => null,
-        };
     }
 }

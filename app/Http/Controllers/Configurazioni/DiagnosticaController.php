@@ -43,7 +43,7 @@ class DiagnosticaController extends Controller
         $user    = $request->user();
         $chiosco = Chiosco::with('hotel:id,nome,chioschi_concorrenti_max')->findOrFail($chioscoId);
 
-        if (! in_array($chiosco->hotel_id, $user->hotelIds(), true)) {
+        if (! $user->possiedeHotel($chiosco->hotel_id)) {
             abort(403);
         }
 
@@ -67,7 +67,7 @@ class DiagnosticaController extends Controller
         $user    = $request->user();
         $chiosco = Chiosco::findOrFail($chioscoId);
 
-        if (! in_array($chiosco->hotel_id, $user->hotelIds(), true)) {
+        if (! $user->possiedeHotel($chiosco->hotel_id)) {
             return response()->json(['error' => 'Accesso non consentito'], 403);
         }
 
@@ -84,7 +84,7 @@ class DiagnosticaController extends Controller
         $user    = $request->user();
         $chiosco = Chiosco::findOrFail($chioscoId);
 
-        if (! in_array($chiosco->hotel_id, $user->hotelIds(), true)) {
+        if (! $user->possiedeHotel($chiosco->hotel_id)) {
             abort(403);
         }
 
@@ -100,7 +100,7 @@ class DiagnosticaController extends Controller
         $user    = $request->user();
         $chiosco = Chiosco::findOrFail($chioscoId);
 
-        if (! in_array($chiosco->hotel_id, $user->hotelIds(), true)) {
+        if (! $user->possiedeHotel($chiosco->hotel_id)) {
             abort(403);
         }
 
@@ -116,7 +116,7 @@ class DiagnosticaController extends Controller
         $user    = $request->user();
         $chiosco = Chiosco::findOrFail($chioscoId);
 
-        if (! in_array($chiosco->hotel_id, $user->hotelIds(), true)) {
+        if (! $user->possiedeHotel($chiosco->hotel_id)) {
             abort(403);
         }
 

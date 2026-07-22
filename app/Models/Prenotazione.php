@@ -97,7 +97,7 @@ class Prenotazione extends Model
         return $this->pagamenti()->exists();
     }
 
-    public function insertitoDaAlbergatore(): bool
+    public function inseritoDaAlbergatore(): bool
     {
         return $this->inserito_da_profilo === Profilo::GestoreHotel;
     }

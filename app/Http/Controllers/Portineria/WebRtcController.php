@@ -42,7 +42,7 @@ class WebRtcController extends Controller
 
         $chiosco = Chiosco::findOrFail($request->chiosco_id);
 
-        if (! in_array($chiosco->hotel_id, $request->user()->hotelIds(), true)) {
+        if (! $request->user()->possiedeHotel($chiosco->hotel_id)) {
             return response()->json(['error' => 'Accesso non consentito'], 403);
         }
 
@@ -122,7 +122,7 @@ class WebRtcController extends Controller
 
         $chiosco = Chiosco::findOrFail($request->chiosco_id);
 
-        if (! in_array($chiosco->hotel_id, $request->user()->hotelIds(), true)) {
+        if (! $request->user()->possiedeHotel($chiosco->hotel_id)) {
             return response()->json(['error' => 'Accesso non consentito'], 403);
         }
 

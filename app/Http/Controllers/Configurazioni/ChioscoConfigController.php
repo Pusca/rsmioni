@@ -83,7 +83,7 @@ class ChioscoConfigController extends Controller
     {
         $user = $request->user();
 
-        if (! in_array($chiosco->hotel_id, $user->hotelIds(), true)) {
+        if (! $user->possiedeHotel($chiosco->hotel_id)) {
             abort(403);
         }
 
@@ -104,7 +104,7 @@ class ChioscoConfigController extends Controller
     {
         $user = $request->user();
 
-        if (! in_array($chiosco->hotel_id, $user->hotelIds(), true)) {
+        if (! $user->possiedeHotel($chiosco->hotel_id)) {
             abort(403);
         }
 

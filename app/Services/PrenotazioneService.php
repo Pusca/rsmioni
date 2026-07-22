@@ -78,7 +78,7 @@ class PrenotazioneService
     {
         return match ($user->profilo) {
             Profilo::GestoreHotel => true,
-            Profilo::Receptionist => ! $pren->insertitoDaAlbergatore() && ! $pren->haPagamentoPos(),
+            Profilo::Receptionist => ! $pren->inseritoDaAlbergatore() && ! $pren->haPagamentoPos(),
             default               => false,
         };
     }
@@ -92,7 +92,7 @@ class PrenotazioneService
         if ($user->profilo !== Profilo::Receptionist) {
             return null;
         }
-        if ($pren->insertitoDaAlbergatore()) {
+        if ($pren->inseritoDaAlbergatore()) {
             return "Inserita dall'albergatore — solo il Gestore può cancellarla.";
         }
         if ($pren->haPagamentoPos()) {
@@ -106,6 +106,6 @@ class PrenotazioneService
      */
     public function accessoConsentito(User $user, Prenotazione $pren): bool
     {
-        return in_array($pren->hotel_id, $user->hotelIds(), true);
+        return $user->possiedeHotel($pren->hotel_id);
     }
 }

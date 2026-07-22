@@ -38,16 +38,15 @@ class AcquisizioneDocumentoController extends Controller
             'fronte_retro'    => ['boolean'],
         ]);
 
-        $utente   = $request->user();
-        $hotelIds = $utente->hotelIds();
+        $utente = $request->user();
 
         $chiosco = Chiosco::findOrFail($validated['chiosco_id']);
-        if (! in_array($chiosco->hotel_id, $hotelIds, true)) {
+        if (! $utente->possiedeHotel($chiosco->hotel_id)) {
             abort(403, 'Chiosco non accessibile.');
         }
 
         $prenotazione = Prenotazione::findOrFail($validated['prenotazione_id']);
-        if (! in_array($prenotazione->hotel_id, $hotelIds, true)) {
+        if (! $utente->possiedeHotel($prenotazione->hotel_id)) {
             abort(403, 'Prenotazione non accessibile.');
         }
 
@@ -74,7 +73,7 @@ class AcquisizioneDocumentoController extends Controller
         $utente  = $request->user();
         $chiosco = Chiosco::findOrFail($chioscoId);
 
-        if (! in_array($chiosco->hotel_id, $utente->hotelIds(), true)) {
+        if (! $utente->possiedeHotel($chiosco->hotel_id)) {
             abort(403);
         }
 
@@ -98,7 +97,7 @@ class AcquisizioneDocumentoController extends Controller
         $utente  = $request->user();
         $chiosco = Chiosco::findOrFail($chioscoId);
 
-        if (! in_array($chiosco->hotel_id, $utente->hotelIds(), true)) {
+        if (! $utente->possiedeHotel($chiosco->hotel_id)) {
             abort(403);
         }
 

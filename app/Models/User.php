@@ -83,4 +83,10 @@ class User extends Authenticatable
     {
         return $this->hotels()->pluck('hotels.id')->toArray();
     }
+
+    /** Verifica se l'hotel indicato è tra quelli associati a questo utente */
+    public function possiedeHotel(string $hotelId): bool
+    {
+        return in_array($hotelId, $this->hotelIds(), true);
+    }
 }

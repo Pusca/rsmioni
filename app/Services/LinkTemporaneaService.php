@@ -2,10 +2,8 @@
 
 namespace App\Services;
 
-use App\Models\Camera;
 use App\Models\Documento;
 use App\Models\LinkTemporaneo;
-use App\Models\Prenotazione;
 use Illuminate\Support\Str;
 
 /**
@@ -37,24 +35,9 @@ class LinkTemporaneaService
             'token'              => Str::random(48),
             'destinatario_email' => $email,
             'testo_receptionist' => $testo,
-            'hotel_id'           => $this->resolveHotelId($documento),
+            'hotel_id'           => $documento->hotelId(),
             'scadenza_at'        => now()->addHours(self::TTL_ORE),
             'usato'              => false,
         ]);
-    }
-
-    /**
-     * Risolve l'hotel_id partendo dal contesto del documento.
-     * Prenotazione → prenotazione.hotel_id
-     * Camera       → camera.hotel_id
-     * Regola       → null (ambito platform, nessun hotel specifico)
-     */
-    public function resolveHotelId(Documento $documento): ?string
-    {
-        return match ($documento->contesto_tipo->value) {
-            'prenotazione' => Prenotazione::find($documento->contesto_id)?->hotel_id,
-            'camera'       => Camera::find($documento->contesto_id)?->hotel_id,
-            default        => null,
-        };
     }
 }

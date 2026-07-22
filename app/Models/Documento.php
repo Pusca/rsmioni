@@ -57,4 +57,25 @@ class Documento extends Model
     {
         return $this->inserito_da_profilo === Profilo::GestoreHotel;
     }
+
+    /**
+     * Hotel a cui appartiene il documento, risolto dal contesto.
+     * Prenotazione → prenotazione.hotel_id
+     * Camera       → camera.hotel_id
+     * Regola       → null (ambito platform, nessun hotel specifico)
+     */
+    public function hotelId(): ?string
+    {
+        return self::hotelIdPerContesto($this->contesto_tipo, $this->contesto_id);
+    }
+
+    /** Risolve l'hotel_id per un contesto documento (anche senza istanza). */
+    public static function hotelIdPerContesto(ContestoDocumento $tipo, string $contestoId): ?string
+    {
+        return match ($tipo) {
+            ContestoDocumento::Prenotazione => Prenotazione::find($contestoId)?->hotel_id,
+            ContestoDocumento::Camera       => Camera::find($contestoId)?->hotel_id,
+            ContestoDocumento::Regola       => null,
+        };
+    }
 }

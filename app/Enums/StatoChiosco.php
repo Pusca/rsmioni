@@ -31,7 +31,7 @@ enum StatoChiosco: string
     }
 
     /** Transizioni lecite per ogni stato sorgente */
-    public function transizionilecite(): array
+    public function transizioniLecite(): array
     {
         return match($this) {
             self::Offline         => [self::Idle],
@@ -46,7 +46,7 @@ enum StatoChiosco: string
 
     public function puoTransire(self $destinazione): bool
     {
-        return in_array($destinazione, $this->transizionilecite(), true);
+        return in_array($destinazione, $this->transizioniLecite(), true);
     }
 
     /** Stati che costituiscono una "connessione attiva" */

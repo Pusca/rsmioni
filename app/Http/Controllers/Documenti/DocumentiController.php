@@ -5,10 +5,8 @@ namespace App\Http\Controllers\Documenti;
 use App\Enums\ContestoDocumento;
 use App\Http\Controllers\Controller;
 use App\Mail\DocumentoLinkMail;
-use App\Models\Camera;
 use App\Models\Documento;
 use App\Models\Hotel;
-use App\Models\Prenotazione;
 use App\Models\User;
 use App\Services\DocumentoService;
 use App\Services\LinkTemporaneaService;
@@ -176,9 +174,9 @@ class DocumentiController extends Controller
             return;
         }
 
-        $hotelId = $this->resolveHotelId($tipo, $contestoId);
+        $hotelId = Documento::hotelIdPerContesto($tipo, $contestoId);
 
-        if ($hotelId === null || ! in_array($hotelId, $utente->hotelIds(), true)) {
+        if ($hotelId === null || ! $utente->possiedeHotel($hotelId)) {
             abort(403, 'Il contesto non appartiene a un hotel accessibile.');
         }
     }
@@ -187,18 +185,5 @@ class DocumentiController extends Controller
     private function verificaOwnershipDocumento(User $utente, Documento $documento): void
     {
         $this->verificaOwnership($utente, $documento->contesto_tipo, $documento->contesto_id);
-    }
-
-    /**
-     * Risolve l'hotel_id dal contesto del documento.
-     * Restituisce null per i contesti platform-level (Regola).
-     */
-    private function resolveHotelId(ContestoDocumento $tipo, string $contestoId): ?string
-    {
-        return match ($tipo) {
-            ContestoDocumento::Prenotazione => Prenotazione::find($contestoId)?->hotel_id,
-            ContestoDocumento::Camera       => Camera::find($contestoId)?->hotel_id,
-            ContestoDocumento::Regola       => null,
-        };
     }
 }

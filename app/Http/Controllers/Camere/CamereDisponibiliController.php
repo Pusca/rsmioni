@@ -30,7 +30,7 @@ class CamereDisponibiliController extends Controller
         ]);
 
         // Verifica che l'utente abbia accesso all'hotel
-        if (! in_array($validated['hotel_id'], $request->user()->hotelIds(), true)) {
+        if (! $request->user()->possiedeHotel($validated['hotel_id'])) {
             abort(403);
         }
 

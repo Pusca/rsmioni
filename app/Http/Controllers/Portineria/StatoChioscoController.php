@@ -36,7 +36,7 @@ class StatoChioscoController extends Controller
         $chiosco = Chiosco::findOrFail($chioscoId);
 
         // Sicurezza: chiosco deve appartenere agli hotel dell'utente
-        if (! in_array($chiosco->hotel_id, $request->user()->hotelIds(), true)) {
+        if (! $request->user()->possiedeHotel($chiosco->hotel_id)) {
             return response()->json(['error' => 'Accesso non consentito'], 403);
         }
 
@@ -77,7 +77,7 @@ class StatoChioscoController extends Controller
     {
         $chiosco = Chiosco::findOrFail($chioscoId);
 
-        if (! in_array($chiosco->hotel_id, $request->user()->hotelIds(), true)) {
+        if (! $request->user()->possiedeHotel($chiosco->hotel_id)) {
             return response()->json(['error' => 'Accesso non consentito'], 403);
         }
 

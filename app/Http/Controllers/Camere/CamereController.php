@@ -159,7 +159,7 @@ class CamereController extends Controller
 
     private function autorizza($user, Camera $camera): void
     {
-        if (! in_array($camera->hotel_id, $user->hotelIds(), true)) {
+        if (! $user->possiedeHotel($camera->hotel_id)) {
             abort(403);
         }
     }

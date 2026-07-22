@@ -3,10 +3,8 @@
 namespace App\Http\Controllers\Prenotazioni;
 
 use App\Enums\ContestoDocumento;
-use App\Enums\Profilo;
-use App\Enums\StatoDocumentoIdentita;
-use App\Enums\TipoPagamento;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\SalvaPrenotazioneRequest;
 use App\Models\Chiosco;
 use App\Models\Documento;
 use App\Models\Hotel;
@@ -17,7 +15,6 @@ use App\Services\PortineriaService;
 use App\Services\PrenotazioneService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -167,32 +164,10 @@ class PrenotazioniController extends Controller
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(SalvaPrenotazioneRequest $request): RedirectResponse
     {
-        $user     = $request->user();
-        $hotelIds = $user->hotelIds();
-
-        $validated = $request->validate([
-            'hotel_id'           => ['required', 'uuid', Rule::in($hotelIds)],
-            'codice'             => ['nullable', 'string', 'max:100'],
-            'codice_chiave'      => ['nullable', 'string', 'max:100'],
-            'nome'               => ['nullable', 'string', 'max:200'],
-            'cognome'            => ['nullable', 'string', 'max:200'],
-            'gruppo'             => ['nullable', 'string', 'max:200'],
-            'check_in'           => ['required', 'date'],
-            'check_out'          => ['required', 'date', 'after:check_in'],
-            'pax.adulti'         => ['required', 'integer', 'min:1', 'max:99'],
-            'pax.ragazzi'        => ['nullable', 'integer', 'min:0', 'max:99'],
-            'pax.bambini'        => ['nullable', 'integer', 'min:0', 'max:99'],
-            'tipo_pagamento'     => ['required', Rule::enum(TipoPagamento::class)],
-            'documento_identita' => ['required', Rule::enum(StatoDocumentoIdentita::class)],
-            'prezzo'             => ['nullable', 'numeric', 'min:0', 'max:999999'],
-            'overbooking'        => ['boolean'],
-        ], [
-            'check_out.after'      => 'Il check-out deve essere successivo al check-in.',
-            'pax.adulti.required'  => 'Indicare almeno un adulto.',
-            'pax.adulti.min'       => 'Almeno un adulto è obbligatorio.',
-        ]);
+        $user      = $request->user();
+        $validated = $request->validated();
 
         $hotel      = Hotel::findOrFail($validated['hotel_id']);
         $overbooking = (bool) ($validated['overbooking'] ?? false);
@@ -271,24 +246,11 @@ class PrenotazioniController extends Controller
             return back()->withErrors(['checkin' => 'Prenotazione con check-in confermato: non modificabile.']);
         }
 
-        $validated = $request->validate([
-            'codice'             => ['nullable', 'string', 'max:100'],
-            'codice_chiave'      => ['nullable', 'string', 'max:100'],
-            'nome'               => ['nullable', 'string', 'max:200'],
-            'cognome'            => ['nullable', 'string', 'max:200'],
-            'gruppo'             => ['nullable', 'string', 'max:200'],
-            'check_in'           => ['required', 'date'],
-            'check_out'          => ['required', 'date', 'after:check_in'],
-            'pax.adulti'         => ['required', 'integer', 'min:1', 'max:99'],
-            'pax.ragazzi'        => ['nullable', 'integer', 'min:0', 'max:99'],
-            'pax.bambini'        => ['nullable', 'integer', 'min:0', 'max:99'],
-            'tipo_pagamento'     => ['required', Rule::enum(TipoPagamento::class)],
-            'documento_identita' => ['required', Rule::enum(StatoDocumentoIdentita::class)],
-            'prezzo'             => ['nullable', 'numeric', 'min:0', 'max:999999'],
-            'overbooking'        => ['boolean'],
-        ], [
-            'check_out.after' => 'Il check-out deve essere successivo al check-in.',
-        ]);
+        // Risolta qui (e non iniettata) per mantenere l'ordine originale dei
+        // controlli: findOrFail (404) → ownership (403) → check-in confermato
+        // (redirect) → validazione. La risoluzione via container esegue la
+        // validazione con lo stesso esito di $request->validate().
+        $validated = app(SalvaPrenotazioneRequest::class)->validated();
 
         $hotel      = Hotel::findOrFail($pren->hotel_id);
         $overbooking = (bool) ($validated['overbooking'] ?? false);

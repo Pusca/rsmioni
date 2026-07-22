@@ -43,7 +43,7 @@ class InstallazioneController extends Controller
         $user    = $request->user();
         $chiosco = Chiosco::with('hotel:id,nome')->findOrFail($chioscoId);
 
-        if (! in_array($chiosco->hotel_id, $user->hotelIds(), true)) {
+        if (! $user->possiedeHotel($chiosco->hotel_id)) {
             abort(403);
         }
 
@@ -75,7 +75,7 @@ class InstallazioneController extends Controller
         $user    = $request->user();
         $chiosco = Chiosco::findOrFail($chioscoId);
 
-        if (! in_array($chiosco->hotel_id, $user->hotelIds(), true)) {
+        if (! $user->possiedeHotel($chiosco->hotel_id)) {
             abort(403);
         }
 
