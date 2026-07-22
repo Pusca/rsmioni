@@ -336,7 +336,15 @@ class AgentCheckinController extends Controller
         }
 
         $pren->camere()->attach($libera->id);
-        $this->audit('camera.assegna', $request, $sessione, true, ['prenotazione_id' => $pren->id, 'camera' => $libera->nome]);
+
+        // Valorizza il prezzo del soggiorno dalla camera assegnata (prezzo_notte
+        // × notti): senza prezzo il pagamento POS del flusso AI non può partire.
+        if ($pren->prezzo === null && $libera->prezzo_notte !== null) {
+            $notti = max(1, (int) Carbon::parse($pren->check_in)->diffInDays(Carbon::parse($pren->check_out)));
+            $pren->update(['prezzo' => (float) $libera->prezzo_notte * $notti]);
+        }
+
+        $this->audit('camera.assegna', $request, $sessione, true, ['prenotazione_id' => $pren->id, 'camera' => $libera->nome, 'prezzo' => $pren->prezzo]);
 
         return response()->json([
             'ok'     => true,
