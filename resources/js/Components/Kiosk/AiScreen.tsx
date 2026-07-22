@@ -14,6 +14,7 @@ interface AiScreenProps {
     localVideoRef: React.RefObject<HTMLVideoElement | null>;
     aiUi:          AiUiState;
     audioTrack:    MediaStreamTrack | null;
+    audioBloccato: boolean;
     onTermina:     () => void;
 }
 
@@ -209,7 +210,7 @@ function VoceEqualizer({ track }: { track: MediaStreamTrack | null }) {
     );
 }
 
-export default function AiScreen({ scopo, statoMedia, localVideoRef, aiUi, audioTrack, onTermina }: AiScreenProps) {
+export default function AiScreen({ scopo, statoMedia, localVideoRef, aiUi, audioTrack, audioBloccato, onTermina }: AiScreenProps) {
     const connesso = statoMedia === 'connected';
     const titolo   = scopo === 'checkin' ? 'Check-in con l’assistente'
         : scopo === 'checkout' ? 'Check-out' : 'Informazioni';
@@ -267,6 +268,14 @@ export default function AiScreen({ scopo, statoMedia, localVideoRef, aiUi, audio
                 <p className="text-base text-center" style={{ color: connesso ? '#93c5fd' : 'var(--color-text-muted)' }}>
                     {connesso ? 'Parla pure — l’assistente ti ascolta' : 'Connessione in corso…'}
                 </p>
+                {connesso && audioBloccato && (
+                    <div className="mt-3 rounded-lg border px-4 py-2 text-center animate-pulse"
+                         style={{ borderColor: 'rgba(245,158,11,0.5)', backgroundColor: 'rgba(245,158,11,0.10)' }}>
+                        <p className="text-sm font-medium" style={{ color: '#fbbf24' }}>
+                            🔇 Tocca lo schermo per attivare l’audio
+                        </p>
+                    </div>
+                )}
                 <p className="text-xs mt-2 text-center" style={{ color: 'var(--color-text-muted)' }}>
                     Un receptionist può intervenire in ogni momento.
                 </p>

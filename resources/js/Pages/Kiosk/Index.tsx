@@ -153,6 +153,7 @@ export default function KioskIndex({ chiosco, stato_iniziale, messaggio_attesa: 
                     localVideoRef={lk.localVideoRef}
                     aiUi={lk.aiUi}
                     audioTrack={lk.remoteAudioTrack}
+                    audioBloccato={lk.audioBloccato}
                     onTermina={handleTerminaAi}
                 />
             ) : inParlato ? (

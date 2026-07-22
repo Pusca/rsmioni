@@ -74,6 +74,7 @@ interface Result {
     aiUi:               AiUiState; // recap live del check-in AI (form, camera, codice)
     remoteAudioTrack:   MediaStreamTrack | null; // audio del remoto (voce AI) per visualizzazioni reattive
     localCameraTrack:   MediaStreamTrack | null; // webcam già pubblicata: riusabile dove la camera è occupata (mobile)
+    audioBloccato:      boolean; // autoplay negato dal browser: serve un tocco per sentire l'audio
 }
 
 interface TokenResp {
@@ -113,6 +114,7 @@ export function useLiveKitChiosco(): Result {
     const [aiUi, setAiUi] = useState<AiUiState>(AI_UI_INIZIALE);
     const [remoteAudioTrack, setRemoteAudioTrack] = useState<MediaStreamTrack | null>(null);
     const [localCameraTrack, setLocalCameraTrack] = useState<MediaStreamTrack | null>(null);
+    const [audioBloccato, setAudioBloccato] = useState(false);
 
     useEffect(() => {
         let cancelled = false;
@@ -128,6 +130,7 @@ export function useLiveKitChiosco(): Result {
             setAiUi(AI_UI_INIZIALE);
             setRemoteAudioTrack(null);
             setLocalCameraTrack(null);
+            setAudioBloccato(false);
             setStato('idle');
             setCondivisioneAttiva(false);
             setGrigliaDoc(false);
@@ -193,9 +196,27 @@ export function useLiveKitChiosco(): Result {
                 })
                 .on(RoomEvent.Disconnected, () => { if (!cancelled) disconnect(); });
 
+            // Autoplay: senza un gesto utente "fresco" il browser (soprattutto
+            // mobile) blocca la riproduzione audio in silenzio. startAudio()
+            // subito dopo la connessione e, se negato, ritenta al primo tocco.
+            const provaSbloccoAudio = () => {
+                room.startAudio()
+                    .then(() => { if (!cancelled) setAudioBloccato(false); })
+                    .catch(() => { if (!cancelled) setAudioBloccato(true); });
+            };
+            const sbloccoDaGesto = () => { if (!room.canPlaybackAudio) provaSbloccoAudio(); };
+            document.addEventListener('pointerdown', sbloccoDaGesto);
+            room.on(RoomEvent.AudioPlaybackStatusChanged, () => {
+                if (!cancelled) setAudioBloccato(!room.canPlaybackAudio);
+            });
+            room.on(RoomEvent.Disconnected, () => {
+                document.removeEventListener('pointerdown', sbloccoDaGesto);
+            });
+
             try {
                 await room.connect(cred.url, cred.token);
                 if (cancelled) { room.disconnect(); return; }
+                provaSbloccoAudio();
 
                 // Il chiosco pubblica sempre la webcam (anche in nascosto);
                 // nel parlato aggiunge anche il microfono.
@@ -260,5 +281,5 @@ export function useLiveKitChiosco(): Result {
         };
     }, []);
 
-    return { sessionTipo, gestitaDa, localVideoRef, remoteVideoRef, stato, errore, condivisioneAttiva, grigliaDoc, inAttesa, messaggioAttesa, aiUi, remoteAudioTrack, localCameraTrack };
+    return { sessionTipo, gestitaDa, localVideoRef, remoteVideoRef, stato, errore, condivisioneAttiva, grigliaDoc, inAttesa, messaggioAttesa, aiUi, remoteAudioTrack, localCameraTrack, audioBloccato };
 }
