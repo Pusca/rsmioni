@@ -14,6 +14,7 @@ Avvio (sviluppo):   python agent.py dev
 Avvio (produzione): python agent.py start
 """
 
+import asyncio
 import json
 import logging
 from datetime import date
@@ -149,6 +150,19 @@ async def entrypoint(ctx: agents.JobContext) -> None:
             return  # transitorio: la pipeline riprova da sola
         logger.error("errore non recuperabile nella pipeline voce, chiudo la sessione: %s", err)
         ctx.shutdown(reason="pipeline_voce_guasta")
+
+    # Il saluto DEVE aspettare che il chiosco sia nella stanza: il chiosco
+    # scopre la sessione via polling (~2s) e si aggancia dopo — parlare prima
+    # significa salutare una stanza vuota, con l'ospite che poi aspetta una
+    # voce già passata. Piccolo margine extra per la sottoscrizione audio.
+    if chiosco_id:
+        try:
+            await asyncio.wait_for(
+                ctx.wait_for_participant(identity=f"kiosk-{chiosco_id}"), timeout=30
+            )
+            await asyncio.sleep(1.0)
+        except asyncio.TimeoutError:
+            logger.warning("chiosco non entrato in stanza entro 30s: saluto comunque")
 
     # Stepper di fase iniziale + saluto proattivo (l'ospite non parla per primo)
     await schermo.fase(stato.fase)

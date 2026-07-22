@@ -210,7 +210,14 @@ async function startCallInner(opts: {
     rebuild();
 
     const setRemote = (track: RemoteTrack) => {
-        if (track.kind !== Track.Kind.Video) { if (track.kind === Track.Kind.Audio) track.attach(); return; }
+        if (track.kind !== Track.Kind.Video) {
+            // Audio SOLO per le chiamate condotte dal receptionist: il self
+            // check-in AI resta muto in portineria (si osserva il video; la
+            // voce si sente solo al chiosco). L'audio arriva col Subentra,
+            // che ricrea la call come parlato umano.
+            if (track.kind === Track.Kind.Audio && entry.gestitaDa !== 'ai') track.attach();
+            return;
+        }
         entry.remoteVideoTrack = track;
         track.attach(ensureHiddenVideo(entry));
         if (track.source === Track.Source.ScreenShare) entry.condivisione = true;
