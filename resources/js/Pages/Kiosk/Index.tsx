@@ -144,6 +144,7 @@ export default function KioskIndex({ chiosco, stato_iniziale, messaggio_attesa: 
                     fronteRetro={acquisizione.fronte_retro}
                     onCompletata={annullaAcquisizione}
                     onAnnulla={annullaAcquisizione}
+                    trackCondiviso={lk.localCameraTrack}
                 />
             ) : inAi ? (
                 <AiScreen

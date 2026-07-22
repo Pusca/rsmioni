@@ -73,6 +73,7 @@ interface Result {
     messaggioAttesa:    string;  // testo del messaggio di attesa (impostato dal receptionist)
     aiUi:               AiUiState; // recap live del check-in AI (form, camera, codice)
     remoteAudioTrack:   MediaStreamTrack | null; // audio del remoto (voce AI) per visualizzazioni reattive
+    localCameraTrack:   MediaStreamTrack | null; // webcam già pubblicata: riusabile dove la camera è occupata (mobile)
 }
 
 interface TokenResp {
@@ -111,6 +112,7 @@ export function useLiveKitChiosco(): Result {
     const [messaggioAttesa, setMessaggioAttesa] = useState('Un momento e sono subito da lei');
     const [aiUi, setAiUi] = useState<AiUiState>(AI_UI_INIZIALE);
     const [remoteAudioTrack, setRemoteAudioTrack] = useState<MediaStreamTrack | null>(null);
+    const [localCameraTrack, setLocalCameraTrack] = useState<MediaStreamTrack | null>(null);
 
     useEffect(() => {
         let cancelled = false;
@@ -125,6 +127,7 @@ export function useLiveKitChiosco(): Result {
             setGestitaDa(null);
             setAiUi(AI_UI_INIZIALE);
             setRemoteAudioTrack(null);
+            setLocalCameraTrack(null);
             setStato('idle');
             setCondivisioneAttiva(false);
             setGrigliaDoc(false);
@@ -202,6 +205,7 @@ export function useLiveKitChiosco(): Result {
                 }
                 const pub = room.localParticipant.getTrackPublication(Track.Source.Camera);
                 if (pub?.track && localVideoRef.current) pub.track.attach(localVideoRef.current);
+                if (pub?.track?.mediaStreamTrack) setLocalCameraTrack(pub.track.mediaStreamTrack);
 
                 // In nascosto non arriva video remoto: consideriamo connesso appena pubblichiamo
                 if (tipo === 'nascosto' && !cancelled) setStato('connected');
@@ -256,5 +260,5 @@ export function useLiveKitChiosco(): Result {
         };
     }, []);
 
-    return { sessionTipo, gestitaDa, localVideoRef, remoteVideoRef, stato, errore, condivisioneAttiva, grigliaDoc, inAttesa, messaggioAttesa, aiUi, remoteAudioTrack };
+    return { sessionTipo, gestitaDa, localVideoRef, remoteVideoRef, stato, errore, condivisioneAttiva, grigliaDoc, inAttesa, messaggioAttesa, aiUi, remoteAudioTrack, localCameraTrack };
 }

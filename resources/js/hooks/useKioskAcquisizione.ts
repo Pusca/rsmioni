@@ -10,7 +10,7 @@ import { getAcquisizionePendente, type AcquisizionePendenteResult } from '@/serv
  * Il componente consumatore mostra la schermata di acquisizione webcam.
  */
 
-const POLLING_MS = 5_000;
+const POLLING_MS = 2_500;
 
 interface Result {
     acquisizione: AcquisizionePendenteResult | null;

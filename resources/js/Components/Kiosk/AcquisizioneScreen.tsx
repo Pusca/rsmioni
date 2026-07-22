@@ -12,12 +12,15 @@ interface AcquisizioneScreenProps {
     fronteRetro:   boolean;
     onCompletata:  () => void;
     onAnnulla:     () => void;
+    /** Webcam già pubblicata nella sessione video attiva: su mobile la camera
+     *  è esclusiva, un secondo getUserMedia fallisce o restituisce nero. */
+    trackCondiviso?: MediaStreamTrack | null;
 }
 
 type FaseAcquisizione = 'preview' | 'uploading' | 'completata' | 'errore';
 type LatoAcquisizione = 'fronte' | 'retro';
 
-export default function AcquisizioneScreen({ chiosco, titolo, fronteRetro, onCompletata, onAnnulla }: AcquisizioneScreenProps) {
+export default function AcquisizioneScreen({ chiosco, titolo, fronteRetro, onCompletata, onAnnulla, trackCondiviso }: AcquisizioneScreenProps) {
     const videoRef   = useRef<HTMLVideoElement>(null);
     const canvasRef  = useRef<HTMLCanvasElement>(null);
     const streamRef  = useRef<MediaStream | null>(null);
@@ -28,33 +31,59 @@ export default function AcquisizioneScreen({ chiosco, titolo, fronteRetro, onCom
     const [snapshot, setSnapshot] = useState<string | null>(null);
     const [lato,    setLato]    = useState<LatoAcquisizione>(fronteRetro ? 'fronte' : 'fronte');
 
-    // Avvio webcam
+    // Avvio webcam. Se la camera è già impegnata dalla sessione video (mobile:
+    // accesso esclusivo → secondo getUserMedia nero o NotReadableError), riusa
+    // la track già pubblicata su LiveKit invece di aprirne una nuova.
+    const borrowedRef = useRef(false);
+
     useEffect(() => {
         mountedRef.current = true;
         let stream: MediaStream | null = null;
 
-        navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false })
-            .then(s => {
-                if (! mountedRef.current) { s.getTracks().forEach(t => t.stop()); return; }
-                stream = s;
-                streamRef.current = s;
-                if (videoRef.current) {
-                    videoRef.current.srcObject = s;
-                    videoRef.current.play().catch(() => {});
-                }
-            })
-            .catch(() => {
-                if (mountedRef.current) {
+        const usaStream = (s: MediaStream, borrowed: boolean) => {
+            borrowedRef.current = borrowed;
+            stream = s;
+            streamRef.current = s;
+            if (videoRef.current) {
+                videoRef.current.srcObject = s;
+                videoRef.current.play().catch(() => {});
+            }
+        };
+
+        const fallbackTrackCondivisa = (): boolean => {
+            if (trackCondiviso && trackCondiviso.readyState === 'live') {
+                // Track presa in prestito dalla chiamata: NON va mai stoppata qui
+                usaStream(new MediaStream([trackCondiviso]), true);
+                return true;
+            }
+            return false;
+        };
+
+        // Con una sessione video attiva parte direttamente dalla track condivisa:
+        // su mobile il getUserMedia concorrente fallirebbe comunque.
+        if (trackCondiviso && trackCondiviso.readyState === 'live') {
+            fallbackTrackCondivisa();
+        } else {
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false })
+                .then(s => {
+                    if (! mountedRef.current) { s.getTracks().forEach(t => t.stop()); return; }
+                    usaStream(s, false);
+                })
+                .catch(() => {
+                    if (! mountedRef.current) return;
+                    if (fallbackTrackCondivisa()) return;
                     setFase('errore');
                     setErrore('Impossibile accedere alla webcam. Verificare le autorizzazioni del browser.');
-                }
-            });
+                });
+        }
 
         return () => {
             mountedRef.current = false;
+            if (borrowedRef.current) return; // track della chiamata: resta viva
             if (stream) stream.getTracks().forEach(t => t.stop());
             else if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
         };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     // Cattura frame dalla webcam
