@@ -80,6 +80,14 @@ async def entrypoint(ctx: agents.JobContext) -> None:
     schermo = SchermoChiosco(ctx.room)
 
     async def chiudi_backend() -> None:
+        # Chiusura best-effort della sessione lato Laravel: senza, una sessione
+        # interrotta (ospite andato via, errore, restart) resta in_parlato e
+        # blocca il check-in successivo. Idempotente e no-op se nel frattempo
+        # è subentrato un receptionist umano (gestita_da != 'ai').
+        try:
+            await backend.termina_sessione()
+        except Exception:
+            pass
         await backend.chiudi()
     ctx.add_shutdown_callback(chiudi_backend)
 
@@ -112,13 +120,22 @@ async def entrypoint(ctx: agents.JobContext) -> None:
         max_endpointing_delay=2.0,
     )
 
+    # L'agent si aggancia ESPLICITAMENTE al partecipante del chiosco: senza,
+    # si lega al primo partecipante remoto — che può essere il receptionist
+    # entrato in osservazione nascosta (muto). In quel caso l'AI non sente
+    # l'ospite e la sua uscita chiude la sessione (close_on_disconnect).
+    # Con l'identity fissata, entrata/uscita del receptionist sono ininfluenti
+    # e la sessione si chiude solo quando si scollega il CHIOSCO.
+    chiosco_id = meta.get("chiosco_id")
     await session.start(
         room=ctx.room,
         agent=ReceptionistAgent(
             instructions=istruzioni, stato=stato,
             backend=backend, schermo=schermo, lingua=lingua, config=CONFIG,
         ),
-        room_input_options=RoomInputOptions(),
+        room_input_options=RoomInputOptions(
+            participant_identity=f"kiosk-{chiosco_id}" if chiosco_id else None,
+        ),
     )
 
     # Stepper di fase iniziale + saluto proattivo (l'ospite non parla per primo)

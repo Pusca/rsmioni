@@ -162,6 +162,8 @@ export function setMessaggioAttesa(testo: string): void {
 // ── Avvio / cambio chiamata ─────────────────────────────────────────────────
 // `activate=false` connette la chiamata SENZA renderla attiva (usato dal
 // recupero post-reload: le chiamate in attesa restano in attesa).
+const starting = new Set<string>(); // chioschi con startCall in corso (anti doppia connessione)
+
 export async function startCall(opts: {
     sessionId: string; tipo: TipoMedia; chioscoId: string; chioscoNome: string; hotelId: string; gestitaDa?: GestitaDa;
 }, activate = true): Promise<void> {
@@ -170,6 +172,18 @@ export async function startCall(opts: {
         if (activate) await setActive(opts.chioscoId); // già presente → rendila attiva
         return;
     }
+    if (starting.has(opts.chioscoId)) return; // connessione già in corso: il prossimo giro riallinea
+    starting.add(opts.chioscoId);
+    try {
+        await startCallInner(opts, activate, existing);
+    } finally {
+        starting.delete(opts.chioscoId);
+    }
+}
+
+async function startCallInner(opts: {
+    sessionId: string; tipo: TipoMedia; chioscoId: string; chioscoNome: string; hotelId: string; gestitaDa?: GestitaDa;
+}, activate: boolean, existing: CallEntry | undefined): Promise<void> {
     if (existing) {
         await stopCall(opts.chioscoId); // sessione/tipo cambiati → ricrea
     }
@@ -315,8 +329,13 @@ export async function stopActive(): Promise<void> {
 // attiva quella che lo era prima (memorizzata in sessionStorage).
 export async function recoverCalls(chioschi: { id: string; nome: string; hotel_id: string; stato: string }[]): Promise<void> {
     const restoreActive = activeChioscoId ?? ssGet(ACTIVE_KEY);
+    // Anche i chioschi con una call già presente vanno ricontrollati: la
+    // sessione lato server può essere cambiata sotto (es. monitoraggio
+    // nascosto → l'ospite avvia il self check-in AI: stessa chiosco-card,
+    // sessione nuova). startCall è idempotente: se session e tipo coincidono
+    // non fa nulla, altrimenti ricrea la room su quella giusta.
     const candidati = chioschi.filter((c) =>
-        ['in_chiaro', 'in_nascosto', 'in_parlato'].includes(c.stato) && !calls.has(c.id));
+        ['in_chiaro', 'in_nascosto', 'in_parlato'].includes(c.stato));
 
     await Promise.all(candidati.map(async (c) => {
         try {
