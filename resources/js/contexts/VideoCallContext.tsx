@@ -38,7 +38,6 @@ export function VideoCallProvider({ children }: { children: ReactNode }) {
         // Listen for remote disconnect while parked
         call.pc.onconnectionstatechange = () => {
             if (call.pc.connectionState === 'failed' || call.pc.connectionState === 'disconnected') {
-                console.log('[PiP] connection lost while parked, cleaning up');
                 cleanupCall(call);
                 parkedRef.current = null;
                 setParkedCall(null);

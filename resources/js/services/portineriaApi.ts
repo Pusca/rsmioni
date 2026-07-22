@@ -1,4 +1,7 @@
 import { StatoChiosco } from '@/types';
+import type { TipoCollegamento } from '@/types/media';
+
+export type { TipoCollegamento };
 
 /**
  * Client HTTP per le API della Portineria.
@@ -157,8 +160,6 @@ export async function chiudiSessioneParlato(
 }
 
 // ── Media — sessioni chiaro/nascosto ──────────────────────────────────────
-
-export type TipoCollegamento = 'chiaro' | 'nascosto';
 
 export interface SessioneCollegamento {
     session_id: string;

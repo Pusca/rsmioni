@@ -7,12 +7,10 @@ import type { StatoChiosco } from '@/types';
  *
  * Riceve aggiornamenti in due modi:
  *   1. Realtime via Reverb — canale chiosco.{chioscoId}, evento .chiosco.stato_cambiato
- *      (stesso canale usato da useWebRtcChiosco per le sessioni WebRTC)
  *   2. Polling HTTP — GET /kiosk/stato ogni 5s (fallback quando Reverb non disponibile)
  *
- * NOTA: non chiama Echo.leave() in cleanup perché il canale chiosco.{chioscoId}
- * è co-gestito da useWebRtcChiosco. La pagina kiosk non dismonta mai, quindi
- * la concorrenza non è un problema pratico.
+ * NOTA: non chiama Echo.leave() in cleanup. La pagina kiosk non dismonta mai,
+ * quindi la concorrenza non è un problema pratico.
  */
 
 interface EchoChannel {
@@ -104,7 +102,7 @@ export function useKioskStato({ chioscoId, statoIniziale, messaggioIniziale }: O
                 clearInterval(pollingRef.current);
                 pollingRef.current = null;
             }
-            // NON chiamiamo Echo.leave() — useWebRtcChiosco gestisce il canale
+            // NON chiamiamo Echo.leave() — la pagina kiosk non dismonta mai
         };
     }, [chioscoId]);
 

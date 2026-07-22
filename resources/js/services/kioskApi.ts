@@ -2,6 +2,7 @@
  * Client HTTP per le API del Kiosk (profilo chiosco).
  * Stesso pattern di portineriaApi.ts — CSRF da meta tag X-CSRF-TOKEN.
  */
+import type { TipoMedia } from '@/types/media';
 
 function getCsrfToken(): string {
     return document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '';
@@ -24,7 +25,7 @@ const headers = (): HeadersInit => ({
  */
 export interface SessioneCorrenteResult {
     session_id: string;
-    tipo: 'chiaro' | 'nascosto' | 'parlato';
+    tipo: TipoMedia;
 }
 
 /**
@@ -44,7 +45,7 @@ export async function getSessioneCorrente(): Promise<SessioneCorrenteResult | nu
         if (!data.session_id) return null;
         return {
             session_id: data.session_id,
-            tipo: (data.tipo ?? 'parlato') as 'chiaro' | 'nascosto' | 'parlato',
+            tipo: (data.tipo ?? 'parlato') as TipoMedia,
         };
     } catch {
         return null;

@@ -1,4 +1,5 @@
 import { Room, RoomEvent, Track, ConnectionState, type RemoteTrack } from 'livekit-client';
+import type { TipoMedia } from '@/types/media';
 
 /**
  * Gestore SINGLETON multi-room delle videochiamate LiveKit del receptionist.
@@ -12,14 +13,13 @@ import { Room, RoomEvent, Track, ConnectionState, type RemoteTrack } from 'livek
  * I componenti sono viste: si sottoscrivono allo snapshot e attaccano le track.
  */
 
-export type TipoCall  = 'chiaro' | 'nascosto' | 'parlato';
 export type StatoCall  = 'connecting' | 'connected' | 'error';
 export type GestitaDa  = 'umano' | 'ai';
 
 interface CallEntry {
     room:             Room;
     sessionId:        string;
-    tipo:             TipoCall;
+    tipo:             TipoMedia;
     gestitaDa:        GestitaDa;
     chioscoId:        string;
     chioscoNome:      string;
@@ -52,7 +52,7 @@ let messaggioAttesa = ssGet(MSG_KEY) ?? 'Un momento e sono subito da lei'; // mo
 export interface PublicCall {
     chioscoId:    string;
     stato:        StatoCall;
-    tipo:         TipoCall;
+    tipo:         TipoMedia;
     gestitaDa:    GestitaDa;
     chioscoNome:  string;
     sessionId:    string;
@@ -163,7 +163,7 @@ export function setMessaggioAttesa(testo: string): void {
 // `activate=false` connette la chiamata SENZA renderla attiva (usato dal
 // recupero post-reload: le chiamate in attesa restano in attesa).
 export async function startCall(opts: {
-    sessionId: string; tipo: TipoCall; chioscoId: string; chioscoNome: string; hotelId: string; gestitaDa?: GestitaDa;
+    sessionId: string; tipo: TipoMedia; chioscoId: string; chioscoNome: string; hotelId: string; gestitaDa?: GestitaDa;
 }, activate = true): Promise<void> {
     const existing = calls.get(opts.chioscoId);
     if (existing && existing.sessionId === opts.sessionId && existing.tipo === opts.tipo) {

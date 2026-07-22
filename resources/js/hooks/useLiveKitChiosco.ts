@@ -5,25 +5,22 @@ import {
     Track,
     type RemoteTrack,
 } from 'livekit-client';
-import type { ErroreMedia } from '@/services/webrtcMedia';
+import type { ErroreMedia, StatoMediaChiosco, TipoMedia } from '@/types/media';
 
 /**
- * Livello media LiveKit lato chiosco — collegamento in chiaro/nascosto.
+ * Livello media LiveKit lato chiosco — chiaro / nascosto / parlato.
  *
- * Affianca useWebRtcChiosco (che resta per il parlato). Scopre la sessione
- * tramite GET /kiosk/livekit/token (che restituisce url, token, session_id, tipo)
- * e si connette solo per i tipi 'chiaro' e 'nascosto'.
+ * Scopre la sessione tramite GET /kiosk/livekit/token (che restituisce url,
+ * token, session_id, tipo) e si connette per i tipi 'chiaro', 'nascosto' e
+ * 'parlato'.
  *
  *   - chiaro:   il chiosco pubblica webcam e mostra il video del receptionist
  *   - nascosto: il chiosco pubblica webcam (monitoraggio); il receptionist non
  *               pubblica nulla, quindi non c'è video remoto da mostrare
+ *   - parlato:  come chiaro, con in più il microfono
  */
 
-export type StatoChiosco = 'idle' | 'connecting' | 'connected' | 'error';
-
 const POLL_MS = 2_000;
-
-type TipoMedia = 'chiaro' | 'nascosto' | 'parlato';
 
 /** Opzione camera proposta dall'AI durante la scelta (da /agent/camere). */
 export interface CameraOpzione {
@@ -68,7 +65,7 @@ interface Result {
     gestitaDa:          'umano' | 'ai' | null; // chi conduce la sessione (AI = self check-in vocale)
     localVideoRef:      React.RefObject<HTMLVideoElement | null>;
     remoteVideoRef:     React.RefObject<HTMLVideoElement | null>;
-    stato:              StatoChiosco;
+    stato:              StatoMediaChiosco;
     errore:             ErroreMedia | null;
     condivisioneAttiva: boolean;
     grigliaDoc:         boolean; // il receptionist sta acquisendo un documento → mostra cornice guida
@@ -106,7 +103,7 @@ export function useLiveKitChiosco(): Result {
 
     const [sessionTipo, setSessionTipo] = useState<TipoMedia | null>(null);
     const [gestitaDa,   setGestitaDa]   = useState<'umano' | 'ai' | null>(null);
-    const [stato,       setStato]       = useState<StatoChiosco>('idle');
+    const [stato,       setStato]       = useState<StatoMediaChiosco>('idle');
     const [errore,      setErrore]      = useState<ErroreMedia | null>(null);
     const [condivisioneAttiva, setCondivisioneAttiva] = useState(false);
     const [grigliaDoc, setGrigliaDoc] = useState(false);
@@ -193,7 +190,6 @@ export function useLiveKitChiosco(): Result {
             try {
                 await room.connect(cred.url, cred.token);
                 if (cancelled) { room.disconnect(); return; }
-                console.log('[LiveKit-K] connesso alla stanza', cred.session_id, tipo);
 
                 // Il chiosco pubblica sempre la webcam (anche in nascosto);
                 // nel parlato aggiunge anche il microfono.
