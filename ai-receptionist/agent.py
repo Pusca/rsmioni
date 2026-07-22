@@ -114,8 +114,9 @@ async def entrypoint(ctx: agents.JobContext) -> None:
         vad=silero.VAD.load(),
         # Fine turno "semantico" multilingua: meno interruzioni e pause.
         turn_detection=MultilingualModel(),
-        # Latenza: genera già mentre l'ospite finisce di parlare.
-        preemptive_generation=True,
+        # NIENTE preemptive_generation: in produzione causava speech appesi
+        # dopo un'interruzione ("speech not done in time"), con conversazione
+        # bloccata a metà check-in. Costa ~300ms di latenza in più a turno.
         min_endpointing_delay=0.25,
         max_endpointing_delay=2.0,
     )

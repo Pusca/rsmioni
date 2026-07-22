@@ -68,6 +68,7 @@ class StatoConversazione:
     errori: Counter = field(default_factory=Counter)  # errori per fase
     codice: str | None = None
     camera: dict | None = None
+    documento_letto: bool = False                # leggi_documento eseguita (o fallback tecnico)
 
     def __post_init__(self) -> None:
         if self.scopo == "checkout":

@@ -42,6 +42,9 @@ class ReceptionistAgent(Agent):
         self._schermo = schermo
         self._lingua = lingua
         self._config = config
+        # Anti chiusura prematura: il primo termina con passi pendenti viene
+        # respinto con l'istruzione correttiva; il secondo chiude davvero.
+        self._termina_avvisato = False
 
     # ── Helpers di processo ─────────────────────────────────────────────
 
@@ -263,6 +266,7 @@ class ReceptionistAgent(Agent):
         visione = await self._vision_estrai(esito["immagine"], esito.get("mime", "image/jpeg"))
 
         if visione is None:  # errore tecnico (rete/servizio), non colpa dell'ospite
+            self.stato.documento_letto = True  # non insistere: verificherà il receptionist
             await self._mostra_riepilogo()
             return self._fallimento(
                 "Lettura automatica non disponibile: resta il nome dato a voce (riepilogo "
@@ -287,6 +291,7 @@ class ReceptionistAgent(Agent):
             return self._fallimento(f"Aggiornamento intestatario non riuscito: {agg.errore}")
 
         self.stato.registra({"nome": nome, "cognome": cognome})
+        self.stato.documento_letto = True
         await self._mostra_riepilogo()
         return await self._successo(
             None,
@@ -429,6 +434,22 @@ class ReceptionistAgent(Agent):
     async def termina_conversazione(self, context: RunContext) -> str:
         """Chiude la sessione al chiosco. Chiamalo nello stesso turno del
         saluto finale: la chiusura attende comunque che tu abbia finito di parlare."""
+        # Gate anti chiusura prematura (una volta sola): se nel check-in
+        # restano passi essenziali, il primo termina viene convertito in
+        # un'istruzione correttiva. Il secondo chiude comunque (l'ospite può
+        # essersene andato o aver rifiutato).
+        if self.stato.scopo == "checkin" and not self._termina_avvisato:
+            if self.stato.fase in (Fase.SALVATA, Fase.CAMERA):
+                self._termina_avvisato = True
+                return ("NON chiudere ancora: manca il documento d'identità. Proponi "
+                        "all'ospite di acquisirlo ora (acquisisci_documento). Solo se "
+                        "rifiuta o se ne è andato, richiama termina_conversazione.")
+            if self.stato.fase == Fase.DOCUMENTO and not self.stato.documento_letto:
+                self._termina_avvisato = True
+                return ("NON chiudere ancora: il documento è acquisito ma non letto. "
+                        "Chiama leggi_documento per registrare l'intestatario ufficiale "
+                        "e mostrare il riepilogo. Se l'ospite se n'è andato, richiama "
+                        "termina_conversazione.")
         self.stato.avanza_a(Fase.CONGEDO)
         # Non troncare il saluto: aspetta la fine dell'audio + margine
         try:
