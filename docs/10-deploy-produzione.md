@@ -37,6 +37,14 @@ gli eventi broadcast passano dalla coda. Su hosting condiviso: cron ogni minuto
 * * * * * cd /path/app && php artisan queue:work --stop-when-empty --tries=1 >/dev/null 2>&1
 ```
 
+**Scheduler Laravel (indispensabile per i task pianificati)**: cron ogni minuto
+accanto a quello della coda — esegue i comandi schedulati, tra cui
+`documenti:pulisci-scaduti` (cancellazione automatica dei documenti acquisiti scaduti).
+
+```
+* * * * * cd /path/app && php artisan schedule:run >/dev/null 2>&1
+```
+
 **Audit AI**: le azioni dell'agent finiscono in `storage/logs/ai-audit-*.log` (30 gg).
 
 ## 2. Worker AI — deploy
@@ -46,11 +54,20 @@ Il worker si configura SOLO via variabili d'ambiente (vedi
 
 ```
 LIVEKIT_URL / LIVEKIT_API_KEY / LIVEKIT_API_SECRET   # stessi del .env Laravel
-OPENROUTER_API_KEY (o ANTHROPIC_API_KEY)             # cervello
+OPENROUTER_API_KEY (o ANTHROPIC_API_KEY)             # cervello — se presente OpenRouter vince su Anthropic
+OPENROUTER_MODEL                                     # opz., default anthropic/claude-sonnet-4.6
+ANTHROPIC_MODEL                                      # opz., default claude-sonnet-4-6 (solo senza OpenRouter)
+VISION_MODEL                                         # opz., default anthropic/claude-sonnet-4.6 — lettura documenti,
+                                                     #   SOLO via OpenRouter: senza OPENROUTER_API_KEY viene saltata
+LLM_MAX_TOKENS                                       # opz., default 600
 DEEPGRAM_API_KEY                                     # voce → testo
-ELEVENLABS_API_KEY / ELEVENLABS_VOICE_ID             # testo → voce
+ELEVENLABS_API_KEY / ELEVENLABS_VOICE_ID             # testo → voce (voice id opz., ha default)
+ELEVENLABS_MODEL                                     # opz., default eleven_flash_v2_5
 RSMIONI_API_BASE_URL=https://rsmioni.it              # ← non più localhost!
 RSMIONI_AGENT_HMAC_SECRET=<stesso AGENT_SERVICE_TOKEN del server>
+                                                     # token statico inviato come X-Agent-Token
+                                                     #   (non è una firma HMAC; hardening pianificato, A26)
+AGENT_DEFAULT_LANGUAGE                               # opz., default it
 ```
 
 ### Con Docker (VPS, Railway, Render)

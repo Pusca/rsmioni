@@ -76,6 +76,28 @@ Ogni azione è auditata lato Laravel su `storage/logs/ai-audit-*.log`.
 - **FASE 4 — parziale:** escalation a soglia per fase; restano metriche
   aggregate e Claude vision sul documento.
 
+## Variabili d'ambiente
+
+Elenco completo (con default e commenti) in [`.env.example`](./.env.example);
+la fonte di verità è `checkin/config.py`.
+
+| Variabile | Obbligatoria | Note |
+|-----------|--------------|------|
+| `LIVEKIT_URL` / `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET` | sì | Stessi valori del `.env` Laravel (stesso progetto LiveKit) |
+| `OPENROUTER_API_KEY` | una tra le due chiavi LLM | Se presente **vince** su Anthropic nativo; **necessaria per la vision documenti** (senza, l'estrazione dati dal documento viene saltata) |
+| `OPENROUTER_MODEL` | no | Modello conversazione via OpenRouter (default `anthropic/claude-sonnet-4.6`) |
+| `VISION_MODEL` | no | Modello OpenRouter per la lettura documento (default `anthropic/claude-sonnet-4.6`) |
+| `ANTHROPIC_API_KEY` | una tra le due chiavi LLM | Usata solo se `OPENROUTER_API_KEY` è assente; non abilita la vision |
+| `ANTHROPIC_MODEL` | no | Default `claude-sonnet-4-6` |
+| `LLM_MAX_TOKENS` | no | Token max per risposta (default `600`) |
+| `DEEPGRAM_API_KEY` | sì | STT — senza, niente riconoscimento vocale |
+| `ELEVENLABS_API_KEY` | sì | TTS — senza, niente sintesi vocale |
+| `ELEVENLABS_VOICE_ID` | no | Default `Xb7hH8MSUJpSbSDYk0k2` |
+| `ELEVENLABS_MODEL` | no | Default `eleven_flash_v2_5` |
+| `RSMIONI_API_BASE_URL` | no | Base URL Laravel (default `http://localhost:8000`) |
+| `RSMIONI_AGENT_HMAC_SECRET` | sì | Token condiviso **statico** inviato come header `X-Agent-Token` (= `AGENT_SERVICE_TOKEN` lato Laravel). Nonostante il nome non è una firma HMAC: l'hardening HMAC per-richiesta è pianificato (assumptions A26) |
+| `AGENT_DEFAULT_LANGUAGE` | no | Lingua di partenza prima del rilevamento (default `it`) |
+
 ## Segreti
 
 Le chiavi stanno **solo** in `ai-receptionist/.env` (gitignorato) o nelle
