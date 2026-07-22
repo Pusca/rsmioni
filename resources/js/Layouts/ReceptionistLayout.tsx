@@ -4,6 +4,7 @@ import { SharedProps } from '@/types';
 import HotelSelector from '@/Components/HotelSelector';
 import { VideoCallProvider } from '@/contexts/VideoCallContext';
 import PipOverlay from '@/Components/PipOverlay';
+import * as presenza from '@/services/presenzaReceptionist';
 
 /**
  * Layout principale per Receptionist e Receptionist Lite.
@@ -28,7 +29,12 @@ export default function ReceptionistLayout({ children }: { children: ReactNode }
         if (flash?.error)   { setFlashMsg({ type: 'error',   text: flash.error   }); const t = setTimeout(() => setFlashMsg(null), 6000); return () => clearTimeout(t); }
     }, [flash?.success, flash?.error]);
 
-    const handleLogout = () => router.post('/logout');
+    // Presenza video verso i chioschi: attiva finché il receptionist è
+    // operativo. Il servizio è un singleton idempotente: sopravvive alla
+    // navigazione tra pagine, quindi qui basta (ri)chiamare avvia().
+    useEffect(() => { presenza.avvia(); }, []);
+
+    const handleLogout = () => { presenza.ferma(); router.post('/logout'); };
 
     return (
         <VideoCallProvider>

@@ -93,6 +93,10 @@ Route::middleware(['auth', 'ip_whitelist', 'role:receptionist,receptionist_lite'
         Route::post('/livekit/token', [\App\Http\Controllers\Portineria\LiveKitTokenController::class, 'token'])
             ->name('livekit.token');
 
+        // Presenza video del receptionist verso i chioschi (stanza per hotel)
+        Route::post('/presenza/token', [\App\Http\Controllers\Portineria\PresenzaController::class, 'token'])
+            ->name('presenza.token');
+
         // Acquisizione documento "dal vivo" — cattura frame dal video del chiosco
         Route::get('/cattura/prenotazioni', [\App\Http\Controllers\Portineria\CatturaDocumentoController::class, 'prenotazioni'])
             ->name('cattura.prenotazioni');
@@ -282,6 +286,9 @@ Route::middleware(['auth', 'role:chiosco'])
 
         // LiveKit — token di accesso alla stanza (media gestito)
         Route::get('/livekit/token', [\App\Http\Controllers\Kiosk\LiveKitTokenController::class, 'token'])->name('livekit.token');
+
+        // Presenza receptionist — miniatura webcam sul chiosco (sola visione)
+        Route::get('/presenza/token', [\App\Http\Controllers\Kiosk\KioskPresenzaController::class, 'token'])->name('presenza.token');
 
         // Acquisizione documento da webcam chiosco
         Route::get('/acquisizione-pendente',    [KioskAcquisizioneController::class, 'show'])->name('kiosk.acquisizione.show');
