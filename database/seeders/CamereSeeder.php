@@ -34,6 +34,7 @@ class CamereSeeder extends Seeder
                 'aria_condizionata'   => true,
                 'codice_chiave'       => 'K-01',
                 'mq'                  => 18.00,
+                'prezzo_notte'        => 55.00,
             ],
             [
                 'hotel_id'            => $hotel->id,
@@ -54,6 +55,7 @@ class CamereSeeder extends Seeder
                 'aria_condizionata'   => true,
                 'codice_chiave'       => 'K-02',
                 'mq'                  => 22.00,
+                'prezzo_notte'        => 70.00,
             ],
             // ── Piano 1 ──────────────────────────────────────────────────────
             [
@@ -75,6 +77,8 @@ class CamereSeeder extends Seeder
                 'aria_condizionata'   => true,
                 'codice_chiave'       => 'K-101',
                 'mq'                  => 28.50,
+                'prezzo_notte'        => 90.00,
+                'descrizione'         => 'Balcone sul giardino',
             ],
             [
                 'hotel_id'            => $hotel->id,
@@ -95,6 +99,8 @@ class CamereSeeder extends Seeder
                 'aria_condizionata'   => true,
                 'codice_chiave'       => 'K-102',
                 'mq'                  => 26.00,
+                'prezzo_notte'        => 85.00,
+                'descrizione'         => 'Vista mare',
             ],
             [
                 'hotel_id'            => $hotel->id,
@@ -115,6 +121,7 @@ class CamereSeeder extends Seeder
                 'aria_condizionata'   => true,
                 'codice_chiave'       => 'K-103',
                 'mq'                  => 34.00,
+                'prezzo_notte'        => 110.00,
             ],
             // ── Piano 2 ──────────────────────────────────────────────────────
             [
@@ -136,6 +143,8 @@ class CamereSeeder extends Seeder
                 'aria_condizionata'   => true,
                 'codice_chiave'       => 'K-201',
                 'mq'                  => 35.00,
+                'prezzo_notte'        => 130.00,
+                'descrizione'         => 'Vista mare, vasca idromassaggio',
             ],
             [
                 'hotel_id'            => $hotel->id,
@@ -156,6 +165,8 @@ class CamereSeeder extends Seeder
                 'aria_condizionata'   => true,
                 'codice_chiave'       => 'K-202',
                 'mq'                  => 42.00,
+                'prezzo_notte'        => 150.00,
+                'descrizione'         => 'Terrazzo privato',
             ],
             [
                 'hotel_id'            => $hotel->id,
@@ -176,6 +187,7 @@ class CamereSeeder extends Seeder
                 'aria_condizionata'   => true,
                 'codice_chiave'       => 'K-203',
                 'mq'                  => 48.00,
+                'prezzo_notte'        => 160.00,
             ],
             // ── Piano 3 — Suite ───────────────────────────────────────────────
             [
@@ -198,6 +210,8 @@ class CamereSeeder extends Seeder
                 'quadro_elettrico'    => 'Q3A - quadro secondario',
                 'codice_chiave'       => 'K-301',
                 'mq'                  => 65.00,
+                'prezzo_notte'        => 220.00,
+                'descrizione'         => 'Suite panoramica con terrazzo vista mare',
             ],
             // ── Camera non prenotabile (magazzino/servizio) ───────────────────
             [

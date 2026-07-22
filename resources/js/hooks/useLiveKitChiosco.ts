@@ -25,17 +25,43 @@ const POLL_MS = 2_000;
 
 type TipoMedia = 'chiaro' | 'nascosto' | 'parlato';
 
+/** Opzione camera proposta dall'AI durante la scelta (da /agent/camere). */
+export interface CameraOpzione {
+    camera_id:     string;
+    nome:          string;
+    tipo:          string;
+    piano:         number;
+    posti:         number;
+    capienza_ok:   boolean;
+    prezzo_notte:  number | null;
+    prezzo_totale: number | null;
+    descrizione:   string | null;
+    dotazioni:     string[];
+    quante_simili: number;
+}
+
+/** Riepilogo finale: nome ufficiale letto dal documento + dati del soggiorno. */
+export interface RiepilogoFinale {
+    nome?: string | null; cognome?: string | null;
+    check_in?: string | null; check_out?: string | null;
+    adulti?: number | null; ragazzi?: number | null; bambini?: number | null;
+    camera?: string | null; piano?: number | null;
+    codice?: string | null;
+}
+
 /** Dati del check-in/out AI mostrati in tempo reale sullo schermo del chiosco. */
 export interface AiUiState {
     form:      { nome?: string; cognome?: string; check_in?: string; check_out?: string;
                  adulti?: number; ragazzi?: number; bambini?: number };
     camera:    { nome?: string; piano?: number | null; tipo?: string } | null;
+    camereOpzioni: CameraOpzione[] | null; // opzioni tra cui l'ospite sta scegliendo
+    riepilogo: RiepilogoFinale | null;     // pagina finale con nome dal documento
     codice:    string | null;
     pagamento: { importo?: number; stato?: 'in_corso' | 'ok' | 'ko' } | null;
     fase:      string | null; // fase FSM del processo (stepper): dati, conferma, salvata, camera, documento...
 }
 
-const AI_UI_INIZIALE: AiUiState = { form: {}, camera: null, codice: null, pagamento: null, fase: null };
+const AI_UI_INIZIALE: AiUiState = { form: {}, camera: null, camereOpzioni: null, riepilogo: null, codice: null, pagamento: null, fase: null };
 
 interface Result {
     sessionTipo:        TipoMedia | null;
@@ -143,6 +169,8 @@ export function useLiveKitChiosco(): Result {
                             topic?: string; testo?: string; tipo?: string;
                             form?: AiUiState['form']; camera?: AiUiState['camera']; codice?: string;
                             pagamento?: AiUiState['pagamento']; fase?: string;
+                            opzioni?: CameraOpzione[] | null;
+                            riepilogo?: RiepilogoFinale | null;
                         };
                         if (msg.topic === 'doc_capture_on')  setGrigliaDoc(true);
                         if (msg.topic === 'doc_capture_off') setGrigliaDoc(false);
@@ -151,7 +179,9 @@ export function useLiveKitChiosco(): Result {
                         // Recap live del check-in AI: i dati detti a voce appaiono scritti
                         if (msg.topic === 'ai_ui') {
                             if (msg.tipo === 'form'   && msg.form)   setAiUi((p) => ({ ...p, form: { ...p.form, ...msg.form } }));
-                            if (msg.tipo === 'camera' && msg.camera) setAiUi((p) => ({ ...p, camera: msg.camera ?? null }));
+                            if (msg.tipo === 'camera' && msg.camera) setAiUi((p) => ({ ...p, camera: msg.camera ?? null, camereOpzioni: null }));
+                            if (msg.tipo === 'camere_opzioni') setAiUi((p) => ({ ...p, camereOpzioni: msg.opzioni ?? null }));
+                            if (msg.tipo === 'riepilogo' && msg.riepilogo) setAiUi((p) => ({ ...p, riepilogo: msg.riepilogo ?? null, camereOpzioni: null, codice: msg.riepilogo?.codice ?? p.codice }));
                             if (msg.tipo === 'codice' && msg.codice) setAiUi((p) => ({ ...p, codice: msg.codice ?? null }));
                             if (msg.tipo === 'pagamento' && msg.pagamento) setAiUi((p) => ({ ...p, pagamento: msg.pagamento ?? null }));
                             if (msg.tipo === 'fase' && msg.fase) setAiUi((p) => ({ ...p, fase: msg.fase ?? null }));

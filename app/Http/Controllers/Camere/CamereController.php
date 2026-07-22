@@ -185,6 +185,8 @@ class CamereController extends Controller
             'quadro_elettrico'         => ['nullable', 'string', 'max:500'],
             'codice_chiave'            => ['nullable', 'string', 'max:100'],
             'mq'                       => ['nullable', 'numeric', 'min:0', 'max:9999'],
+            'prezzo_notte'             => ['nullable', 'numeric', 'min:0', 'max:99999'],
+            'descrizione'              => ['nullable', 'string', 'max:500'],
         ];
 
         // hotel_id richiesto solo in store

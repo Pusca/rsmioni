@@ -287,6 +287,26 @@ Per il **Restart PC**: il chiosco riceve un comando Socket.IO e lancia `shutdown
 
 ---
 
+## A28 — Scelta camera nel self check-in: prezzo a notte e descrizione sulla camera
+
+**Contesto**: il committente chiede che l'AI proponga all'ospite le camere libere con costi e caratteristiche distintive (es. "vista mare", "terrazzo") e lo faccia scegliere, raggruppando le camere equivalenti.
+
+**Assunzione adottata**: Il manuale non prevede prezzi per camera (la tabella `prezzi_camera` esisteva ma non era usata da nessun modulo). Sono stati aggiunti alla camera due campi fuori manuale: `prezzo_notte` (decimal, nullable) e `descrizione` (testo libero per l'ospite, nullable), gestiti dal form camere. L'endpoint `/agent/camere` raggruppa le camere libere per equivalenza (tipo + prezzo + descrizione + capienza) e propone una opzione per gruppo, ordinata per capienza adeguata e prezzo; le opzioni appaiono sullo schermo del chiosco e l'ospite sceglie a voce. Senza prezzo impostato l'opzione è proposta come "prezzo da definire col receptionist". La logica tariffaria avanzata (stagionalità, occupazione — tabella `prezzi_camera`) resta da progettare.
+
+**Impatto**: migration `add_prezzo_descrizione_to_camere`, `CameraForm`, `AgentCheckinController::listaCamere/assegnaCamera`, tool `lista_camere` del worker, pannello opzioni sul kiosk.
+
+---
+
+## A29 — Self check-in AI: nome ufficiale dal documento (vision), non dalla voce
+
+**Contesto**: la cattura vocale di nomi propri è lenta e inaffidabile (parole fuori vocabolario per lo speech-to-text). Il committente chiede un flusso più rapido: disponibilità camere verificata prima del salvataggio, nome ufficiale letto dal documento.
+
+**Assunzione adottata**: Il nome sentito a voce è solo un SEGNAPOSTO conversazionale (l'AI si rivolge all'ospite col primo nome, un solo tentativo, mai mostrato sullo schermo né riletto). Flusso: intro → persone → date → `lista_camere` (disponibilità dal form, PRIMA del salvataggio) → scelta → salva+assegna (codice non annunciato) → documenti (uno per adulto) → `leggi_documento`: la vision AI (modello `VISION_MODEL`, default Sonnet via OpenRouter) estrae nome/cognome dal fronte del documento, aggiorna la prenotazione (`POST /agent/intestatario`) e fa comparire il riepilogo finale sul kiosk (nome ufficiale, soggiorno, camera, codice). Se la lettura fallisce resta il nome vocale e il receptionist verifica.
+
+**Impatto**: `AgentCheckinController::listaCamere` (date dal form), nuovi endpoint `documentoImmagine`/`aggiornaIntestatario`, tool `leggi_documento` + chiamata vision nel worker, schermata riepilogo sul kiosk, riscrittura CHECKIN_SCRIPT.
+
+---
+
 ## Da Validare Prima dell'Implementazione
 
 | ID | Assunzione | Urgenza |

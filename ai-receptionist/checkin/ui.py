@@ -31,6 +31,14 @@ class SchermoChiosco:
     async def camera(self, camera: dict) -> None:
         await self._publish({"tipo": "camera", "camera": camera})
 
+    async def camere_opzioni(self, opzioni: list | None) -> None:
+        """Mostra (o nasconde, con None) le opzioni camera tra cui scegliere."""
+        await self._publish({"tipo": "camere_opzioni", "opzioni": opzioni})
+
+    async def riepilogo(self, dati: dict) -> None:
+        """Riepilogo finale (nome ufficiale dal documento, date, camera, codice)."""
+        await self._publish({"tipo": "riepilogo", "riepilogo": dati})
+
     async def codice(self, codice: str) -> None:
         await self._publish({"tipo": "codice", "codice": codice})
 

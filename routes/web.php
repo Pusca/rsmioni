@@ -327,9 +327,12 @@ Route::middleware([\App\Http\Middleware\AgentServiceAuth::class])
     ->group(function () {
         Route::post('/form',                [\App\Http\Controllers\Agent\AgentCheckinController::class, 'aggiornaForm'])->name('form');
         Route::post('/prenotazione',        [\App\Http\Controllers\Agent\AgentCheckinController::class, 'creaPrenotazione'])->name('prenotazione');
+        Route::post('/camere',              [\App\Http\Controllers\Agent\AgentCheckinController::class, 'listaCamere'])->name('camere');
         Route::post('/camera',              [\App\Http\Controllers\Agent\AgentCheckinController::class, 'assegnaCamera'])->name('camera');
         Route::post('/acquisizione',        [\App\Http\Controllers\Agent\AgentCheckinController::class, 'avviaAcquisizione'])->name('acquisizione');
         Route::post('/acquisizione/stato',  [\App\Http\Controllers\Agent\AgentCheckinController::class, 'statoAcquisizione'])->name('acquisizione.stato');
+        Route::post('/documento/immagine',  [\App\Http\Controllers\Agent\AgentCheckinController::class, 'documentoImmagine'])->name('documento.immagine');
+        Route::post('/intestatario',        [\App\Http\Controllers\Agent\AgentCheckinController::class, 'aggiornaIntestatario'])->name('intestatario');
         Route::post('/prenotazione/cerca',  [\App\Http\Controllers\Agent\AgentCheckinController::class, 'cercaPrenotazione'])->name('prenotazione.cerca');
         Route::post('/pagamento',           [\App\Http\Controllers\Agent\AgentCheckinController::class, 'avviaPagamento'])->name('pagamento');
         Route::post('/pagamento/stato',     [\App\Http\Controllers\Agent\AgentCheckinController::class, 'statoPagamento'])->name('pagamento.stato');

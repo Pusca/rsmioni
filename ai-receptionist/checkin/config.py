@@ -20,6 +20,10 @@ class Impostazioni:
     openrouter_api_key: str | None
     openrouter_model: str
     anthropic_model: str
+    # Vision per la lettura documenti (nome ufficiale dal fronte): un modello
+    # robusto, separato dal cervello conversazionale — è una chiamata one-shot
+    # dove conta l'accuratezza, non la latenza.
+    vision_model: str
 
     # Voce
     elevenlabs_api_key: str | None
@@ -53,6 +57,7 @@ class Impostazioni:
             openrouter_api_key=os.environ.get("OPENROUTER_API_KEY") or None,
             openrouter_model=os.environ.get("OPENROUTER_MODEL", "anthropic/claude-sonnet-4.6"),
             anthropic_model=os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-6"),
+            vision_model=os.environ.get("VISION_MODEL", "anthropic/claude-sonnet-4.6"),
             elevenlabs_api_key=os.environ.get("ELEVENLABS_API_KEY") or None,
             elevenlabs_voice_id=os.environ.get("ELEVENLABS_VOICE_ID", "Xb7hH8MSUJpSbSDYk0k2"),
             elevenlabs_model=os.environ.get("ELEVENLABS_MODEL", "eleven_flash_v2_5"),

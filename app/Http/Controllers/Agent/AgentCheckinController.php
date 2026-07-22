@@ -9,6 +9,7 @@ use App\Enums\StatoDocumentoIdentita;
 use App\Enums\TipoPagamento;
 use App\Enums\TipoPOS;
 use App\Http\Controllers\Controller;
+use App\Models\Camera;
 use App\Models\Chiosco;
 use App\Models\Pagamento;
 use App\Models\Prenotazione;
@@ -129,9 +130,10 @@ class AgentCheckinController extends Controller
             }
         }
 
-        // Validazione "da albergatore": stesso minimo richiesto dal form manuale
+        // Servono le date; il nome vocale è un segnaposto (A29): quello
+        // ufficiale arriva dal documento e aggiorna la prenotazione dopo.
         $mancanti = array_filter(
-            ['nome', 'cognome', 'check_in', 'check_out'],
+            ['check_in', 'check_out'],
             fn (string $c) => empty($form[$c]),
         );
         if ($mancanti) {
@@ -151,8 +153,8 @@ class AgentCheckinController extends Controller
         $pren = Prenotazione::create([
             'hotel_id'            => $sessione['hotel_id'],
             'codice'              => 'AI-' . strtoupper(Str::random(6)),
-            'nome'                => $form['nome'],
-            'cognome'             => $form['cognome'],
+            'nome'                => ! empty($form['nome']) ? $form['nome'] : 'Ospite',
+            'cognome'             => ! empty($form['cognome']) ? $form['cognome'] : '(da documento)',
             'check_in'            => $checkIn->toDateString(),
             'check_out'           => $checkOut->toDateString(),
             'pax'                 => [
@@ -180,9 +182,109 @@ class AgentCheckinController extends Controller
         ]);
     }
 
+    /** Posti letto effettivi di una camera (adulti+ragazzi). */
+    private function postiCamera(Camera $c): int
+    {
+        return 2 * (int) $c->letti_matrimoniali + (int) $c->letti_singoli
+            + (int) $c->letti_aggiunti + (int) $c->divani_letto_singoli
+            + 2 * (int) $c->divani_letto_matrimoniali;
+    }
+
+    /** Camere libere per un intervallo di date nell'hotel della sessione. */
+    private function camereLibereDate(string $hotelId, string $checkIn, string $checkOut)
+    {
+        return $this->camere->camereConDisponibilita(
+            hotelId:  $hotelId,
+            checkIn:  $checkIn,
+            checkOut: $checkOut,
+        )->filter(fn ($c) => $c->disponibile);
+    }
+
+    /** Camere libere per le date della prenotazione della sessione. */
+    private function camereLibere(Prenotazione $pren)
+    {
+        return $this->camereLibereDate(
+            $pren->hotel_id,
+            $pren->check_in->toDateString(),
+            $pren->check_out->toDateString(),
+        );
+    }
+
     /**
-     * Assegna alla prenotazione la prima camera libera per le date richieste.
-     * Risponde con nome/piano della camera da comunicare a voce all'ospite.
+     * Elenca le camere libere raggruppate per equivalenza (tipo, prezzo,
+     * descrizione, capienza): l'agent propone UNA opzione per gruppo — tre
+     * matrimoniali identiche sono una sola scelta.
+     *
+     * Funziona PRIMA del salvataggio (date e ospiti dal form della sessione):
+     * la disponibilità si verifica prima di creare la prenotazione.
+     */
+    public function listaCamere(Request $request): JsonResponse
+    {
+        $sessione = $this->sessione($request);
+        if (! $sessione) {
+            return response()->json(['error' => 'Sessione AI non trovata o scaduta.'], 404);
+        }
+
+        $form = $this->sessioni->form($request->session_id);
+        $pren = ! empty($form['prenotazione_id']) ? Prenotazione::find($form['prenotazione_id']) : null;
+
+        if ($pren) {
+            $checkIn  = $pren->check_in;
+            $checkOut = $pren->check_out;
+            $adulti   = (int) ($pren->pax['adulti'] ?? 1);
+            $ragazzi  = (int) ($pren->pax['ragazzi'] ?? 0);
+        } else {
+            if (empty($form['check_in']) || empty($form['check_out'])) {
+                return response()->json(['error' => 'Servono prima le date di arrivo e partenza: chiedile all\'ospite.'], 422);
+            }
+            $checkIn  = Carbon::parse($form['check_in']);
+            $checkOut = Carbon::parse($form['check_out']);
+            $adulti   = (int) ($form['adulti'] ?? 1);
+            $ragazzi  = (int) ($form['ragazzi'] ?? 0);
+        }
+
+        $notti  = max(1, (int) $checkIn->diffInDays($checkOut));
+        $ospiti = $adulti + $ragazzi;
+
+        $opzioni = $this->camereLibereDate($sessione['hotel_id'], $checkIn->toDateString(), $checkOut->toDateString())
+            ->groupBy(fn (Camera $c) => implode('|', [
+                $c->tipo, (string) $c->prezzo_notte, (string) $c->descrizione, $this->postiCamera($c),
+            ]))
+            ->map(function ($gruppo) use ($notti, $ospiti) {
+                /** @var Camera $c */
+                $c = $gruppo->first();
+                $dotazioni = array_keys(array_filter([
+                    'doccia'            => $c->doccia,
+                    'vasca'             => $c->vasca,
+                    'minibar'           => $c->minibar,
+                    'aria condizionata' => $c->aria_condizionata,
+                ]));
+                return [
+                    'camera_id'     => $c->id,
+                    'nome'          => $c->nome,
+                    'tipo'          => $c->tipo,
+                    'piano'         => $c->piano,
+                    'posti'         => $this->postiCamera($c),
+                    'capienza_ok'   => $this->postiCamera($c) >= $ospiti,
+                    'prezzo_notte'  => $c->prezzo_notte !== null ? (float) $c->prezzo_notte : null,
+                    'prezzo_totale' => $c->prezzo_notte !== null ? round((float) $c->prezzo_notte * $notti, 2) : null,
+                    'descrizione'   => $c->descrizione,
+                    'dotazioni'     => $dotazioni,
+                    'quante_simili' => $gruppo->count(),
+                ];
+            })
+            ->sortBy([['capienza_ok', 'desc'], ['prezzo_notte', 'asc']])
+            ->values();
+
+        $this->audit('camere.lista', $request, $sessione, true, ['prenotazione_id' => $pren?->id, 'opzioni' => $opzioni->count()]);
+
+        return response()->json(['ok' => true, 'notti' => $notti, 'opzioni' => $opzioni]);
+    }
+
+    /**
+     * Assegna una camera alla prenotazione salvata. Con `camera_id` assegna
+     * la camera scelta dall'ospite (da listaCamere); senza, sceglie in
+     * automatico la prima libera con capienza sufficiente (fallback storico).
      */
     public function assegnaCamera(Request $request): JsonResponse
     {
@@ -190,6 +292,8 @@ class AgentCheckinController extends Controller
         if (! $sessione) {
             return response()->json(['error' => 'Sessione AI non trovata o scaduta.'], 404);
         }
+
+        $validated = $request->validate(['camera_id' => ['nullable', 'uuid']]);
 
         $form = $this->sessioni->form($request->session_id);
         $pren = ! empty($form['prenotazione_id']) ? Prenotazione::find($form['prenotazione_id']) : null;
@@ -206,20 +310,23 @@ class AgentCheckinController extends Controller
             ]);
         }
 
-        $disponibili = $this->camere->camereConDisponibilita(
-            hotelId:  $pren->hotel_id,
-            checkIn:  $pren->check_in->toDateString(),
-            checkOut: $pren->check_out->toDateString(),
-        )->filter(fn ($c) => $c->disponibile);
+        $disponibili = $this->camereLibere($pren);
 
-        // Prima scelta: capienza sufficiente per gli ospiti (adulti+ragazzi);
-        // fallback: qualsiasi camera libera (meglio che nessuna — deciderà il receptionist).
-        $ospiti = (int) ($pren->pax['adulti'] ?? 1) + (int) ($pren->pax['ragazzi'] ?? 0);
-        $posti  = fn ($c) => 2 * (int) $c->letti_matrimoniali + (int) $c->letti_singoli
-            + (int) $c->letti_aggiunti + (int) $c->divani_letto_singoli
-            + 2 * (int) $c->divani_letto_matrimoniali;
-
-        $libera = $disponibili->first(fn ($c) => $posti($c) >= $ospiti) ?? $disponibili->first();
+        if (! empty($validated['camera_id'])) {
+            // Scelta esplicita dell'ospite: deve essere tra le libere dell'hotel
+            $libera = $disponibili->first(fn (Camera $c) => $c->id === $validated['camera_id']);
+            if (! $libera) {
+                $this->audit('camera.assegna', $request, $sessione, false, ['motivo' => 'camera scelta non disponibile', 'camera_id' => $validated['camera_id']]);
+                return response()->json([
+                    'error' => 'La camera scelta non è più disponibile: riproponi le opzioni con la lista camere.',
+                ], 409);
+            }
+        } else {
+            // Fallback automatico: capienza sufficiente, altrimenti qualsiasi libera
+            $ospiti = (int) ($pren->pax['adulti'] ?? 1) + (int) ($pren->pax['ragazzi'] ?? 0);
+            $libera = $disponibili->first(fn (Camera $c) => $this->postiCamera($c) >= $ospiti)
+                ?? $disponibili->first();
+        }
 
         if (! $libera) {
             $this->audit('camera.assegna', $request, $sessione, false, ['motivo' => 'nessuna disponibile', 'prenotazione_id' => $pren->id]);
@@ -288,6 +395,83 @@ class AgentCheckinController extends Controller
         }
 
         return response()->json(['ok' => true, 'stato' => $stato]);
+    }
+
+    /**
+     * Restituisce (base64) l'immagine FRONTE dell'ultimo documento acquisito
+     * per la prenotazione della sessione: il worker la passa alla vision AI
+     * per leggere il nome ufficiale dell'intestatario.
+     */
+    public function documentoImmagine(Request $request): JsonResponse
+    {
+        $sessione = $this->sessione($request);
+        if (! $sessione) {
+            return response()->json(['error' => 'Sessione AI non trovata o scaduta.'], 404);
+        }
+
+        $form = $this->sessioni->form($request->session_id);
+        if (empty($form['prenotazione_id'])) {
+            return response()->json(['error' => 'Prenotazione non ancora salvata.'], 422);
+        }
+
+        $doc = \App\Models\Documento::where('contesto_tipo', \App\Enums\ContestoDocumento::Prenotazione)
+            ->where('contesto_id', $form['prenotazione_id'])
+            ->whereIn('estensione', ['jpg', 'jpeg', 'png'])
+            ->where('titolo', 'like', '%fronte%')
+            ->orderByDesc('created_at')
+            ->first()
+            ?? \App\Models\Documento::where('contesto_tipo', \App\Enums\ContestoDocumento::Prenotazione)
+                ->where('contesto_id', $form['prenotazione_id'])
+                ->whereIn('estensione', ['jpg', 'jpeg', 'png'])
+                ->orderByDesc('created_at')
+                ->first();
+
+        if (! $doc || ! \Illuminate\Support\Facades\Storage::disk('local')->exists($doc->storage_path)) {
+            return response()->json(['error' => 'Nessun documento acquisito trovato per questa prenotazione.'], 404);
+        }
+
+        $contenuto = \Illuminate\Support\Facades\Storage::disk('local')->get($doc->storage_path);
+        if (strlen($contenuto) > 8 * 1024 * 1024) {
+            return response()->json(['error' => 'Immagine documento troppo grande per la lettura automatica.'], 422);
+        }
+
+        $this->audit('documento.immagine', $request, $sessione, true, ['documento_id' => $doc->id]);
+
+        return response()->json([
+            'ok'       => true,
+            'mime'     => $doc->estensione === 'png' ? 'image/png' : 'image/jpeg',
+            'immagine' => base64_encode($contenuto),
+        ]);
+    }
+
+    /**
+     * Aggiorna nome e cognome dell'intestatario sulla prenotazione della
+     * sessione, con i dati LETTI DAL DOCUMENTO (fonte ufficiale: sostituisce
+     * il nome sentito a voce, usato solo come segnaposto).
+     */
+    public function aggiornaIntestatario(Request $request): JsonResponse
+    {
+        $sessione = $this->sessione($request);
+        if (! $sessione) {
+            return response()->json(['error' => 'Sessione AI non trovata o scaduta.'], 404);
+        }
+
+        $validated = $request->validate([
+            'nome'    => ['required', 'string', 'max:200'],
+            'cognome' => ['required', 'string', 'max:200'],
+        ]);
+
+        $form = $this->sessioni->form($request->session_id);
+        $pren = ! empty($form['prenotazione_id']) ? Prenotazione::find($form['prenotazione_id']) : null;
+        if (! $pren) {
+            return response()->json(['error' => 'Prenotazione non ancora salvata.'], 422);
+        }
+
+        $pren->update(['nome' => $validated['nome'], 'cognome' => $validated['cognome']]);
+        $this->sessioni->aggiornaForm($request->session_id, $validated);
+        $this->audit('intestatario.aggiorna', $request, $sessione, true, ['prenotazione_id' => $pren->id]);
+
+        return response()->json(['ok' => true, 'nome' => $pren->nome, 'cognome' => $pren->cognome]);
     }
 
     /**

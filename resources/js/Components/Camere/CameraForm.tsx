@@ -24,6 +24,8 @@ interface FormValues {
     quadro_elettrico: string;
     codice_chiave: string;
     mq: string;
+    prezzo_notte: string;
+    descrizione: string;
 }
 
 interface Props {
@@ -56,6 +58,8 @@ function buildDefaults(camera?: Camera, hotels?: HotelOption[]): FormValues {
             quadro_elettrico:         camera.quadro_elettrico ?? '',
             codice_chiave:            camera.codice_chiave ?? '',
             mq:                       camera.mq != null ? String(camera.mq) : '',
+            prezzo_notte:             camera.prezzo_notte != null ? String(camera.prezzo_notte) : '',
+            descrizione:              camera.descrizione ?? '',
         };
     }
     return {
@@ -66,6 +70,7 @@ function buildDefaults(camera?: Camera, hotels?: HotelOption[]): FormValues {
         divani_letto_singoli: '0', divani_letto_matrimoniali: '0', culle: '0',
         doccia: true, vasca: false, minibar: false, minibar_pieno: false, aria_condizionata: true,
         quadro_elettrico: '', codice_chiave: '', mq: '',
+        prezzo_notte: '', descrizione: '',
     };
 }
 
@@ -157,6 +162,16 @@ export default function CameraForm({ hotels, camera, submitLabel, isEdit = false
                         <Input type="number" min="0" step="0.5" value={data.mq}
                             onChange={v => setData('mq', v)} placeholder="es. 28.5" error={errors.mq} />
                     </div>
+                    <div>
+                        <Label>Prezzo a notte (€)</Label>
+                        <Input type="number" min="0" step="1" value={data.prezzo_notte}
+                            onChange={v => setData('prezzo_notte', v)} placeholder="es. 120" error={errors.prezzo_notte} />
+                    </div>
+                </div>
+                <div className="mt-4">
+                    <Label>Descrizione per l'ospite (caratteristiche distintive)</Label>
+                    <Input value={data.descrizione} onChange={v => setData('descrizione', v)}
+                        placeholder="es. Vista mare, terrazzo privato" error={errors.descrizione} />
                 </div>
                 <div className="mt-4">
                     <Label>Quadro elettrico</Label>

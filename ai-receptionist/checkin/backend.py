@@ -69,14 +69,23 @@ class BackendRsmioni:
     async def crea_prenotazione(self) -> EsitoApi:
         return await self._post("/agent/prenotazione")
 
-    async def assegna_camera(self) -> EsitoApi:
-        return await self._post("/agent/camera")
+    async def lista_camere(self) -> EsitoApi:
+        return await self._post("/agent/camere")
+
+    async def assegna_camera(self, camera_id: str | None = None) -> EsitoApi:
+        return await self._post("/agent/camera", {"camera_id": camera_id} if camera_id else None)
 
     async def avvia_acquisizione(self, lingua: str = "it") -> EsitoApi:
         return await self._post("/agent/acquisizione", {"lingua": lingua})
 
     async def stato_acquisizione(self) -> EsitoApi:
         return await self._post("/agent/acquisizione/stato")
+
+    async def documento_immagine(self) -> EsitoApi:
+        return await self._post("/agent/documento/immagine")
+
+    async def aggiorna_intestatario(self, nome: str, cognome: str) -> EsitoApi:
+        return await self._post("/agent/intestatario", {"nome": nome, "cognome": cognome})
 
     async def cerca_prenotazione(self, cognome: str | None, codice: str | None) -> EsitoApi:
         campi = {k: v for k, v in {"cognome": cognome, "codice": codice}.items() if v}

@@ -35,6 +35,8 @@ class Camera extends Model
         'quadro_elettrico',
         'codice_chiave',
         'mq',
+        'prezzo_notte',
+        'descrizione',
     ];
 
     protected function casts(): array
@@ -53,6 +55,7 @@ class Camera extends Model
             'divani_letto_matrimoniali' => 'integer',
             'culle'                     => 'integer',
             'mq'                        => 'decimal:2',
+            'prezzo_notte'              => 'decimal:2',
         ];
     }
 

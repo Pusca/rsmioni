@@ -112,6 +112,8 @@ export interface Camera {
     quadro_elettrico: string | null;
     codice_chiave: string | null;
     mq: number | null;
+    prezzo_notte: number | null;
+    descrizione: string | null;
     hotel?: { id: string; nome: string };
 }
 

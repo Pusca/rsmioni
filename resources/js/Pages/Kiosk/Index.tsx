@@ -973,20 +973,21 @@ interface AiScreenProps {
     onTermina:     () => void;
 }
 
-/** Riga del recap live: etichetta + valore, flash animato a ogni aggiornamento. */
+/** Riga del recap live: etichetta + valore, flash animato a ogni aggiornamento.
+    Dimensioni pensate per un totem letto a 1-2 metri di distanza. */
 function RecapRiga({ label, value }: { label: string; value: string | null }) {
     const ok = value !== null && value !== '';
     return (
-        <div className="flex items-center justify-between gap-4 py-2.5"
+        <div className="flex items-center justify-between gap-4 py-3"
              style={{ borderBottom: '1px solid rgba(148,163,184,0.12)' }}>
-            <span className="text-sm shrink-0" style={{ color: 'var(--color-text-muted)' }}>{label}</span>
+            <span className="shrink-0" style={{ fontSize: 15, color: 'var(--color-text-muted)' }}>{label}</span>
             {/* key={value}: rimonta al cambio → riparte l'animazione di ingresso */}
             <span key={value ?? 'vuoto'}
                   className={`flex items-center gap-2 text-right font-medium px-1.5 ${ok ? 'ai-field-in' : ''}`}
-                  style={{ fontSize: 16, color: ok ? 'var(--color-text-primary)' : 'rgba(148,163,184,0.35)' }}>
+                  style={{ fontSize: 19, color: ok ? 'var(--color-text-primary)' : 'rgba(148,163,184,0.35)' }}>
                 {ok ? value : '—'}
                 {ok && (
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5">
                         <path d="M20 6L9 17l-5-5" />
                     </svg>
                 )}
@@ -1036,6 +1037,121 @@ function FaseStepper({ fase, scopo }: { fase: string | null; scopo: 'checkin' | 
                     </div>
                 );
             })}
+        </div>
+    );
+}
+
+/**
+ * Opzioni camera proposte dall'AI: l'ospite le vede con prezzo e
+ * caratteristiche mentre l'assistente le descrive, e sceglie a voce.
+ */
+function CamereOpzioniPanel({ opzioni }: { opzioni: import('@/hooks/useLiveKitChiosco').CameraOpzione[] }) {
+    return (
+        <div className="ai-pop-in mt-5">
+            <div className="flex items-center justify-between mb-2">
+                <p className="text-xs uppercase tracking-widest" style={{ color: '#93c5fd' }}>
+                    Camere disponibili
+                </p>
+                <p className="text-[11px]" style={{ color: 'rgba(148,163,184,0.7)' }}>
+                    scegli a voce
+                </p>
+            </div>
+            <div className="space-y-2 pr-1"
+                 style={{ maxHeight: '34vh', overflowY: 'auto', scrollbarWidth: 'thin' }}>
+                {opzioni.map((o) => (
+                    <div key={o.camera_id} className="rounded-xl py-3 px-4 flex items-center justify-between gap-3"
+                         style={{ backgroundColor: 'rgba(30,58,138,0.45)', border: '1px solid rgba(96,165,250,0.55)' }}>
+                        <div className="min-w-0">
+                            <p className="font-bold truncate" style={{ fontSize: 17, color: '#ffffff' }}>
+                                {o.tipo}
+                                {o.quante_simili > 1 && (
+                                    <span className="font-normal" style={{ fontSize: 12, color: 'rgba(219,234,254,0.75)' }}>
+                                        {' '}×{o.quante_simili}
+                                    </span>
+                                )}
+                            </p>
+                            <p className="truncate" style={{ fontSize: 13, color: '#bfdbfe' }}>
+                                {o.descrizione
+                                    ? o.descrizione
+                                    : `Piano ${o.piano} · ${o.posti} post${o.posti === 1 ? 'o' : 'i'}`}
+                            </p>
+                        </div>
+                        <div className="text-right shrink-0" style={{ minWidth: 100 }}>
+                            {o.prezzo_notte !== null ? (
+                                <>
+                                    <p className="font-bold leading-tight" style={{ fontSize: 19, color: '#ffffff' }}>
+                                        € {Number(o.prezzo_notte).toFixed(0)}
+                                        <span className="font-normal" style={{ fontSize: 11, color: '#bfdbfe' }}> /notte</span>
+                                    </p>
+                                    {o.prezzo_totale !== null && (
+                                        <p className="leading-tight" style={{ fontSize: 12, color: '#bfdbfe' }}>
+                                            € {Number(o.prezzo_totale).toFixed(0)} totale
+                                        </p>
+                                    )}
+                                </>
+                            ) : (
+                                <p style={{ fontSize: 12, color: '#bfdbfe' }}>prezzo in reception</p>
+                            )}
+                        </div>
+                    </div>
+                ))}
+            </div>
+            {opzioni.length > 4 && (
+                <p className="text-center mt-1.5" style={{ fontSize: 11, color: 'rgba(148,163,184,0.55)' }}>
+                    scorri per vedere tutte le {opzioni.length} opzioni
+                </p>
+            )}
+        </div>
+    );
+}
+
+/**
+ * Riepilogo finale del check-in: appare dopo la lettura del documento, con
+ * il nome UFFICIALE dell'intestatario, soggiorno, camera e codice.
+ */
+function RiepilogoFinalePanel({ r }: { r: import('@/hooks/useLiveKitChiosco').RiepilogoFinale }) {
+    const dataIt = (iso?: string | null) => iso
+        ? new Date(iso + 'T00:00:00').toLocaleDateString('it-IT', { day: 'numeric', month: 'long' })
+        : null;
+    const ospiti = r.adulti
+        ? `${r.adulti} adult${r.adulti === 1 ? 'o' : 'i'}`
+            + (r.ragazzi ? `, ${r.ragazzi} ragazz${r.ragazzi === 1 ? 'o' : 'i'}` : '')
+            + (r.bambini ? `, ${r.bambini} bambin${r.bambini === 1 ? 'o' : 'i'}` : '')
+        : null;
+
+    const Riga = ({ label, value }: { label: string; value: string | null }) => (
+        value ? (
+            <div className="flex items-center justify-between gap-4 py-3"
+                 style={{ borderBottom: '1px solid rgba(148,163,184,0.12)' }}>
+                <span className="shrink-0" style={{ fontSize: 15, color: 'var(--color-text-muted)' }}>{label}</span>
+                <span className="text-right font-medium" style={{ fontSize: 19, color: 'var(--color-text-primary)' }}>
+                    {value}
+                </span>
+            </div>
+        ) : null
+    );
+
+    return (
+        <div className="ai-pop-in">
+            <p className="text-xs uppercase tracking-widest mb-3" style={{ color: '#4ade80' }}>
+                Riepilogo del check-in
+            </p>
+            <Riga label="Ospite"    value={r.nome && r.cognome ? `${r.nome} ${r.cognome}` : (r.nome ?? r.cognome ?? null)} />
+            <Riga label="Ospiti"    value={ospiti} />
+            <Riga label="Arrivo"    value={dataIt(r.check_in)} />
+            <Riga label="Partenza"  value={dataIt(r.check_out)} />
+            <Riga label="Camera"    value={r.camera ? `${r.camera}${r.piano !== null && r.piano !== undefined ? ` · piano ${r.piano}` : ''}` : null} />
+            {r.codice && (
+                <div className="mt-5 rounded-xl py-4 px-5 text-center"
+                     style={{ backgroundColor: 'rgba(34,197,94,0.10)', border: '1px solid rgba(34,197,94,0.45)' }}>
+                    <p className="text-xs uppercase tracking-widest mb-1" style={{ color: '#4ade80' }}>
+                        Codice prenotazione
+                    </p>
+                    <p className="font-mono font-bold" style={{ fontSize: 30, letterSpacing: '0.12em', color: '#86efac' }}>
+                        {r.codice}
+                    </p>
+                </div>
+            )}
         </div>
     );
 }
@@ -1124,7 +1240,7 @@ function AiScreen({ scopo, statoMedia, localVideoRef, aiUi, audioTrack, onTermin
     const pag = aiUi.pagamento;
 
     return (
-        <div className="w-full h-full flex items-center justify-center relative gap-14 px-10">
+        <div className="ai-screen-layout">
             {/* Colonna sinistra: orb vocale audio-reattivo */}
             <div className="flex flex-col items-center shrink-0">
                 <div className="relative flex items-center justify-center mb-8" style={{ width: 180, height: 180 }}>
@@ -1158,10 +1274,14 @@ function AiScreen({ scopo, statoMedia, localVideoRef, aiUi, audioTrack, onTermin
 
             {/* Colonna destra: recap live di quello che dici */}
             {mostraRecap && (
-                <div className="rounded-2xl p-7 w-full"
-                     style={{ maxWidth: 430, backgroundColor: 'rgba(148,163,184,0.05)',
+                <div className="ai-recap-card rounded-2xl p-7"
+                     style={{ backgroundColor: 'rgba(148,163,184,0.05)',
                               border: '1px solid rgba(148,163,184,0.18)' }}>
                     <FaseStepper fase={aiUi.fase} scopo={scopo} />
+                    {scopo === 'checkin' && aiUi.riepilogo ? (
+                        /* Pagina finale: nome ufficiale dal documento + tutto il soggiorno */
+                        <RiepilogoFinalePanel r={aiUi.riepilogo} />
+                    ) : (<>
                     <div className="flex items-center justify-between mb-3">
                         <p className="text-xs uppercase tracking-widest" style={{ color: 'var(--color-text-muted)' }}>
                             {scopo === 'checkout' ? 'Il tuo check-out' : 'La tua prenotazione'}
@@ -1174,11 +1294,20 @@ function AiScreen({ scopo, statoMedia, localVideoRef, aiUi, audioTrack, onTermin
                             </span>
                         )}
                     </div>
-                    <RecapRiga label="Nome"     value={f.nome && f.cognome ? `${f.nome} ${f.cognome}` : f.nome ?? f.cognome ?? null} />
+                    {/* Il nome NON si mostra durante il flusso: quello ufficiale
+                        arriva dal documento e compare nel riepilogo finale. */}
+                    {scopo === 'checkout' && (
+                        <RecapRiga label="Nome" value={f.nome && f.cognome ? `${f.nome} ${f.cognome}` : f.nome ?? f.cognome ?? null} />
+                    )}
                     <RecapRiga label="Arrivo"   value={dataIt(f.check_in)} />
                     <RecapRiga label="Partenza" value={dataIt(f.check_out)} />
                     {scopo === 'checkin' && <RecapRiga label="Ospiti" value={ospiti} />}
                     <RecapRiga label="Camera"   value={cameraTxt} />
+
+                    {/* Scelta camera: opzioni con prezzo e caratteristiche */}
+                    {scopo === 'checkin' && aiUi.camereOpzioni && aiUi.camereOpzioni.length > 0 && (
+                        <CamereOpzioniPanel opzioni={aiUi.camereOpzioni} />
+                    )}
 
                     {/* Pagamento POS (check-out) */}
                     {pag?.importo !== undefined && (
@@ -1196,8 +1325,8 @@ function AiScreen({ scopo, statoMedia, localVideoRef, aiUi, audioTrack, onTermin
                         </div>
                     )}
 
-                    {/* Codice prenotazione — grande, appare al salvataggio */}
-                    {aiUi.codice && (
+                    {/* Codice prenotazione — grande (per il check-in arriva col riepilogo) */}
+                    {scopo === 'checkout' && aiUi.codice && (
                         <div className="ai-pop-in mt-5 rounded-xl py-4 px-5 text-center"
                              style={{ backgroundColor: 'rgba(34,197,94,0.10)', border: '1px solid rgba(34,197,94,0.45)' }}>
                             <p className="text-xs uppercase tracking-widest mb-1" style={{ color: '#4ade80' }}>
@@ -1208,6 +1337,7 @@ function AiScreen({ scopo, statoMedia, localVideoRef, aiUi, audioTrack, onTermin
                             </p>
                         </div>
                     )}
+                    </>)}
                 </div>
             )}
 
@@ -1217,10 +1347,11 @@ function AiScreen({ scopo, statoMedia, localVideoRef, aiUi, audioTrack, onTermin
                    style={{ right: 20, bottom: 20, width: 170, height: 128, objectFit: 'cover',
                             backgroundColor: '#060810', border: '1px solid var(--color-border)', transform: 'scaleX(-1)' }} />
 
-            {/* Termina — discreto ma raggiungibile */}
+            {/* Termina — discreto ma con bersaglio touch da totem */}
             <button onClick={onTermina}
-                    className="absolute rounded-xl px-6 py-3 text-sm transition-all active:scale-95"
-                    style={{ left: 20, bottom: 20, color: '#ef4444', border: '1px solid rgba(239,68,68,0.35)' }}>
+                    className="absolute rounded-xl px-8 py-4 transition-all active:scale-95"
+                    style={{ left: 24, bottom: 24, fontSize: 16, color: '#ef4444',
+                             border: '1px solid rgba(239,68,68,0.35)', minHeight: 56 }}>
                 Termina conversazione
             </button>
         </div>

@@ -15,11 +15,14 @@ istruisce il modello a proporre il receptionist umano (docs/09 §5).
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 
+import httpx
 from livekit.agents import Agent, RunContext, function_tool
 
 from .backend import BackendRsmioni
+from .config import Impostazioni
 from .fsm import AzioneFuoriFase, Fase, StatoConversazione
 from .ui import SchermoChiosco
 
@@ -31,12 +34,14 @@ ESCALATION = ("ATTENZIONE: troppi tentativi falliti in questa fase. Proponi "
 
 class ReceptionistAgent(Agent):
     def __init__(self, *, instructions: str, stato: StatoConversazione,
-                 backend: BackendRsmioni, schermo: SchermoChiosco, lingua: str) -> None:
+                 backend: BackendRsmioni, schermo: SchermoChiosco, lingua: str,
+                 config: Impostazioni) -> None:
         super().__init__(instructions=instructions)
         self.stato = stato
         self._backend = backend
         self._schermo = schermo
         self._lingua = lingua
+        self._config = config
 
     # ── Helpers di processo ─────────────────────────────────────────────
 
@@ -70,6 +75,8 @@ class ReceptionistAgent(Agent):
     ) -> str:
         """Registra nel form di prenotazione i dati appena raccolti a voce.
         Chiamalo subito dopo OGNI risposta dell'ospite, anche con un solo campo.
+        Passa ESCLUSIVAMENTE i campi che l'ospite ha pronunciato in questa
+        conversazione: MAI date presunte, valori di default o deduzioni.
         Le date vanno in formato ISO YYYY-MM-DD.
 
         Args:
@@ -125,25 +132,77 @@ class ReceptionistAgent(Agent):
             return self._fallimento(f"Salvataggio non riuscito: {esito.errore}")
 
         self.stato.codice = esito.get("codice")
-        await self._schermo.codice(self.stato.codice)
         return await self._successo(
             Fase.SALVATA,
-            f"Prenotazione salvata, codice {self.stato.codice} (già sullo schermo: non "
-            "scandirlo). Ora chiama assegna_camera.")
+            "Prenotazione salvata. NON dire il codice: comparirà nel riepilogo finale. "
+            "Ora chiama SUBITO assegna_camera con la camera_id scelta dall'ospite.")
 
     @function_tool
-    async def assegna_camera(self, context: RunContext) -> str:
-        """Assegna alla prenotazione salvata una camera libera per le date
-        richieste. Chiamalo subito dopo salva_prenotazione."""
+    async def lista_camere(self, context: RunContext) -> str:
+        """Verifica la disponibilità: elenca le camere libere per le date e le
+        persone raccolte, con prezzo e caratteristiche, e le mostra sullo
+        schermo. Chiamalo appena hai persone e date, PRIMA di salvare."""
+        try:
+            if not self.stato.dati_completi:
+                raise AzioneFuoriFase(
+                    "Per verificare la disponibilità mancano ancora: "
+                    + ", ".join(self.stato.dati_mancanti) + ". Chiedili all'ospite e registrali.")
+        except AzioneFuoriFase as e:
+            return self._fallimento(str(e))
+
+        esito = await self._backend.lista_camere()
+        if not esito.ok:
+            return self._fallimento(f"Lista camere non disponibile: {esito.errore}")
+
+        opzioni = esito.get("opzioni", [])
+        if not opzioni:
+            return self._fallimento(
+                "Nessuna camera libera per queste date. Informa l'ospite e invitalo al receptionist.")
+
+        await self._schermo.camere_opzioni(opzioni)
+
+        righe = []
+        for o in opzioni:
+            prezzo = (f"{o['prezzo_notte']:g} euro/notte (totale {o['prezzo_totale']:g})"
+                      if o.get("prezzo_notte") is not None else "prezzo da definire col receptionist")
+            extra = f" — {o['descrizione']}" if o.get("descrizione") else ""
+            simili = f" [{o['quante_simili']} equivalenti]" if o.get("quante_simili", 1) > 1 else ""
+            capienza = "" if o.get("capienza_ok") else " (ATTENZIONE: posti insufficienti per il gruppo)"
+            righe.append(
+                f"- camera_id={o['camera_id']}: {o['tipo']}, piano {o['piano']}, "
+                f"{o['posti']} posti, {prezzo}{extra}{simili}{capienza}")
+
+        if len(opzioni) == 1:
+            return await self._successo(
+                None, "Una sola tipologia disponibile (già sullo schermo): proponila con il prezzo "
+                "ESATTO. Se l'ospite accetta: salva_prenotazione e SUBITO assegna_camera con la "
+                f"camera_id.\n{righe[0]}")
+        return await self._successo(
+            None, "Opzioni disponibili (tutte già sullo schermo, non leggere gli id ad alta voce). "
+            "Proponi a voce SOLO le 2-3 più adatte al gruppo, con i prezzi letti ESATTAMENTE "
+            "da questo elenco (mai a memoria). Quando l'ospite sceglie: salva_prenotazione e "
+            "SUBITO assegna_camera con la camera_id scelta:\n" + "\n".join(righe))
+
+    @function_tool
+    async def assegna_camera(self, context: RunContext, camera_id: str | None = None) -> str:
+        """Assegna una camera alla prenotazione salvata. Passa la camera_id
+        dell'opzione scelta dall'ospite (da lista_camere); senza camera_id
+        il gestionale sceglie in automatico la prima libera adatta.
+
+        Args:
+            camera_id: Id della camera scelta, preso dall'elenco di lista_camere.
+        """
         try:
             self.stato.richiedi_almeno(
                 Fase.SALVATA, "Prima salva la prenotazione (salva_prenotazione), poi la camera.")
         except AzioneFuoriFase as e:
             return self._fallimento(str(e))
 
-        esito = await self._backend.assegna_camera()
+        esito = await self._backend.assegna_camera(camera_id)
         if not esito.ok:
             return self._fallimento(f"Assegnazione non riuscita: {esito.errore}")
+
+        await self._schermo.camere_opzioni(None)  # nasconde le opzioni: scelta fatta
 
         cam = esito.get("camera", {})
         self.stato.camera = cam
@@ -177,11 +236,117 @@ class ReceptionistAgent(Agent):
             stato = await self._backend.stato_acquisizione()
             if stato.get("stato") == "completata":
                 return await self._successo(
-                    Fase.DOCUMENTO, "Documento acquisito (fronte e retro). Ringrazia e chiudi il check-in.")
+                    Fase.DOCUMENTO,
+                    "Documento acquisito (fronte e retro). Se ci sono altri adulti con documenti "
+                    "da acquisire, ripeti acquisisci_documento; altrimenti chiama leggi_documento "
+                    "per leggere il nome ufficiale e mostrare il riepilogo.")
             if stato.get("stato") == "nessuna":
                 return self._fallimento(
                     "L'ospite ha annullato l'acquisizione. Chiedi se vuole riprovare o farlo alla reception.")
         return self._fallimento("Tempo scaduto: documento non acquisito. Rassicura: potrà farlo alla reception.")
+
+    @function_tool
+    async def leggi_documento(self, context: RunContext) -> str:
+        """Legge nome e cognome UFFICIALI dal documento appena acquisito
+        (vision AI sul fronte) e mostra il riepilogo finale sullo schermo.
+        Chiamalo DOPO l'acquisizione dell'ultimo documento."""
+        try:
+            self.stato.richiedi_almeno(
+                Fase.DOCUMENTO, "Prima acquisisci il documento (acquisisci_documento), poi la lettura.")
+        except AzioneFuoriFase as e:
+            return self._fallimento(str(e))
+
+        esito = await self._backend.documento_immagine()
+        if not esito.ok:
+            return self._fallimento(f"Immagine documento non disponibile: {esito.errore}")
+
+        visione = await self._vision_estrai(esito["immagine"], esito.get("mime", "image/jpeg"))
+
+        if visione is None:  # errore tecnico (rete/servizio), non colpa dell'ospite
+            await self._mostra_riepilogo()
+            return self._fallimento(
+                "Lettura automatica non disponibile: resta il nome dato a voce (riepilogo "
+                "comunque sullo schermo). Rassicura: il receptionist verificherà i dati.")
+
+        if not visione.get("documento"):
+            cosa = visione.get("descrizione") or "un oggetto diverso"
+            return self._fallimento(
+                f"L'immagine acquisita NON è un documento d'identità (sembra: {cosa}). "
+                "Dillo all'ospite con gentilezza e chiedigli di appoggiare il documento vero "
+                "nel riquadro: chiama di nuovo acquisisci_documento e poi leggi_documento.")
+
+        if not (visione.get("nome") and visione.get("cognome")):
+            return self._fallimento(
+                "È un documento, ma nome e cognome non sono leggibili (riflessi, sfocato o "
+                "fuori riquadro). Chiedi all'ospite di riposizionarlo bene e rifai: "
+                "acquisisci_documento e poi leggi_documento.")
+
+        nome, cognome = str(visione["nome"]).strip(), str(visione["cognome"]).strip()
+        agg = await self._backend.aggiorna_intestatario(nome, cognome)
+        if not agg.ok:
+            return self._fallimento(f"Aggiornamento intestatario non riuscito: {agg.errore}")
+
+        self.stato.registra({"nome": nome, "cognome": cognome})
+        await self._mostra_riepilogo()
+        return await self._successo(
+            None,
+            f"Documento letto: l'intestatario ufficiale è {nome} {cognome}. Il riepilogo completo "
+            "(nome, date, camera, codice) è già sullo schermo: presentalo in UNA frase e chiedi "
+            "se è tutto corretto. Non scandire il codice.")
+
+    async def _mostra_riepilogo(self) -> None:
+        d = self.stato.dati
+        cam = self.stato.camera or {}
+        await self._schermo.riepilogo({
+            "nome": d.get("nome"), "cognome": d.get("cognome"),
+            "check_in": d.get("check_in"), "check_out": d.get("check_out"),
+            "adulti": d.get("adulti"), "ragazzi": d.get("ragazzi"), "bambini": d.get("bambini"),
+            "camera": cam.get("nome"), "piano": cam.get("piano"),
+            "codice": self.stato.codice,
+        })
+
+    async def _vision_estrai(self, immagine_b64: str, mime: str) -> dict | None:
+        """Analizza l'immagine acquisita: valida che sia un documento vero e
+        ne estrae nome/cognome. None solo su errore tecnico (rete/servizio)."""
+        if not self._config.openrouter_api_key:
+            logger.warning("vision: OPENROUTER_API_KEY assente, estrazione saltata")
+            return None
+        prompt = (
+            "Sei il controllo documenti di un hotel. Analizza l'immagine e rispondi SOLO "
+            'con JSON: {"documento": true/false, "descrizione": "...", "nome": "...", "cognome": "..."}.\n'
+            '- "documento": true SOLO se l\'immagine mostra un documento d\'identità fisico '
+            "reale (carta d'identità, passaporto, patente) con dati anagrafici visibili. "
+            "Telefoni, schermi, mani, volti, stanze, fogli qualsiasi: false.\n"
+            '- "descrizione": in 3-5 parole cosa mostra davvero l\'immagine (es. "uno smartphone").\n'
+            '- "nome"/"cognome": del titolare, con la sola iniziale maiuscola, SOLO se '
+            "chiaramente leggibili sul documento; altrimenti null. Non inventare mai."
+        )
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as http:
+                r = await http.post(
+                    "https://openrouter.ai/api/v1/chat/completions",
+                    headers={"Authorization": f"Bearer {self._config.openrouter_api_key}"},
+                    json={
+                        "model": self._config.vision_model,
+                        "max_tokens": 300,
+                        "messages": [{"role": "user", "content": [
+                            {"type": "image_url",
+                             "image_url": {"url": f"data:{mime};base64,{immagine_b64}"}},
+                            {"type": "text", "text": prompt},
+                        ]}],
+                    },
+                )
+                r.raise_for_status()
+                testo = r.json()["choices"][0]["message"]["content"].strip()
+            testo = testo.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+            dati = json.loads(testo)
+            logger.info("vision: documento=%s descrizione=%s nomi=%s",
+                        dati.get("documento"), dati.get("descrizione"),
+                        bool(dati.get("nome") and dati.get("cognome")))
+            return dati
+        except Exception as e:
+            logger.warning("vision estrazione fallita: %s", e)
+        return None
 
     # ── Tool: check-out ─────────────────────────────────────────────────
 

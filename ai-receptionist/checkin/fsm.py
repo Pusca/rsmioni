@@ -43,7 +43,10 @@ ORDINE_CHECKIN  = [Fase.ACCOGLIENZA, Fase.DATI, Fase.CONFERMA, Fase.SALVATA,
                    Fase.CAMERA, Fase.DOCUMENTO, Fase.CONGEDO]
 ORDINE_CHECKOUT = [Fase.RICERCA, Fase.TROVATA, Fase.PAGAMENTO, Fase.CONGEDO]
 
-CAMPI_OBBLIGATORI = ("nome", "cognome", "check_in", "check_out", "adulti")
+# Nome e cognome NON sono qui: il nome vocale è solo un segnaposto e quello
+# ufficiale arriva dal documento (A29) — disponibilità e salvataggio non
+# devono mai bloccarsi in attesa di un cognome capito male a voce.
+CAMPI_OBBLIGATORI = ("check_in", "check_out", "adulti")
 
 # Oltre questa soglia di errori nella stessa fase l'agent deve proporre
 # il passaggio al receptionist umano (gate di escalation, docs/09 §5).

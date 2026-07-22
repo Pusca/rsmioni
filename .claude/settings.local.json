@@ -48,7 +48,17 @@
       "Bash(perl -0pi -e 's/chioscoId: chiosco\\\\.id, chioscoNome: chiosco\\\\.nome,/chioscoId: chiosco.id, chioscoNome: chiosco.nome, hotelId: chiosco.hotel_id,/g' resources/js/Components/Portineria/AreaVideo.tsx)",
       "Bash(perl -0pi -e 's/\\\\$hotelId = \\\\$request->get\\\\\\('\\\\''hotel_id'\\\\''\\\\\\);\\\\n\\(\\\\s*\\)if \\\\\\(! \\\\$hotelId \\\\|\\\\| ! in_array\\\\\\(\\\\$hotelId, \\\\$hotelIds, true\\\\\\)\\\\\\) \\\\{\\\\n\\\\s*\\\\$hotelId = \\\\$hotelIds\\\\[0\\\\] \\\\?\\\\? null;\\\\n\\\\s*\\\\}/\\\\$hotelId = \\\\$request->get\\('\\\\''hotel_id'\\\\''\\);\\\\n${1}if \\(! \\\\$hotelId || ! in_array\\(\\\\$hotelId, \\\\$hotelIds, true\\)\\) {\\\\n${1}    \\\\$sess = \\\\$request->session\\(\\)->get\\('\\\\''hotel_corrente_id'\\\\''\\);\\\\n${1}    \\\\$hotelId = in_array\\(\\\\$sess, \\\\$hotelIds, true\\) ? \\\\$sess : \\(\\\\$hotelIds[0] ?? null\\);\\\\n${1}}/g' app/Http/Controllers/Regolamento/RegolamentoController.php)",
       "Bash(php -l app/Http/Controllers/Regolamento/RegolamentoController.php)",
-      "Bash(php -l app/Http/Controllers/Prenotazioni/PrenotazioniController.php)"
+      "Bash(php -l app/Http/Controllers/Prenotazioni/PrenotazioniController.php)",
+      "Bash(php -v)",
+      "Bash(composer install *)",
+      "PowerShell(git fetch *)",
+      "PowerShell(git pull *)",
+      "PowerShell(Write-Output \"----SQLITE----\"; if \\(Test-Path C:\\\\dev\\\\rsmioni\\\\database\\\\database.sqlite\\) { Write-Output \"database.sqlite ESISTE \\($\\(\\(Get-Item C:\\\\dev\\\\rsmioni\\\\database\\\\database.sqlite\\).Length\\) bytes\\)\" } else { Write-Output \"database.sqlite MANCANTE\" }; Write-Output \"----CONTROLLERS----\"; Get-ChildItem C:\\\\dev\\\\rsmioni\\\\app\\\\Http\\\\Controllers -Recurse -File | Select-Object Name | Format-Table -AutoSize | Out-String; Write-Output \"----MODELS----\"; Get-ChildItem C:\\\\dev\\\\rsmioni\\\\app\\\\Models -File -ErrorAction SilentlyContinue | Select-Object Name | Format-Table -AutoSize | Out-String)",
+      "PowerShell(php artisan migrate --force 2>&1 | Out-String)",
+      "PowerShell(php artisan db:seed --force 2>&1 | Out-String)",
+      "PowerShell(php artisan route:list 2>&1 | Measure-Object -Line | Select-Object -ExpandProperty Lines; Write-Output \"----TEST CONFIG----\"; php artisan about --only=environment 2>&1 | Out-String)",
+      "PowerShell(npm run *)",
+      "PowerShell(php artisan test 2>&1 | Select-Object -Last 40 | Out-String)"
     ]
   }
 }
