@@ -15,7 +15,7 @@ class KioskController extends Controller
 {
     public function __construct(private readonly PortineriaService $portineria) {}
 
-    public function index(): Response|RedirectResponse
+    public function index(Request $request): Response|RedirectResponse
     {
         $chioscoId = session('chiosco_id');
 
@@ -25,7 +25,10 @@ class KioskController extends Controller
 
         $chiosco = Chiosco::with('hotel:id,nome')->find($chioscoId);
 
-        if (! $chiosco) {
+        // Chiosco inesistente o non più dell'hotel dell'account (es. account
+        // spostato di hotel, chiosco disattivato): la selezione in sessione
+        // non vale più → si torna a scegliere.
+        if (! $chiosco || ! $this->appartieneAllAccount($chiosco, $request)) {
             session()->forget('chiosco_id');
             return redirect()->route('kiosk.seleziona');
         }
@@ -65,14 +68,27 @@ class KioskController extends Controller
             'chiosco_id' => ['required', 'uuid', 'exists:chioschi,id'],
         ]);
 
-        session(['chiosco_id' => $request->chiosco_id]);
+        $chiosco = Chiosco::findOrFail($request->chiosco_id);
+
+        // Un account chiosco può impersonare SOLO i chioschi attivi degli hotel
+        // a cui è associato: l'id arriva dal client e non è fidato.
+        if (! $this->appartieneAllAccount($chiosco, $request)) {
+            abort(403, 'Il chiosco selezionato non appartiene al tuo hotel.');
+        }
+
+        session(['chiosco_id' => $chiosco->id]);
 
         // Porta il chiosco in idle quando si connette (default Cache = offline)
-        $chiosco = Chiosco::find($request->chiosco_id);
-        if ($chiosco && $this->portineria->statoChiosco($chiosco->id) === StatoChiosco::Offline) {
+        if ($this->portineria->statoChiosco($chiosco->id) === StatoChiosco::Offline) {
             $this->portineria->impostaStato($chiosco, StatoChiosco::Idle);
         }
 
         return redirect()->route('kiosk.index');
+    }
+
+    private function appartieneAllAccount(Chiosco $chiosco, Request $request): bool
+    {
+        return $chiosco->attivo
+            && $request->user()->possiedeHotel($chiosco->hotel_id);
     }
 }

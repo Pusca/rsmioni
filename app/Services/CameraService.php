@@ -5,7 +5,9 @@ namespace App\Services;
 use App\Models\Camera;
 use App\Models\Prenotazione;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Logica di dominio per le Camere.
@@ -117,28 +119,44 @@ class CameraService
      */
     public function assegna(Prenotazione $pren, array $cameraIds): void
     {
-        if (! $pren->overbooking && ! empty($cameraIds)) {
-            foreach ($cameraIds as $cameraId) {
-                $camera = Camera::where('hotel_id', $pren->hotel_id)
-                    ->where('id', $cameraId)
-                    ->firstOrFail();
+        // Transazione + lock pessimistico sulle righe camera: due assegnazioni
+        // concorrenti sulla stessa camera (receptionist + AI, o due receptionist)
+        // si serializzano, e la seconda vede il conflitto creato dalla prima.
+        // Senza il lock il controllo "conflitti → sync" è una race window.
+        DB::transaction(function () use ($pren, $cameraIds) {
+            if (! empty($cameraIds)) {
+                $camere = Camera::where('hotel_id', $pren->hotel_id)
+                    ->whereIn('id', $cameraIds)
+                    ->orderBy('id') // ordine stabile → niente deadlock fra transazioni
+                    ->lockForUpdate()
+                    ->get()
+                    ->keyBy('id');
 
-                $conflitti = $this->conflitti(
-                    $camera,
-                    $pren->check_in->toDateString(),
-                    $pren->check_out->toDateString(),
-                    $pren->id,
-                );
+                foreach ($cameraIds as $cameraId) {
+                    $camera = $camere->get($cameraId)
+                        ?? throw (new ModelNotFoundException())->setModel(Camera::class, [$cameraId]);
 
-                if ($conflitti->isNotEmpty()) {
-                    throw new \DomainException(
-                        "Camera «{$camera->nome}» non disponibile nel periodo selezionato."
+                    if ($pren->overbooking) {
+                        continue;
+                    }
+
+                    $conflitti = $this->conflitti(
+                        $camera,
+                        $pren->check_in->toDateString(),
+                        $pren->check_out->toDateString(),
+                        $pren->id,
                     );
+
+                    if ($conflitti->isNotEmpty()) {
+                        throw new \DomainException(
+                            "Camera «{$camera->nome}» non disponibile nel periodo selezionato."
+                        );
+                    }
                 }
             }
-        }
 
-        $pren->camere()->sync($cameraIds);
+            $pren->camere()->sync($cameraIds);
+        });
     }
 
     // ── Internals ──────────────────────────────────────────────────────────────

@@ -105,6 +105,19 @@ export default function ReceptionistLayout({ children }: { children: ReactNode }
                         {utente?.username ?? '—'}
                     </span>
 
+                    <Link
+                        href="/password"
+                        title="Cambia password"
+                        className="flex items-center justify-center rounded transition-colors"
+                        style={{
+                            width:  '28px',
+                            height: '28px',
+                            color:  currentUrl.startsWith('/password') ? 'var(--color-text-primary)' : 'var(--color-text-muted)',
+                        }}
+                    >
+                        <KeyIcon />
+                    </Link>
+
                     <button
                         onClick={handleLogout}
                         title="Esci"
@@ -204,6 +217,15 @@ function MonitorIcon() {
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" style={{ flexShrink: 0 }}>
             <rect x="2" y="3" width="20" height="14" rx="2" />
             <path d="M8 21h8M12 17v4" />
+        </svg>
+    );
+}
+
+function KeyIcon() {
+    return (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0 }}>
+            <circle cx="7.5" cy="15.5" r="4.5" />
+            <path d="M10.7 12.3L21 2M16 4l3 3M13 7l3 3" />
         </svg>
     );
 }

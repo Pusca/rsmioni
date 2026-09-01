@@ -13,9 +13,9 @@ use Illuminate\Support\Str;
  * senza allegarlo: il destinatario riceve un URL con token che
  * scade dopo TTL_ORE ore.
  *
- * Il campo `usato` è disponibile per revoca esplicita futura
- * (non viene impostato a true all'accesso: il link è valido
- * per tutta la sua durata temporale).
+ * Al primo accesso il link viene marcato (`usato` + `primo_accesso_at`) e
+ * resta valido solo per una breve finestra di grazia; `usato` impostato a
+ * mano senza `primo_accesso_at` vale come revoca esplicita.
  */
 class LinkTemporaneaService
 {

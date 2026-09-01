@@ -411,23 +411,41 @@ class DocumentiTest extends TestCase
         $this->get("/doc/{$link->token}")->assertStatus(410);
     }
 
-    /**
-     * BUG/COMPORTAMENTO NOTO (da NON fixare qui): l'accesso al link temporaneo
-     * non marca mai `usato = true` — il link resta valido e riutilizzabile per
-     * tutta la finestra temporale (il flag è riservato a una revoca esplicita
-     * futura, vedi LinkTemporaneaService).
-     */
-    public function test_accesso_al_link_non_marca_usato_bug_documentato(): void
+    public function test_primo_accesso_marca_il_link_e_resta_valido_nella_finestra_di_grazia(): void
     {
         $documento = $this->creaDocumento();
         $link      = $this->creaLink($documento);
 
         $this->get("/doc/{$link->token}")->assertOk();
 
-        $this->assertFalse($link->fresh()->usato);
+        $link->refresh();
+        $this->assertTrue($link->usato);
+        $this->assertNotNull($link->primo_accesso_at);
 
-        // Un secondo accesso funziona ancora
+        // Il viewer PDF / il browser possono richiedere di nuovo il file subito dopo
         $this->get("/doc/{$link->token}")->assertOk();
+    }
+
+    public function test_link_chiuso_dopo_la_finestra_di_grazia(): void
+    {
+        $documento = $this->creaDocumento();
+        $link      = $this->creaLink($documento);
+
+        $this->get("/doc/{$link->token}")->assertOk();
+
+        $this->travel(LinkTemporaneo::GRAZIA_DOPO_PRIMO_ACCESSO_MINUTI + 1)->minutes();
+
+        $this->get("/doc/{$link->token}")->assertStatus(410);
+    }
+
+    public function test_link_scaduto_non_viene_marcato_come_aperto(): void
+    {
+        $documento = $this->creaDocumento();
+        $link      = $this->creaLink($documento, ['scadenza_at' => now()->subHour()]);
+
+        $this->get("/doc/{$link->token}")->assertStatus(410);
+
+        $this->assertNull($link->fresh()->primo_accesso_at);
     }
 
     public function test_link_valido_ma_file_mancante_ritorna_404(): void

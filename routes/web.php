@@ -48,6 +48,12 @@ Route::post('/logout', [LogoutController::class, 'destroy'])
     ->middleware('auth')
     ->name('logout');
 
+// Cambio password — tutti i profili "persona"; il Chiosco è escluso (RoleGuard → 403)
+Route::middleware(['auth', 'role:receptionist,receptionist_lite,gestore_hotel'])->group(function () {
+    Route::get('/password', [\App\Http\Controllers\Auth\CambioPasswordController::class, 'edit'])->name('password.edit');
+    Route::put('/password', [\App\Http\Controllers\Auth\CambioPasswordController::class, 'update'])->name('password.update');
+});
+
 // Selettore hotel corrente (sessione) — accessibile a tutti i profili autenticati
 Route::put('/hotel-corrente/{hotel}', [\App\Http\Controllers\HotelSelectionController::class, 'update'])
     ->middleware('auth')

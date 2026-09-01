@@ -337,7 +337,17 @@ class AgentCheckinController extends Controller
             ], 409);
         }
 
-        $pren->camere()->attach($libera->id);
+        // Passa dal servizio: transazione + lock sulla camera, così una
+        // prenotazione inserita dal receptionist nello stesso istante non
+        // finisce sulla stessa camera.
+        try {
+            $this->camere->assegna($pren, [$libera->id]);
+        } catch (\DomainException $e) {
+            $this->audit('camera.assegna', $request, $sessione, false, ['motivo' => 'conflitto concorrente', 'camera_id' => $libera->id]);
+            return response()->json([
+                'error' => 'La camera è appena stata occupata da un\'altra prenotazione: riproponi le opzioni con la lista camere.',
+            ], 409);
+        }
 
         // Valorizza il prezzo del soggiorno dalla camera assegnata (prezzo_notte
         // × notti): senza prezzo il pagamento POS del flusso AI non può partire.

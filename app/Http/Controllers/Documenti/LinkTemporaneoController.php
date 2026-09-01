@@ -16,7 +16,9 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  * La sicurezza è garantita da:
  *   - token a 48 caratteri random (>= 2^287 combinazioni)
  *   - scadenza temporale (TTL_ORE ore dalla creazione)
- *   - flag `usato` disponibile per revoca esplicita futura
+ *   - primo accesso registrato: dopo una breve finestra di grazia il link
+ *     è chiuso (vedi LinkTemporaneo::GRAZIA_DOPO_PRIMO_ACCESSO_MINUTI)
+ *   - flag `usato` per revoca esplicita
  *
  * Il documento viene servito inline (visualizzazione browser).
  */
@@ -38,11 +40,11 @@ class LinkTemporaneoController extends Controller
             );
         }
 
-        // Link scaduto o già usato
+        // Link scaduto, consumato o revocato
         if (! $link->isValido()) {
-            $motivo = $link->usato
-                ? 'Questo link è già stato utilizzato.'
-                : 'Questo link è scaduto.';
+            $motivo = $link->isScaduto()
+                ? 'Questo link è scaduto.'
+                : 'Questo link è già stato utilizzato.';
 
             return response(
                 view('errors.link-non-valido', ['motivo' => $motivo]),
@@ -59,6 +61,9 @@ class LinkTemporaneoController extends Controller
                 404
             );
         }
+
+        // Da qui il link è "aperto": resta valido solo per la finestra di grazia.
+        $link->registraAccesso();
 
         $nome = ($documento->titolo ?? 'documento') . '.' . $documento->estensione;
 

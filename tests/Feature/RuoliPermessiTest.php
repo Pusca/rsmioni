@@ -223,18 +223,50 @@ class RuoliPermessiTest extends TestCase
      * appartenga a un hotel dell'utente. Un account chiosco può quindi
      * selezionare un chiosco di un altro hotel.
      */
-    public function test_selezione_chiosco_non_verifica_appartenenza_hotel_bug_documentato(): void
+    public function test_selezione_chiosco_di_un_altro_hotel_viene_rifiutata(): void
     {
         $hotelAltro   = $this->creaHotel('Hotel Beta');
         $chioscoAltro = $this->creaChiosco($hotelAltro, 'Chiosco Beta');
 
         $account = $this->creaUtente(Profilo::Chiosco, $this->hotel); // associato solo a Hotel Alfa
 
-        // Comportamento attuale: la selezione va a buon fine (nessun 403/422)
         $this->actingAs($account)
             ->post('/kiosk/seleziona', ['chiosco_id' => $chioscoAltro->id])
+            ->assertForbidden()
+            ->assertSessionMissing('chiosco_id');
+    }
+
+    public function test_selezione_chiosco_del_proprio_hotel_va_a_buon_fine(): void
+    {
+        $account = $this->creaUtente(Profilo::Chiosco, $this->hotel);
+
+        $this->actingAs($account)
+            ->post('/kiosk/seleziona', ['chiosco_id' => $this->chiosco->id])
             ->assertRedirect(route('kiosk.index'))
-            ->assertSessionHas('chiosco_id', $chioscoAltro->id);
+            ->assertSessionHas('chiosco_id', $this->chiosco->id);
+    }
+
+    public function test_chiosco_disattivato_non_e_selezionabile(): void
+    {
+        $this->chiosco->update(['attivo' => false]);
+        $account = $this->creaUtente(Profilo::Chiosco, $this->hotel);
+
+        $this->actingAs($account)
+            ->post('/kiosk/seleziona', ['chiosco_id' => $this->chiosco->id])
+            ->assertForbidden();
+    }
+
+    public function test_sessione_con_chiosco_di_altro_hotel_viene_azzerata_al_caricamento(): void
+    {
+        $hotelAltro   = $this->creaHotel('Hotel Beta');
+        $chioscoAltro = $this->creaChiosco($hotelAltro, 'Chiosco Beta');
+        $account      = $this->creaUtente(Profilo::Chiosco, $this->hotel);
+
+        $this->actingAs($account)
+            ->withSession(['chiosco_id' => $chioscoAltro->id])
+            ->get('/kiosk')
+            ->assertRedirect(route('kiosk.seleziona'))
+            ->assertSessionMissing('chiosco_id');
     }
 
     // ── RoleGuard: utente disattivato ──────────────────────────────────────
