@@ -48,8 +48,8 @@ function DuplicatoScreen({ chiosco }: { chiosco: Chiosco }) {
                 «{chiosco.nome}» è aperto su un altro dispositivo
             </h1>
             <p className="max-w-xl" style={{ fontSize: 16, color: 'var(--color-text-muted)', lineHeight: 1.55 }}>
-                Ogni chiosco può essere attivo su un solo schermo alla volta. Chiudi l'altra finestra,
-                oppure prendi il controllo da qui: l'altro dispositivo si fermerà.
+                Ogni chiosco può essere attivo su un solo schermo alla volta. Chiudi l'altra finestra
+                (questo schermo riprova da solo tra 30 secondi), oppure prendi il controllo da qui.
             </p>
             <button onClick={() => window.location.reload()}
                     className="mt-8 rounded-xl px-8 py-4 font-semibold active:scale-95 transition-transform"
@@ -73,8 +73,6 @@ function DuplicatoScreen({ chiosco }: { chiosco: Chiosco }) {
  *   offline       → OfflineScreen
  */
 export default function KioskIndex({ chiosco, stato_iniziale, messaggio_attesa: messaggioIniziale }: Props) {
-    // ── Heartbeat — invia presenza al server ogni 60s ───────────────────────
-    useKioskHeartbeat();
 
     // ── Stato runtime Portineria ────────────────────────────────────────────
     const { stato, messaggioAttesa } = useKioskStato({
@@ -115,6 +113,21 @@ export default function KioskIndex({ chiosco, stato_iniziale, messaggio_attesa: 
     const schermataAttesa = ! pagamento && ! stampa && ! acquisizione && ! inAi && ! inParlato && ! inChiaro
         && ! ['in_chiamata', 'messaggio_attesa', 'offline'].includes(stato) && ! fineSessioneAttiva.current;
     const mostraPresenzaBadge = presenza.online && ! inChiaro && ! inParlato && ! schermataAttesa;
+
+    // ── Heartbeat con diagnostica media: il server (e la pagina Diagnostica)
+    //    sanno cosa vede il browser del chiosco, anche da remoto ─────────────
+    useKioskHeartbeat(60_000, {
+        sessione:           lk.stato,
+        sessione_tipo:      lk.sessionTipo,
+        gestita_da:         lk.gestitaDa,
+        errore:             lk.ultimoErrore,
+        duplicato:          lk.duplicato,
+        presenza_online:    presenza.online,
+        presenza_connessa:  presenza.connessa,
+        presenza_duplicato: presenza.duplicato,
+        presenza_errore:    presenza.errore,
+        audio_bloccato:     lk.audioBloccato || (presenza.parla && presenza.audioBloccato),
+    });
 
     // ── Handler annullo chiamata (stato in_chiamata raggiungibile da demo) ──
     const handleAnnullaChiamata = async () => {
@@ -181,8 +194,16 @@ export default function KioskIndex({ chiosco, stato_iniziale, messaggio_attesa: 
                 già grande (attesa) né a schermo pieno (chiaro/parlato) */}
             {mostraPresenzaBadge && presenza.track && <PresenzaBadge track={presenza.track} />}
 
+            {/* Solo presenza duplicata: avviso discreto, il chiosco resta operativo */}
+            {presenza.duplicato && ! lk.duplicato && (
+                <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 rounded-full px-4 py-1.5 text-xs"
+                     style={{ backgroundColor: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.45)', color: '#fcd34d' }}>
+                    Questo chiosco risulta aperto anche su un altro dispositivo — chiudi l'altra finestra
+                </div>
+            )}
+
             {/* Chiosco aperto su un altro dispositivo: qui ci fermiamo (niente scalci reciproci) */}
-            {(lk.duplicato || presenza.duplicato) ? (
+            {lk.duplicato ? (
                 <DuplicatoScreen chiosco={chiosco} />
             ) : pagamento && ! inParlato && ! inChiaro ? (
                 <PagamentoPOSScreen

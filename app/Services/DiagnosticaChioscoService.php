@@ -152,6 +152,51 @@ class DiagnosticaChioscoService
             ];
         }
 
+        // Diagnostica media riportata dal browser del chiosco (heartbeat)
+        $media = $presenza['dati']['media'] ?? null;
+        if (is_array($media)) {
+            if ($media['duplicato'] ?? false) {
+                $problemi[] = [
+                    'tipo'    => 'browser',
+                    'livello' => 'errore',
+                    'msg'     => 'Il chiosco è aperto su più dispositivi/tab con lo stesso account: LiveKit ammette una sola connessione per chiosco e le istanze si disconnettono a vicenda. Lasciarne aperta una sola.',
+                    'azione'  => 'nessuna',
+                ];
+            } elseif ($media['presenza_duplicato'] ?? false) {
+                $problemi[] = [
+                    'tipo'    => 'browser',
+                    'livello' => 'warning',
+                    'msg'     => 'Presenza video: identità chiosco già connessa da un altro dispositivo. Il chiosco riprova da solo tra poco.',
+                    'azione'  => 'nessuna',
+                ];
+            }
+            if (($media['sessione'] ?? null) === 'error' || ! empty($media['errore'])) {
+                $problemi[] = [
+                    'tipo'    => 'browser',
+                    'livello' => 'errore',
+                    'msg'     => 'Connessione media (LiveKit) fallita sul browser del chiosco: ' . ($media['errore'] ?: 'errore sconosciuto')
+                               . '. Verificare rete/firewall (WebRTC, WSS verso *.livekit.cloud) e i permessi webcam/microfono.',
+                    'azione'  => 'nessuna',
+                ];
+            }
+            if (! empty($media['presenza_errore'])) {
+                $problemi[] = [
+                    'tipo'    => 'browser',
+                    'livello' => 'warning',
+                    'msg'     => 'Presenza video non collegata: ' . $media['presenza_errore'],
+                    'azione'  => 'nessuna',
+                ];
+            }
+            if ($media['audio_bloccato'] ?? false) {
+                $problemi[] = [
+                    'tipo'    => 'browser',
+                    'livello' => 'warning',
+                    'msg'     => 'Audio bloccato dal browser del chiosco: serve un tocco sullo schermo (autoplay policy).',
+                    'azione'  => 'nessuna',
+                ];
+            }
+        }
+
         // IP non configurato
         if (! $chiosco->ip_address) {
             $problemi[] = [

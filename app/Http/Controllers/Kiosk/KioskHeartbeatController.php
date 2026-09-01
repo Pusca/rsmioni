@@ -9,6 +9,7 @@ use App\Services\DiagnosticaChioscoService;
 use App\Services\PortineriaService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Riceve il heartbeat dal browser del chiosco.
@@ -52,7 +53,21 @@ class KioskHeartbeatController extends Controller
             'screen_w'   => ['nullable', 'integer', 'min:0', 'max:9999'],
             'screen_h'   => ['nullable', 'integer', 'min:0', 'max:9999'],
             'url'        => ['nullable', 'string', 'max:300'],
+            // Diagnostica media remota (LiveKit sessione + presenza)
+            'media'                     => ['nullable', 'array'],
+            'media.sessione'            => ['nullable', 'string', 'max:30'],
+            'media.sessione_tipo'       => ['nullable', 'string', 'max:30'],
+            'media.gestita_da'          => ['nullable', 'string', 'max:30'],
+            'media.errore'              => ['nullable', 'string', 'max:300'],
+            'media.duplicato'           => ['nullable', 'boolean'],
+            'media.presenza_online'     => ['nullable', 'boolean'],
+            'media.presenza_connessa'   => ['nullable', 'boolean'],
+            'media.presenza_duplicato'  => ['nullable', 'boolean'],
+            'media.presenza_errore'     => ['nullable', 'string', 'max:300'],
+            'media.audio_bloccato'      => ['nullable', 'boolean'],
         ]);
+
+        $media = $validated['media'] ?? null;
 
         $this->diagnostica->salvaHeartbeat($chiosco->id, [
             'user_agent'  => $validated['user_agent']  ?? null,
@@ -60,9 +75,19 @@ class KioskHeartbeatController extends Controller
             'screen_w'    => $validated['screen_w']    ?? null,
             'screen_h'    => $validated['screen_h']    ?? null,
             'url'         => $validated['url']         ?? null,
+            'ip'          => $request->ip(),
+            'media'       => $media,
             'chiosco_id'  => $chiosco->id,
             'chiosco_nome'=> $chiosco->nome,
         ]);
+
+        // Traccia nel log applicativo i problemi media riportati dal chiosco:
+        // leggibili da remoto anche senza aprire la Diagnostica.
+        if ($media && (($media['errore'] ?? null) || ($media['presenza_errore'] ?? null)
+            || ($media['duplicato'] ?? false) || ($media['presenza_duplicato'] ?? false)
+            || ($media['sessione'] ?? null) === 'error')) {
+            Log::warning('kiosk.media', ['chiosco' => $chiosco->nome, 'ip' => $request->ip(), ...$media]);
+        }
 
         // Auto-recupero: un chiosco che invia heartbeat è presente → se lo stato
         // Portineria è Offline (es. cache svuotata) lo riporta a Idle.

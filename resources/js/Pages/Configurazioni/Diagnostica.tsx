@@ -15,7 +15,14 @@ interface Presenza {
         screen_w?: number;
         screen_h?: number;
         url?: string;
+        ip?: string;
         chiosco_nome?: string;
+        media?: {
+            sessione?: string | null; sessione_tipo?: string | null; gestita_da?: string | null;
+            errore?: string | null; duplicato?: boolean;
+            presenza_online?: boolean; presenza_connessa?: boolean; presenza_duplicato?: boolean;
+            presenza_errore?: string | null; audio_bloccato?: boolean;
+        } | null;
     } | null;
 }
 
@@ -277,6 +284,28 @@ export default function DiagnosticaPage({ chiosco, diagnostica: iniziale }: Prop
                                                     {diag.presenza.dati.user_agent ?? '—'}
                                                 </span>
                                             </Row>
+                                            {diag.presenza.dati.ip && (
+                                                <Row label="IP chiosco"><span className="font-mono text-xs">{diag.presenza.dati.ip}</span></Row>
+                                            )}
+                                            {diag.presenza.dati.media && (() => {
+                                                const m = diag.presenza.dati!.media!;
+                                                const ok = (v?: boolean) => v ? <span style={{ color: '#22c55e' }}>sì</span> : <span style={{ color: '#f59e0b' }}>no</span>;
+                                                return (
+                                                    <>
+                                                        <Row label="Sessione media">
+                                                            <span className="font-mono text-xs" style={{ color: m.sessione === 'error' ? '#ef4444' : 'var(--color-text-primary)' }}>
+                                                                {m.sessione ?? '—'}{m.sessione_tipo ? ` · ${m.sessione_tipo}` : ''}{m.gestita_da ? ` · ${m.gestita_da}` : ''}
+                                                            </span>
+                                                        </Row>
+                                                        {m.errore && <Row label="Errore media"><span className="text-xs" style={{ color: '#ef4444' }}>{m.errore}</span></Row>}
+                                                        <Row label="Aperto altrove">{m.duplicato || m.presenza_duplicato ? <span style={{ color: '#ef4444' }}>sì — chiudere le altre finestre</span> : <span style={{ color: '#22c55e' }}>no</span>}</Row>
+                                                        <Row label="Presenza collegata">{ok(m.presenza_connessa)}</Row>
+                                                        <Row label="Receptionist visibile">{ok(m.presenza_online)}</Row>
+                                                        {m.presenza_errore && <Row label="Errore presenza"><span className="text-xs" style={{ color: '#f59e0b' }}>{m.presenza_errore}</span></Row>}
+                                                        <Row label="Audio bloccato">{m.audio_bloccato ? <span style={{ color: '#f59e0b' }}>sì (serve un tocco)</span> : <span style={{ color: '#22c55e' }}>no</span>}</Row>
+                                                    </>
+                                                );
+                                            })()}
                                         </>
                                     )}
                                 </>

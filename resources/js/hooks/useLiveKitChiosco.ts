@@ -80,9 +80,16 @@ interface Result {
     remoteAudioTrack:   MediaStreamTrack | null; // audio del remoto (voce AI) per visualizzazioni reattive
     localCameraTrack:   MediaStreamTrack | null; // webcam già pubblicata: riusabile dove la camera è occupata (mobile)
     audioBloccato:      boolean; // autoplay negato dal browser: serve un tocco per sentire l'audio
-    /** Questo chiosco è aperto su un altro dispositivo con la stessa identità: qui ci siamo fermati. */
+    /** Questo chiosco è aperto su un altro dispositivo con la stessa identità (si riprova da soli tra poco). */
     duplicato:          boolean;
+    /** Ultimo errore di connessione LiveKit, in chiaro (diagnostica remota). */
+    ultimoErrore:       string | null;
 }
+
+/** Dopo un DUPLICATE_IDENTITY si riprova: l'altro dispositivo potrebbe essere stato chiuso. */
+const RITENTO_DUPLICATO_MS = 30_000;
+/** Dopo una connessione fallita non si martella: si riprova con questo intervallo. */
+const RITENTO_ERRORE_MS = 6_000;
 
 interface TokenResp {
     url?:        string;
@@ -123,8 +130,10 @@ export function useLiveKitChiosco(): Result {
     const [localCameraTrack, setLocalCameraTrack] = useState<MediaStreamTrack | null>(null);
     const [audioBloccato, setAudioBloccato] = useState(false);
     const [duplicato, setDuplicato] = useState(false);
+    const [ultimoErrore, setUltimoErrore] = useState<string | null>(null);
     const duplicatoRef = useRef(false);
     const gestitaRef   = useRef<'umano' | 'ai' | null>(null);
+    const ritentaDopoRef = useRef(0); // timestamp prima del quale NON riconnettere
 
     useEffect(() => {
         let cancelled = false;
@@ -137,12 +146,17 @@ export function useLiveKitChiosco(): Result {
         const haAgent = (room: Room) =>
             Array.from(room.remoteParticipants.values()).some((p) =>
                 p.identity.startsWith('agent-') || String((p as unknown as { kind?: unknown }).kind) === '4' /* ParticipantKind.AGENT */);
-        const controllaOrfana = (room: Room, gestita: string | null) => {
+        // `room` null = non siamo riusciti a connetterci: una sessione AI a cui il
+        // chiosco non arriva è comunque inutile → si chiude, così l'ospite ritrova
+        // i bottoni invece di "Connessione in corso" per sempre.
+        const controllaOrfana = (room: Room | null, gestita: string | null) => {
             if (orfanaTimer) { clearTimeout(orfanaTimer); orfanaTimer = null; }
-            if (gestita !== 'ai' || haAgent(room)) return;
+            if (gestita !== 'ai' || (room && haAgent(room))) return;
             orfanaTimer = setTimeout(async () => {
-                if (cancelled || roomRef.current !== room || haAgent(room)) return;
-                console.warn('[LiveKit-K] sessione AI senza agent: la chiudo');
+                if (cancelled) return;
+                const r = roomRef.current;
+                if (r && haAgent(r)) return;
+                console.warn('[LiveKit-K] sessione AI senza agent raggiungibile: la chiudo');
                 await terminaSessioneAi();
             }, AI_ORFANA_MS);
         };
@@ -233,6 +247,9 @@ export function useLiveKitChiosco(): Result {
                     if (reason === DisconnectReason.DUPLICATE_IDENTITY) {
                         duplicatoRef.current = true;
                         setDuplicato(true);
+                        setUltimoErrore('Identità chiosco già connessa da un altro dispositivo');
+                        // Si riprova più tardi: se l'altro dispositivo è stato chiuso, si riparte
+                        setTimeout(() => { duplicatoRef.current = false; }, RITENTO_DUPLICATO_MS);
                     }
                     disconnect();
                 });
@@ -257,6 +274,10 @@ export function useLiveKitChiosco(): Result {
             try {
                 await room.connect(cred.url, cred.token);
                 if (cancelled) { room.disconnect(); return; }
+                // Connessi: eventuale duplicato precedente è risolto
+                duplicatoRef.current = false;
+                setDuplicato(false);
+                setUltimoErrore(null);
                 provaSbloccoAudio();
 
                 // Il chiosco pubblica sempre la webcam (anche in nascosto);
@@ -279,9 +300,19 @@ export function useLiveKitChiosco(): Result {
             } catch (err) {
                 if (cancelled) return;
                 console.error('[LiveKit-K] connessione fallita', err);
+                const msg = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+                setUltimoErrore(msg.slice(0, 300));
                 setStato('error');
                 setErrore({ tipo: 'sconosciuto', messaggio: 'Connessione media fallita.',
                     suggerimento: 'Aggiorna la pagina del chiosco e riprova.' });
+                // Rilascia la stanza e permetti un nuovo tentativo al prossimo poll
+                // (con pausa): prima restava "error" per sempre finché la sessione
+                // non cambiava.
+                try { room.disconnect(); } catch { /* ignore */ }
+                roomRef.current = null;
+                connectedRef.current = null;
+                ritentaDopoRef.current = Date.now() + RITENTO_ERRORE_MS;
+                controllaOrfana(null, gestitaRef.current);
             }
         };
 
@@ -309,8 +340,9 @@ export function useLiveKitChiosco(): Result {
             setGestitaDa(gestita);
             if (roomRef.current && sid === connectedRef.current) controllaOrfana(roomRef.current, gestita);
 
-            // Nuova sessione da connettere (o cambio di sessione)
-            if (sid !== connectedRef.current) {
+            // Nuova sessione da connettere (o cambio di sessione), rispettando la
+            // pausa dopo un errore di connessione
+            if (sid !== connectedRef.current && Date.now() >= ritentaDopoRef.current) {
                 if (connectedRef.current) disconnect();
                 await connect({ url, token, session_id: sid }, tipo);
             }
@@ -326,5 +358,5 @@ export function useLiveKitChiosco(): Result {
         };
     }, []);
 
-    return { sessionTipo, gestitaDa, localVideoRef, remoteVideoRef, stato, errore, condivisioneAttiva, grigliaDoc, inAttesa, messaggioAttesa, aiUi, remoteAudioTrack, localCameraTrack, audioBloccato, duplicato };
+    return { sessionTipo, gestitaDa, localVideoRef, remoteVideoRef, stato, errore, condivisioneAttiva, grigliaDoc, inAttesa, messaggioAttesa, aiUi, remoteAudioTrack, localCameraTrack, audioBloccato, duplicato, ultimoErrore };
 }

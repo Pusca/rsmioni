@@ -10,8 +10,29 @@ import { useEffect, useRef } from 'react';
  * Gli errori di rete vengono ignorati: il TTL del heartbeat (120s) assicura
  * che un singolo fallimento non causi un falso offline.
  */
-export function useKioskHeartbeat(intervalMs = 60_000): void {
+/**
+ * Stato media del chiosco riportato al server per la diagnostica remota
+ * (Configurazioni → Chioschi → Diagnostica): permette di capire da lontano
+ * perché un chiosco "non funziona" senza avere il suo browser sotto mano.
+ */
+export interface DiagnosticaMedia {
+    sessione:          string | null;   // idle | connecting | connected | error
+    sessione_tipo:     string | null;   // chiaro | nascosto | parlato
+    gestita_da:        string | null;
+    errore:            string | null;   // ultimo errore LiveKit (sessione)
+    duplicato:         boolean;         // identità chiosco aperta altrove (sessione)
+    presenza_online:   boolean;         // receptionist visibile
+    presenza_connessa: boolean;         // stanza presenza collegata
+    presenza_duplicato: boolean;
+    presenza_errore:   string | null;
+    audio_bloccato:    boolean;
+}
+
+export function useKioskHeartbeat(intervalMs = 60_000, media?: DiagnosticaMedia): void {
     const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const mediaRef = useRef<DiagnosticaMedia | undefined>(media);
+    mediaRef.current = media;
+    const sendRef = useRef<() => void>(() => {});
 
     useEffect(() => {
         const send = async () => {
@@ -25,6 +46,7 @@ export function useKioskHeartbeat(intervalMs = 60_000): void {
                     screen_w:   window.screen.width,
                     screen_h:   window.screen.height,
                     url:        window.location.pathname,
+                    media:      mediaRef.current ?? null,
                 };
 
                 await fetch('/kiosk/heartbeat', {
@@ -42,6 +64,8 @@ export function useKioskHeartbeat(intervalMs = 60_000): void {
             }
         };
 
+        sendRef.current = send;
+
         // Primo heartbeat immediato al montaggio
         send();
 
@@ -53,4 +77,13 @@ export function useKioskHeartbeat(intervalMs = 60_000): void {
             }
         };
     }, [intervalMs]);
+
+    // Heartbeat "di evento": quando cambia lo stato media (errore, duplicato,
+    // connessione) lo si manda subito (debounce 1.5s), non si aspetta il minuto.
+    const firma = media ? JSON.stringify(media) : '';
+    useEffect(() => {
+        if (!firma) return;
+        const t = setTimeout(() => sendRef.current(), 1500);
+        return () => clearTimeout(t);
+    }, [firma]);
 }
