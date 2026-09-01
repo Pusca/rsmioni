@@ -19,7 +19,8 @@ class ImportSlopeController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'file'     => ['required', 'file', 'mimes:csv,txt', 'max:5120'],
+            // L'export Slope arriva via email come .xlsx; il CSV resta accettato
+            'file'     => ['required', 'file', 'mimes:xlsx,csv,txt', 'max:10240'],
             'hotel_id' => ['nullable', 'uuid'],
         ]);
 
@@ -32,11 +33,7 @@ class ImportSlopeController extends Controller
         }
 
         $hotel  = Hotel::findOrFail($hotelId);
-        $report = $this->importer->importaCsv(
-            (string) file_get_contents($request->file('file')->getRealPath()),
-            $hotel,
-            $user,
-        );
+        $report = $this->importer->importaFile($request->file('file')->getRealPath(), $hotel, $user);
 
         return redirect()->route('prenotazioni.index')
             ->with('success', $report->riepilogo())

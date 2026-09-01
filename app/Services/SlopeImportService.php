@@ -45,25 +45,61 @@ class SlopeImportService
         'ospiti'    => ['ospiti', 'n_ospiti', 'persone', 'pax'],
         'canale'    => ['canale', 'channel', 'agenzia'],
         'saldo'     => ['saldo', 'da_pagare', 'residuo', 'saldo_residuo'],
+        'prezzo'    => ['importo', 'importo_totale', 'totale', 'prezzo', 'totale_soggiorno'],
     ];
 
-    public function __construct(private readonly CameraService $camere) {}
+    public function __construct(
+        private readonly CameraService $camere,
+        private readonly XlsxReader    $xlsx,
+    ) {}
 
-    /** Importa da un file CSV sul disco. */
+    /**
+     * Importa da un file sul disco: .xlsx (formato reale dell'export Slope,
+     * che arriva via email) oppure .csv/.txt.
+     */
     public function importaFile(string $percorso, Hotel $hotel, ?User $eseguitoDa = null, bool $dryRun = false): SlopeImportReport
     {
         if (! is_readable($percorso)) {
             throw new \InvalidArgumentException("File non leggibile: {$percorso}");
         }
 
+        if ($this->isXlsx($percorso)) {
+            $report = new SlopeImportReport();
+            return $this->importaMatrice($this->xlsx->leggi($percorso), $hotel, $eseguitoDa, $dryRun, $report);
+        }
+
         return $this->importaCsv((string) file_get_contents($percorso), $hotel, $eseguitoDa, $dryRun);
+    }
+
+    /** Un .xlsx è uno zip: basta la firma "PK" — l'estensione può mancare (upload temporanei). */
+    private function isXlsx(string $percorso): bool
+    {
+        if (str_ends_with(strtolower($percorso), '.xlsx')) {
+            return true;
+        }
+        $h = fopen($percorso, 'rb');
+        $firma = $h ? fread($h, 2) : '';
+        if ($h) fclose($h);
+        return $firma === 'PK';
     }
 
     /** Importa dal contenuto CSV già letto. */
     public function importaCsv(string $contenuto, Hotel $hotel, ?User $eseguitoDa = null, bool $dryRun = false): SlopeImportReport
     {
         $report = new SlopeImportReport();
-        $righe  = $this->leggiCsv($contenuto, $report);
+        return $this->importaMatrice($this->leggiCsv($contenuto, $report), $hotel, $eseguitoDa, $dryRun, $report);
+    }
+
+    /**
+     * Cuore dell'import: una matrice (prima riga = intestazioni) da qualunque
+     * formato. Le intestazioni vengono normalizzate e le righe raggruppate
+     * per numero prenotazione.
+     *
+     * @param list<list<string>> $matrice
+     */
+    private function importaMatrice(array $matrice, Hotel $hotel, ?User $eseguitoDa, bool $dryRun, SlopeImportReport $report): SlopeImportReport
+    {
+        $righe = $this->righeDaMatrice($matrice, $report);
 
         if ($righe->isEmpty()) {
             $report->avvisa('Nessuna riga leggibile nel file.');
@@ -153,6 +189,12 @@ class SlopeImportService
             'tipo_pagamento'     => $this->tipoPagamento($prima, $esistente),
         ];
 
+        // Importo del soggiorno (Slope lo espone per riga/camera: somma sul gruppo)
+        $prezzo = $righe->sum(fn (array $r) => $this->importo($this->col($r, 'prezzo')) ?? 0.0);
+        if ($righe->contains(fn (array $r) => $this->col($r, 'prezzo') !== null)) {
+            $dati['prezzo'] = round($prezzo, 2);
+        }
+
         if ($esistente) {
             $esistente->update($dati);
             $pren = $esistente;
@@ -193,47 +235,66 @@ class SlopeImportService
         }
     }
 
-    // ── Lettura CSV ──────────────────────────────────────────────────────────
+    // ── Lettura file ─────────────────────────────────────────────────────────
 
-    /** @return Collection<int, array<string, string>> righe con chiavi = intestazioni normalizzate + _riga */
-    private function leggiCsv(string $contenuto, SlopeImportReport $report): Collection
+    /**
+     * CSV → matrice di stringhe (prima riga = intestazioni).
+     * @return list<list<string>>
+     */
+    private function leggiCsv(string $contenuto, SlopeImportReport $report): array
     {
         $contenuto = preg_replace('/^\xEF\xBB\xBF/', '', $contenuto); // BOM
         $contenuto = str_replace(["\r\n", "\r"], "\n", trim($contenuto));
         if ($contenuto === '') {
-            return collect();
+            return [];
         }
 
-        $primaRiga   = strtok($contenuto, "\n") ?: '';
+        $primaRiga    = strtok($contenuto, "\n") ?: '';
         $delimitatore = $this->rilevaDelimitatore($primaRiga);
 
         $stream = fopen('php://temp', 'r+');
         fwrite($stream, $contenuto);
         rewind($stream);
 
-        $intestazioni = fgetcsv($stream, 0, $delimitatore, '"', '\\');
-        if (! $intestazioni) {
-            fclose($stream);
+        $matrice = [];
+        while (($campi = fgetcsv($stream, 0, $delimitatore, '"', '\\')) !== false) {
+            $matrice[] = array_map(fn ($v) => trim((string) $v), $campi);
+        }
+        fclose($stream);
+
+        return $matrice;
+    }
+
+    /**
+     * Matrice → righe associative con intestazioni normalizzate + numero riga.
+     * @param  list<list<string>> $matrice
+     * @return Collection<int, array<string, string|int>>
+     */
+    private function righeDaMatrice(array $matrice, SlopeImportReport $report): Collection
+    {
+        if ($matrice === []) {
             return collect();
         }
-        $intestazioni = array_map(fn ($h) => $this->normalizza((string) $h), $intestazioni);
+
+        $intestazioni = array_map(fn ($h) => $this->normalizza((string) $h), array_shift($matrice));
+        $nCol         = count($intestazioni);
 
         $righe = [];
-        $n     = 1;
-        while (($campi = fgetcsv($stream, 0, $delimitatore, '"', '\\')) !== false) {
-            $n++;
-            if (count($campi) === 1 && trim((string) $campi[0]) === '') {
+        foreach ($matrice as $i => $campi) {
+            $n = $i + 2; // 1 = intestazione
+            if (implode('', $campi) === '') {
                 continue; // riga vuota
             }
-            if (count($campi) !== count($intestazioni)) {
+            // Celle finali vuote possono mancare (xlsx) o abbondare (csv): si riallinea
+            $campi = array_pad(array_slice($campi, 0, $nCol), $nCol, '');
+            if (count($campi) !== $nCol) {
                 $report->avvisa("riga {$n}: numero di colonne diverso dall'intestazione, ignorata");
                 continue;
             }
-            $riga          = array_combine($intestazioni, array_map(fn ($v) => trim((string) $v), $campi));
+            $riga          = array_combine($intestazioni, $campi);
             $riga['_riga'] = $n;
             $righe[]       = $riga;
         }
-        fclose($stream);
 
         return collect($righe);
     }
@@ -297,6 +358,15 @@ class SlopeImportService
             return null;
         }
         $s = trim($s);
+
+        // Seriale Excel (xlsx): giorni dal 1899-12-30, eventuale frazione = ora
+        if (preg_match('/^\d{5}(\.\d+)?$/', $s)) {
+            $giorni = (int) floor((float) $s);
+            return $giorni >= 20000 && $giorni <= 80000
+                ? Carbon::create(1899, 12, 30)->addDays($giorni)->startOfDay()
+                : null;
+        }
+
         foreach (['d/m/Y', 'Y-m-d', 'd-m-Y', 'd/m/Y H:i', 'Y-m-d H:i:s'] as $fmt) {
             try {
                 $d = Carbon::createFromFormat($fmt, $s);
@@ -309,31 +379,58 @@ class SlopeImportService
         return null;
     }
 
-    /** @return array{0:string,1:string} [nome, cognome] */
+    /**
+     * @return array{0:string,1:string} [nome, cognome]
+     *
+     * Priorità: OSPITE PRINCIPALE (chi dorme in camera e fa il check-in) →
+     * colonne Nome/Cognome (nell'export Slope sono il PRENOTANTE, che può
+     * essere un'agenzia o un'altra persona) → Prenotante come testo unico.
+     */
     private function nominativo(array $riga): array
     {
+        // Slope mette "-" quando l'ospite principale non è specificato
+        $ospite = trim((string) $this->col($riga, 'ospite'));
+        if ($ospite !== '' && $ospite !== '-') {
+            return $this->dividiNominativo($ospite);
+        }
+
         $nome    = $this->col($riga, 'nome');
         $cognome = $this->col($riga, 'cognome');
         if ($nome || $cognome) {
             return [$nome ?? '', $cognome ?? ''];
         }
 
-        // Slope mette "-" quando l'ospite principale non è specificato → si usa il prenotante
-        $completo = $this->col($riga, 'ospite');
-        if ($completo === null || trim($completo) === '-') {
-            $completo = $this->col($riga, 'prenotante') ?? '';
-        }
-        $completo = trim(preg_replace('/\s+/', ' ', $completo));
-        if ($completo === '' || $completo === '-') {
-            return ['Ospite', '(da documento)'];
+        $prenotante = trim((string) $this->col($riga, 'prenotante'));
+        if ($prenotante !== '' && $prenotante !== '-') {
+            return $this->dividiNominativo($prenotante);
         }
 
-        $parti = explode(' ', $completo);
+        return ['Ospite', '(da documento)'];
+    }
+
+    /** "Nome Cognome" → [nome, cognome]; un solo token → cognome. */
+    private function dividiNominativo(string $completo): array
+    {
+        $parti = explode(' ', trim(preg_replace('/\s+/', ' ', $completo)));
         if (count($parti) === 1) {
             return ['', $parti[0]];
         }
-        // Slope mostra "Nome Cognome": primo token nome, il resto cognome.
         return [array_shift($parti), implode(' ', $parti)];
+    }
+
+    /** "59.00", "1.250,50 €" → float; null se assente/illeggibile. */
+    private function importo(?string $s): ?float
+    {
+        if ($s === null || trim($s) === '') {
+            return null;
+        }
+        $s = trim(str_replace(['€', ' '], '', $s));
+        if (preg_match('/^\d+(\.\d+)?$/', $s)) {
+            return (float) $s;                       // formato macchina (xlsx)
+        }
+        $s = str_replace('.', '', $s);               // separatore migliaia italiano
+        $s = str_replace(',', '.', $s);              // decimale italiano
+        return is_numeric($s) ? (float) $s : null;
     }
 
     /** @return array{adulti:int,ragazzi:int,bambini:int} */

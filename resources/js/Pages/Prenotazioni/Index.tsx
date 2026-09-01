@@ -531,11 +531,11 @@ function ImportaSlopeButton({ hotels }: { hotels: HotelConfig[] }) {
                     {hotels.map((h) => <option key={h.id} value={h.id}>{h.nome}</option>)}
                 </select>
             )}
-            <input ref={inputRef} type="file" accept=".csv,text/csv,text/plain" className="hidden"
+            <input ref={inputRef} type="file" accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" className="hidden"
                    onChange={(e) => onFile(e.target.files?.[0] ?? null)} />
             <button type="button" disabled={busy || (hotels.length > 1 && !hotelId)}
                     onClick={() => inputRef.current?.click()}
-                    title="Carica l'export CSV di Slope (Prenotazioni → Elenco → Esporta)"
+                    title="Carica il file esportato da Slope (Prenotazioni → Elenco → Esporta → arriva via email come .xlsx)"
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium disabled:opacity-50"
                     style={{ border: '1px solid var(--color-border)', color: 'var(--color-text-secondary)', backgroundColor: 'var(--color-bg-card)' }}>
                 <UploadIcon />

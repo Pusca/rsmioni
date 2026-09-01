@@ -167,6 +167,104 @@ class ImportSlopeTest extends TestCase
         $this->assertSame(['101'], $p->camere->pluck('nome')->all());
     }
 
+    /**
+     * Costruisce un .xlsx minimale con la stessa struttura dell'export reale
+     * di Slope (celle inlineStr, date come seriale Excel, importi numerici).
+     */
+    private function xlsxSlope(): string
+    {
+        $intestazioni = ['Numero', 'Data di creazione', 'Nome', 'Cognome', 'Ragione sociale', 'Indirizzo e-mail',
+            'Numero telefonico', 'Canale', 'Agenzia', 'Ospite principale', 'Tipologia alloggio', 'Nome alloggio',
+            'Piano tariffario', 'Arrivo', 'Partenza', 'Adulti', 'Bambini', 'Importo', 'Tassa di soggiorno', 'Stato',
+            'Data di cancellazione', 'Segmento di mercato'];
+        // 46270 = 2026-09-05 (seriale Excel, epoch 1899-12-30)
+        $righe = [
+            ['7725229', 46265.78, 'Salvatore', 'Rossi', '', '', '', 'Backoffice', 'VILLA', 'Francesco Verdi', 'Camera Economy', '102', 'B&B', 46270, 46272, '1', '0', 59.00, '', 'Atteso arrivo', '', ''],
+            ['6335361', 46000.5, 'Anna', 'Bianchi', '', '', '', 'Channel manager', 'Booking.com (1)', '-', 'Camera Economy', '101', 'OTA', 46270, 46271, '2', '1', 80.50, '', 'Atteso arrivo', '', ''],
+            ['6335361', 46000.5, 'Anna', 'Bianchi', '', '', '', 'Channel manager', 'Booking.com (1)', '-', 'Camera Economy', '103', 'OTA', 46270, 46271, '2', '0', 70.00, '', 'Atteso arrivo', '', ''],
+            ['7033931', 46100.1, 'Piero', 'Neri', '', '', '', 'Channel manager', 'Booking.com (2)', '-', 'Camera Economy', '102', 'OTA', 46270, 46274, '2', '0', 300.00, '', 'Cancellata', 46200.2, ''],
+        ];
+
+        $cella = function (string $ref, mixed $v): string {
+            if ($v === '' || $v === null) return "<c r=\"{$ref}\" s=\"1\"/>";
+            if (is_int($v) || is_float($v)) return "<c r=\"{$ref}\" s=\"1\" t=\"n\"><v>{$v}</v></c>";
+            return "<c r=\"{$ref}\" s=\"1\" t=\"inlineStr\"><is><t>" . htmlspecialchars((string) $v, ENT_XML1) . '</t></is></c>';
+        };
+        $colonna = fn (int $i) => chr(65 + $i); // ≤ 26 colonne nel test
+        $sheet = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>';
+        foreach ([$intestazioni, ...$righe] as $r => $valori) {
+            $sheet .= '<row r="' . ($r + 1) . '">';
+            foreach ($valori as $c => $v) {
+                $sheet .= $cella($colonna($c) . ($r + 1), $v);
+            }
+            $sheet .= '</row>';
+        }
+        $sheet .= '</sheetData></worksheet>';
+
+        $path = tempnam(sys_get_temp_dir(), 'slope') . '.xlsx';
+        $zip  = new \ZipArchive();
+        $zip->open($path, \ZipArchive::CREATE | \ZipArchive::OVERWRITE);
+        $zip->addFromString('[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>');
+        $zip->addFromString('xl/workbook.xml', '<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Prenotazioni" sheetId="1" r:id="rId1"/></sheets></workbook>');
+        $zip->addFromString('xl/_rels/workbook.xml.rels', '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>');
+        $zip->addFromString('xl/worksheets/sheet1.xml', $sheet);
+        $zip->close();
+
+        return $path;
+    }
+
+    public function test_importa_xlsx_reale_di_slope_con_date_seriali_e_importi(): void
+    {
+        $path = $this->xlsxSlope();
+
+        try {
+            $report = app(SlopeImportService::class)->importaFile($path, $this->hotel, $this->gestore);
+        } finally {
+            @unlink($path);
+        }
+
+        $this->assertSame(2, $report->create);
+        $this->assertSame(1, $report->cancellate);
+        $this->assertSame([], array_filter($report->avvisi, fn ($a) => str_contains($a, 'numero di ospiti')));
+
+        // Ospite principale prevale sul prenotante (Nome/Cognome = chi ha prenotato)
+        $p1 = Prenotazione::where('codice', '7725229')->firstOrFail();
+        $this->assertSame('Francesco', $p1->nome);
+        $this->assertSame('Verdi', $p1->cognome);
+        $this->assertSame('2026-09-05', $p1->check_in->toDateString());
+        $this->assertSame('2026-09-07', $p1->check_out->toDateString());
+        $this->assertSame(['adulti' => 1, 'ragazzi' => 0, 'bambini' => 0], $p1->pax);
+        $this->assertSame('59.00', (string) $p1->prezzo);
+        $this->assertSame(['102'], $p1->camere->pluck('nome')->all());
+
+        // Ospite principale "-" → prenotante; due camere; importo sommato
+        $p2 = Prenotazione::where('codice', '6335361')->firstOrFail();
+        $this->assertSame('Anna', $p2->nome);
+        $this->assertSame('Bianchi', $p2->cognome);
+        $this->assertEqualsCanonicalizing(['101', '103'], $p2->camere->pluck('nome')->all());
+        $this->assertSame('150.50', (string) $p2->prezzo);
+        $this->assertSame(2, $p2->pax['adulti']);
+        $this->assertSame(1, $p2->pax['bambini']);
+    }
+
+    public function test_upload_xlsx_dal_gestore(): void
+    {
+        $path = $this->xlsxSlope();
+        $file = new UploadedFile($path, 'reservations.xlsx',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', null, true);
+
+        try {
+            $this->actingAs($this->gestore)
+                ->post('/prenotazioni/importa-slope', ['file' => $file])
+                ->assertRedirect(route('prenotazioni.index'))
+                ->assertSessionHas('success');
+        } finally {
+            @unlink($path);
+        }
+
+        $this->assertSame(2, Prenotazione::count());
+    }
+
     public function test_dry_run_non_scrive(): void
     {
         $report = app(SlopeImportService::class)->importaCsv($this->csv(), $this->hotel, $this->gestore, dryRun: true);

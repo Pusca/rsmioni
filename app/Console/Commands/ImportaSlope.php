@@ -9,7 +9,7 @@ use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
 
 #[Signature('prenotazioni:importa-slope
-    {file : Percorso del CSV esportato da Slope (Prenotazioni → Elenco → Esporta)}
+    {file : File esportato da Slope (.xlsx ricevuto via email da Prenotazioni → Elenco → Esporta, oppure .csv)}
     {--hotel= : Nome (o id) dell\'hotel di destinazione; obbligatorio se ce n\'è più di uno}
     {--dry-run : Mostra cosa succederebbe senza scrivere nulla}')]
 #[Description('Importa/aggiorna le prenotazioni da un export CSV di Slope')]
