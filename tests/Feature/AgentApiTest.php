@@ -192,6 +192,80 @@ class AgentApiTest extends TestCase
         $this->assertSame(1, Prenotazione::count());
     }
 
+    // ── Ricerca prenotazione da voce (tollerante) ───────────────────────────
+
+    private function prenotazioneInArrivo(string $nome, string $cognome, ?string $prenotante = null, int $giorni = 0, ?string $codice = null): Prenotazione
+    {
+        return Prenotazione::create([
+            'id'                  => Str::uuid()->toString(),
+            'hotel_id'            => $this->hotel->id,
+            'codice'              => $codice ?? (string) random_int(1000000, 9999999),
+            'check_in'            => now()->addDays($giorni)->toDateString(),
+            'check_out'           => now()->addDays($giorni + 2)->toDateString(),
+            'pax'                 => ['adulti' => 2, 'ragazzi' => 0, 'bambini' => 0],
+            'nome'                => $nome,
+            'cognome'             => $cognome,
+            'prenotante'          => $prenotante,
+            'tipo_pagamento'      => 'da_pagare',
+            'documento_identita'  => 'da_acquisire',
+            'inserito_da_profilo' => 'gestore_hotel',
+        ]);
+    }
+
+    public function test_cerca_tollera_accenti_errori_stt_e_nome_completo(): void
+    {
+        $p = $this->prenotazioneInArrivo('Natalia', 'Popławska');
+
+        // accento perso e una lettera mancante (trascrizione)
+        $this->agentPost('/agent/prenotazione/cerca', ['cognome' => 'Poplaska', 'ambito' => 'arrivo'])
+            ->assertOk()->assertJsonPath('prenotazione.codice', $p->codice);
+        // nome e cognome insieme, invertiti
+        $this->agentPost('/agent/prenotazione/cerca', ['cognome' => 'Natalia Poplawska', 'ambito' => 'arrivo'])
+            ->assertOk()->assertJsonPath('prenotazione.codice', $p->codice);
+        // solo il nome nel campo cognome
+        $this->agentPost('/agent/prenotazione/cerca', ['cognome' => 'natalia', 'ambito' => 'arrivo'])
+            ->assertOk()->assertJsonPath('prenotazione.codice', $p->codice);
+        // nome sbagliato del tutto → niente
+        $this->agentPost('/agent/prenotazione/cerca', ['cognome' => 'Bianchi', 'ambito' => 'arrivo'])
+            ->assertStatus(404);
+    }
+
+    public function test_cerca_trova_anche_per_nome_di_chi_ha_prenotato_e_per_codice_slope(): void
+    {
+        $p = $this->prenotazioneInArrivo('Francesco', 'Pagliuca', prenotante: 'Salvatore Esposito', codice: '7725229');
+
+        $this->agentPost('/agent/prenotazione/cerca', ['cognome' => 'Esposito', 'ambito' => 'arrivo'])
+            ->assertOk()->assertJsonPath('prenotazione.cognome', 'Pagliuca')->assertJsonPath('prenotazione.prenotante', 'Salvatore Esposito');
+
+        $this->agentPost('/agent/prenotazione/cerca', ['codice' => '# 7725229', 'ambito' => 'arrivo'])
+            ->assertOk()->assertJsonPath('prenotazione.codice', '7725229');
+    }
+
+    public function test_cerca_prenotazione_di_un_altro_giorno_e_riconosciuta_ma_non_agganciata(): void
+    {
+        $this->prenotazioneInArrivo('Anna', 'Verdi', giorni: 4);
+
+        $r = $this->agentPost('/agent/prenotazione/cerca', ['cognome' => 'Verdi', 'ambito' => 'arrivo'])
+            ->assertStatus(409)
+            ->assertJsonPath('fuori_finestra', true)
+            ->assertJsonPath('check_in', now()->addDays(4)->toDateString());
+        $this->assertStringContainsString('arrivo è previsto', $r->json('error'));
+
+        // Non agganciata alla sessione: l'acquisizione documento non ha una prenotazione
+        $this->agentPost('/agent/acquisizione', ['lingua' => 'it'])->assertStatus(422);
+    }
+
+    public function test_cerca_omonimi_lo_stesso_giorno_chiede_il_codice(): void
+    {
+        $this->prenotazioneInArrivo('Mario', 'Rossi');
+        $this->prenotazioneInArrivo('Luigi', 'Rossi');
+
+        $this->agentPost('/agent/prenotazione/cerca', ['cognome' => 'Rossi', 'ambito' => 'arrivo'])->assertStatus(409);
+        // Con il nome si distingue
+        $this->agentPost('/agent/prenotazione/cerca', ['cognome' => 'Rossi', 'nome' => 'Luigi', 'ambito' => 'arrivo'])
+            ->assertOk()->assertJsonPath('prenotazione.nome', 'Luigi');
+    }
+
     // ── Walk-in disabilitato (docs/11: PMS esterno master) ──────────────────
 
     public function test_walkin_disabilitato_blocca_creazione_e_lista_camere(): void

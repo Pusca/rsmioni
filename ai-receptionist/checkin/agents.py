@@ -373,26 +373,35 @@ class ReceptionistAgent(Agent):
         self,
         context: RunContext,
         cognome: str | None = None,
+        nome: str | None = None,
         codice: str | None = None,
     ) -> str:
-        """Cerca la prenotazione dell'ospite nel gestionale, per cognome e/o
-        codice. Nel CHECK-OUT trova il soggiorno in corso; nel CHECK-IN trova
-        una prenotazione già esistente in arrivo (fatta al telefono, dal
-        gestore o online) così da NON crearne una doppia. Se trovata, i dati
-        appaiono sullo schermo.
+        """Cerca la prenotazione dell'ospite nel gestionale per cognome (e nome)
+        così come li hai SENTITI — la ricerca è tollerante a errori di
+        trascrizione e cerca anche tra chi ha prenotato — oppure per codice.
+        Nel CHECK-OUT trova il soggiorno in corso; nel CHECK-IN trova una
+        prenotazione già esistente in arrivo (fatta al telefono, dal gestore o
+        online) così da NON crearne una doppia. Se trovata, i dati appaiono
+        sullo schermo.
 
         Args:
-            cognome: Cognome dell'ospite.
-            codice: Codice prenotazione (es. AI-ABC123), se il cognome non basta.
+            cognome: Cognome dell'ospite come lo hai capito (anche approssimativo).
+            nome: Nome dell'ospite, se lo ha detto: aiuta a distinguere omonimi.
+            codice: Codice prenotazione (es. AI-ABC123 o 7725229), se il nome non basta.
         """
         if self.stato.scopo == "info":
             return "La ricerca prenotazione non serve nella modalità informazioni."
-        if not cognome and not codice:
+        if not cognome and not codice and not nome:
             return "Serve almeno il cognome o il codice: chiedili all'ospite."
 
         ambito = "arrivo" if self.stato.scopo == "checkin" else "soggiorno"
-        esito = await self._backend.cerca_prenotazione(cognome, codice, ambito)
+        esito = await self._backend.cerca_prenotazione(cognome, codice, ambito, nome=nome)
         if not esito.ok:
+            if esito.get("fuori_finestra"):
+                # Riconosciuta, ma l'arrivo è previsto un altro giorno: non si aggancia
+                return self._fallimento(
+                    f"{esito.errore} (prenotazione a nome {esito.get('cognome')}, arrivo {esito.get('check_in')}). "
+                    "NON creare una nuova prenotazione.")
             if self.stato.scopo == "checkin" and self._walkin:
                 # Nessuna prenotazione in arrivo: NON è un errore — si crea da zero
                 return ("Nessuna prenotazione esistente a questo nome: procedi con il "

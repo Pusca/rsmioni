@@ -196,6 +196,68 @@ class AgentCheckinController extends Controller
     }
 
     /** Posti letto effettivi di una camera (adulti+ragazzi). */
+    // ── Corrispondenza nominativi da voce ───────────────────────────────────
+
+    /** "Pöplawska  Natalia" → "poplawska natalia" (solo lettere ASCII e spazi singoli). */
+    private function normalizzaNome(string $s): string
+    {
+        $s = mb_strtolower(Str::ascii(trim($s)));
+        $s = preg_replace('/[^a-z ]+/', ' ', $s);
+        return trim(preg_replace('/\s+/', ' ', $s));
+    }
+
+    /** "#AI-ABC 123" → "aiabc123". */
+    private function normalizzaCodice(string $s): string
+    {
+        return preg_replace('/[^a-z0-9]+/', '', mb_strtolower($s));
+    }
+
+    /**
+     * Quanto il nominativo detto a voce somiglia alla prenotazione (0..1).
+     * Confronta con cognome, nome, "nome cognome", "cognome nome" e prenotante:
+     * uguaglianza → 1; un token uguale (≥3 lettere) → 0.95; distanza di
+     * edit piccola (STT: "Poplaska" per "Poplawska") → 0.85; similarità
+     * di caratteri ≥ 0.8 → quel valore.
+     */
+    private function somiglianzaNominativo(string $detto, Prenotazione $p): float
+    {
+        $campi = array_filter([
+            $this->normalizzaNome((string) $p->cognome),
+            $this->normalizzaNome((string) $p->nome),
+            $this->normalizzaNome($p->nome . ' ' . $p->cognome),
+            $this->normalizzaNome($p->cognome . ' ' . $p->nome),
+            $this->normalizzaNome((string) $p->prenotante),
+        ]);
+
+        $tokDetto = array_filter(explode(' ', $detto), fn ($t) => strlen($t) >= 3);
+        $migliore = 0.0;
+
+        foreach ($campi as $campo) {
+            if ($campo === $detto) {
+                return 1.0;
+            }
+            $tokCampo = array_filter(explode(' ', $campo), fn ($t) => strlen($t) >= 3);
+            foreach ($tokDetto as $td) {
+                foreach ($tokCampo as $tc) {
+                    if ($td === $tc) {
+                        $migliore = max($migliore, 0.95);
+                    } elseif (strlen($td) >= 5 && levenshtein($td, $tc) <= (strlen($td) >= 8 ? 2 : 1)) {
+                        $migliore = max($migliore, 0.85);
+                    }
+                }
+            }
+            if ($detto !== '' && strlen($detto) >= 5 && levenshtein($detto, $campo) <= 2) {
+                $migliore = max($migliore, 0.85);
+            }
+            similar_text($detto, $campo, $percento);
+            if ($percento / 100 >= 0.8) {
+                $migliore = max($migliore, $percento / 100);
+            }
+        }
+
+        return $migliore;
+    }
+
     /** Impostazione hotel (docs/11): l'AI può creare prenotazioni walk-in? */
     private function walkinAbilitato(array $sessione): bool
     {
@@ -530,47 +592,103 @@ class AgentCheckinController extends Controller
 
         $validated = $request->validate([
             'cognome' => ['nullable', 'string', 'max:200'],
+            'nome'    => ['nullable', 'string', 'max:200'],
             'codice'  => ['nullable', 'string', 'max:100'],
             'ambito'  => ['nullable', 'string', 'in:soggiorno,arrivo'],
         ]);
-        if (empty($validated['cognome']) && empty($validated['codice'])) {
+        if (empty($validated['cognome']) && empty($validated['codice']) && empty($validated['nome'])) {
             return response()->json(['error' => 'Serve almeno il cognome o il codice prenotazione.'], 422);
         }
 
-        $q = Prenotazione::where('hotel_id', $sessione['hotel_id']);
-        if (($validated['ambito'] ?? 'soggiorno') === 'arrivo') {
-            // Check-in: prenotazioni del gestionale in arrivo (finestra
-            // ieri..domani, per arrivi notturni) non ancora confermate.
-            $q->whereBetween('check_in', [now()->subDay()->toDateString(), now()->addDay()->toDateString()])
-              ->where('checkin_confermato', false);
+        $ambito = $validated['ambito'] ?? 'soggiorno';
+        $oggi   = now()->toDateString();
+        $q      = Prenotazione::where('hotel_id', $sessione['hotel_id']);
+
+        if ($ambito === 'arrivo') {
+            // Check-in: arrivi non ancora confermati. Finestra larga (ieri → +30
+            // giorni) per RICONOSCERE la prenotazione anche se l'ospite arriva
+            // in un giorno diverso; l'aggancio automatico vale solo ieri..domani.
+            $q->where('checkin_confermato', false)
+              ->whereBetween('check_in', [now()->subDay()->toDateString(), now()->addDays(30)->toDateString()]);
         } else {
             // Check-out: soggiorno in corso
-            $q->where('check_out', '>=', now()->toDateString())
-              ->where('check_in', '<=', now()->toDateString());
-        }
-        if (! empty($validated['codice'])) {
-            $q->where('codice', 'like', trim($validated['codice']));
-        }
-        if (! empty($validated['cognome'])) {
-            $q->where('cognome', 'like', trim($validated['cognome']));
+            $q->where('check_out', '>=', $oggi)->where('check_in', '<=', $oggi);
         }
 
-        $trovate = $q->orderBy('check_out')->limit(3)->get();
+        $candidati = $q->orderBy('check_in')->limit(400)->get();
+
+        // Corrispondenza tollerante: la voce arriva da uno speech-to-text
+        // (accenti persi, lettere doppie, nome e cognome invertiti, cognome
+        // del prenotante invece dell'ospite). Si confronta il detto con
+        // cognome, nome, "nome cognome" e prenotante di ogni candidata.
+        $detto  = $this->normalizzaNome(($validated['cognome'] ?? '') . ' ' . ($validated['nome'] ?? ''));
+        $codice = ! empty($validated['codice']) ? $this->normalizzaCodice($validated['codice']) : null;
+
+        $trovate = $candidati
+            ->map(function (Prenotazione $p) use ($detto, $codice) {
+                $punteggio = 0.0;
+                if ($codice !== null && $this->normalizzaCodice((string) $p->codice) === $codice) {
+                    $punteggio = 1.0;
+                } elseif ($detto !== '') {
+                    $punteggio = $this->somiglianzaNominativo($detto, $p);
+                }
+                return ['pren' => $p, 'punteggio' => $punteggio];
+            })
+            ->filter(fn ($m) => $m['punteggio'] >= 0.8)
+            ->sortByDesc('punteggio')
+            ->values();
 
         if ($trovate->isEmpty()) {
-            return response()->json([
-                'ok'      => false,
-                'error'   => 'Nessuna prenotazione in corso trovata con questi dati. Chiedi di ripetere il cognome (o il codice) oppure indirizza al receptionist.',
-            ], 404);
-        }
-        if ($trovate->count() > 1) {
+            $this->audit('prenotazione.cerca', $request, $sessione, false, [
+                'motivo' => 'nessuna corrispondenza', 'ambito' => $ambito, 'detto' => $detto, 'codice' => $codice,
+                'candidate' => $candidati->count(),
+            ]);
             return response()->json([
                 'ok'    => false,
-                'error' => 'Più prenotazioni corrispondono: chiedi il codice prenotazione per distinguerle.',
+                'error' => $ambito === 'arrivo'
+                    ? 'Nessuna prenotazione in arrivo con questo nome. Chiedi di ripetere il cognome (o il nome di chi ha prenotato, o il codice) oppure indirizza al receptionist.'
+                    : 'Nessuna prenotazione in corso trovata con questi dati. Chiedi di ripetere il cognome (o il codice) oppure indirizza al receptionist.',
+            ], 404);
+        }
+
+        // Arrivo: preferisci chi è atteso ieri..domani; le altre sono "fuori finestra"
+        $limiteFinestra = now()->addDay()->toDateString();
+        $inFinestra = $ambito === 'arrivo'
+            ? $trovate->filter(fn ($m) => $m['pren']->check_in->toDateString() <= $limiteFinestra)->values()
+            : $trovate;
+
+        // Ambiguità reale: più prenotazioni di persone diverse con lo stesso punteggio massimo
+        $scelte = $inFinestra->isNotEmpty() ? $inFinestra : $trovate;
+        $top    = $scelte->first()['punteggio'];
+        $pari   = $scelte->filter(fn ($m) => $m['punteggio'] >= $top - 0.001)
+            ->unique(fn ($m) => $this->normalizzaNome($m['pren']->nome . ' ' . $m['pren']->cognome) . '|' . $m['pren']->check_in->toDateString());
+        if ($pari->count() > 1 && $codice === null) {
+            $this->audit('prenotazione.cerca', $request, $sessione, false, ['motivo' => 'ambigua', 'detto' => $detto, 'quante' => $pari->count()]);
+            return response()->json([
+                'ok'    => false,
+                'error' => 'Più prenotazioni corrispondono a questo nome: chiedi il codice prenotazione, o il nome di chi ha prenotato, per distinguerle.',
             ], 409);
         }
 
-        $pren = $trovate->first();
+        $pren          = $scelte->first()['pren'];
+        $fuoriFinestra = $ambito === 'arrivo' && $inFinestra->isEmpty();
+
+        if ($fuoriFinestra) {
+            // Prenotazione riconosciuta ma l'arrivo è previsto un altro giorno:
+            // non si aggancia (il check-in anticipato lo decide il receptionist).
+            $this->audit('prenotazione.cerca', $request, $sessione, false, [
+                'motivo' => 'fuori finestra', 'prenotazione_id' => $pren->id, 'check_in' => $pren->check_in->toDateString(),
+            ]);
+            return response()->json([
+                'ok'             => false,
+                'fuori_finestra' => true,
+                'check_in'       => $pren->check_in->toDateString(),
+                'cognome'        => $pren->cognome,
+                'error'          => 'Prenotazione trovata ma l\'arrivo è previsto il ' . $pren->check_in->format('d/m/Y')
+                                  . ', non oggi. Diglielo con calma e passa al receptionist: decide lui se anticipare il check-in.',
+            ], 409);
+        }
+
         $this->sessioni->aggiornaForm($request->session_id, ['prenotazione_id' => $pren->id]);
         $this->audit('prenotazione.cerca', $request, $sessione, true, ['prenotazione_id' => $pren->id, 'codice' => $pren->codice]);
 
@@ -580,10 +698,11 @@ class AgentCheckinController extends Controller
         return response()->json([
             'ok'           => true,
             'prenotazione' => [
-                'codice'    => $pren->codice,
-                'nome'      => $pren->nome,
-                'cognome'   => $pren->cognome,
-                'check_in'  => $pren->check_in->toDateString(),
+                'codice'     => $pren->codice,
+                'nome'       => $pren->nome,
+                'cognome'    => $pren->cognome,
+                'prenotante' => $pren->prenotante,
+                'check_in'   => $pren->check_in->toDateString(),
                 'check_out' => $pren->check_out->toDateString(),
                 'camera'    => $pren->camere()->first()?->nome,
                 'prezzo'    => $pren->prezzo !== null ? (float) $pren->prezzo : null,

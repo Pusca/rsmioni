@@ -183,6 +183,7 @@ class SlopeImportService
         $dati = [
             'nome'               => $nome,
             'cognome'            => $cognome,
+            'prenotante'         => $this->prenotante($prima, $nome, $cognome),
             'check_in'           => $checkIn->toDateString(),
             'check_out'          => $checkOut->toDateString(),
             'pax'                => $pax,
@@ -406,6 +407,25 @@ class SlopeImportService
         }
 
         return ['Ospite', '(da documento)'];
+    }
+
+    /**
+     * Chi ha prenotato, se diverso dall'ospite principale: colonne Nome/Cognome
+     * dell'export (= prenotante) oppure la colonna Prenotante. Null se coincide.
+     */
+    private function prenotante(array $riga, string $nomeOspite, string $cognomeOspite): ?string
+    {
+        $nome    = trim((string) $this->col($riga, 'nome'));
+        $cognome = trim((string) $this->col($riga, 'cognome'));
+        $completo = trim("{$nome} {$cognome}");
+        if ($completo === '') {
+            $completo = trim((string) $this->col($riga, 'prenotante'));
+        }
+        if ($completo === '' || $completo === '-') {
+            return null;
+        }
+        $ospite = trim("{$nomeOspite} {$cognomeOspite}");
+        return mb_strtolower($completo) === mb_strtolower($ospite) ? null : $completo;
     }
 
     /** "Nome Cognome" → [nome, cognome]; un solo token → cognome. */

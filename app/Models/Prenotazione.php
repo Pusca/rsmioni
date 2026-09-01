@@ -27,6 +27,7 @@ class Prenotazione extends Model
         'pax',
         'nome',
         'cognome',
+        'prenotante',
         'gruppo',
         'tipo_pagamento',
         'documento_identita',
