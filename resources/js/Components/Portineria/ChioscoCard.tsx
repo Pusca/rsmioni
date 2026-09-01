@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { ChioscoConStato, StatoChiosco, UltimaPresenza } from '@/types';
 import BadgeStato from './BadgeStato';
 
@@ -8,6 +9,23 @@ interface Props {
     onClick: () => void;
     /** Stato della chiamata LiveKit per questo chiosco: attiva (in gestione) / attesa / nessuna */
     callBadge?: 'attiva' | 'attesa' | null;
+    /** Webcam live del chiosco dalla stanza presenza (colonna destra sempre attiva) */
+    presenzaTrack?: MediaStreamTrack | null;
+    /** Il microfono del receptionist è acceso verso questo chiosco */
+    micAttivo?: boolean;
+}
+
+/** Anteprima live della webcam del chiosco (stanza presenza). */
+function PresenzaPreview({ track }: { track: MediaStreamTrack }) {
+    const ref = useRef<HTMLVideoElement | null>(null);
+    useEffect(() => {
+        const el = ref.current;
+        if (!el) return;
+        el.srcObject = new MediaStream([track]);
+        el.play().catch(() => {});
+        return () => { el.srcObject = null; };
+    }, [track]);
+    return <video ref={ref} autoPlay muted playsInline className="absolute inset-0 w-full h-full" style={{ objectFit: 'cover' }} />;
 }
 
 /** Bordo colorato per stato attivo */
@@ -83,7 +101,7 @@ function previewOverlay(stato: StatoChiosco) {
     }
 }
 
-export default function ChioscoCard({ chiosco, isSelezionato, puoInteragire, onClick, callBadge }: Props) {
+export default function ChioscoCard({ chiosco, isSelezionato, puoInteragire, onClick, callBadge, presenzaTrack, micAttivo }: Props) {
     const borderColor = callBadge === 'attiva'
         ? '#3b82f6'
         : callBadge === 'attesa'
@@ -125,7 +143,21 @@ export default function ChioscoCard({ chiosco, isSelezionato, puoInteragire, onC
             {/* Video preview */}
             <div className="relative rounded mb-2 overflow-hidden"
                  style={{ aspectRatio: '16/9', backgroundColor: 'var(--color-bg-primary)' }}>
-                {previewOverlay(chiosco.stato)}
+                {/* Video live dalla stanza presenza; se manca, il placeholder per stato */}
+                {presenzaTrack && chiosco.stato !== 'offline'
+                    ? <PresenzaPreview track={presenzaTrack} />
+                    : previewOverlay(chiosco.stato)}
+
+                {/* Microfono acceso verso questo chiosco */}
+                {micAttivo && (
+                    <div className="absolute bottom-1.5 right-1.5 flex items-center gap-1 rounded px-1.5 py-0.5"
+                         style={{ backgroundColor: 'rgba(34,197,94,0.95)', color: '#052e16', fontSize: '9px', fontWeight: 700 }}>
+                        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                            <path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3zM19 10v2a7 7 0 01-14 0v-2M12 19v4" />
+                        </svg>
+                        MIC
+                    </div>
+                )}
 
                 {/* Badge chiamata: in gestione / in attesa */}
                 {callBadge === 'attiva' && (

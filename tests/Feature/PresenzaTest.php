@@ -145,7 +145,7 @@ class PresenzaTest extends TestCase
 
     // ── Chiosco ────────────────────────────────────────────────────────────
 
-    public function test_chiosco_riceve_il_token_presenza_in_sola_visione(): void
+    public function test_chiosco_riceve_il_token_presenza_e_puo_pubblicare_camera_e_microfono(): void
     {
         $this->configuraLiveKit();
         $chioscoUser = $this->creaUtente(Profilo::Chiosco, $this->hotel);
@@ -160,7 +160,10 @@ class PresenzaTest extends TestCase
             explode('.', $risposta->json('token'))[1], '-_', '+/'
         )), true);
         $this->assertSame('presenza-' . $this->hotel->id, $payload['video']['room']);
-        $this->assertFalse($payload['video']['canPublish']);
+        // Canale sempre acceso (docs/11): il chiosco pubblica la propria webcam
+        // (griglia live) e il microfono su richiesta del receptionist.
+        $this->assertTrue($payload['video']['canPublish']);
+        $this->assertSame('presenza-kiosk-' . $this->chiosco->id, $payload['sub']);
     }
 
     public function test_chiosco_senza_selezione_riceve_403(): void

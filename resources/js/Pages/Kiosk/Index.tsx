@@ -63,18 +63,27 @@ export default function KioskIndex({ chiosco, stato_iniziale, messaggio_attesa: 
 
     // ── Media: chiaro / nascosto / parlato tutti su LiveKit ─────────────────
     const lk = useLiveKitChiosco();
-
-    // ── Presenza receptionist: miniatura webcam sempre attiva ───────────────
-    const presenza = usePresenzaReceptionist();
+    // Il riepilogo post-AI (CompletatoScreen) è dichiarato più sotto; qui un
+    // ref per sapere se è a schermo senza riordinare gli hook.
+    const fineSessioneAttiva = useRef(false);
 
     // Routing — usa il sessionTipo riportato dall'hook LiveKit
     const inAi      = stato === 'in_parlato' && lk.sessionTipo === 'parlato' && lk.gestitaDa === 'ai';
     const inParlato = stato === 'in_parlato' && lk.sessionTipo === 'parlato' && ! inAi;
     const inChiaro  = stato === 'in_chiaro'  && lk.sessionTipo === 'chiaro';
 
-    // La miniatura resta visibile in benvenuto e per tutto il self check-in;
-    // sparisce solo quando il receptionist è già a schermo (chiaro/parlato).
-    const mostraPresenza = presenza.online && ! inChiaro && ! inParlato;
+    // ── Presenza receptionist: canale sempre acceso ─────────────────────────
+    // La camera del chiosco va in stanza presenza (griglia live in Portineria)
+    // solo quando NON è già impegnata in una sessione media (chiaro/parlato/AI).
+    const sessioneMediaAttiva = inAi || inParlato || inChiaro || lk.stato === 'connected';
+    const presenza = usePresenzaReceptionist(! sessioneMediaAttiva);
+
+    // In attesa il receptionist è grande al centro (AttesoScreen); la miniatura
+    // serve nelle altre schermate (AI, acquisizione, POS…) tranne nei
+    // collegamenti pieni, dove il receptionist è già a schermo.
+    const schermataAttesa = ! pagamento && ! stampa && ! acquisizione && ! inAi && ! inParlato && ! inChiaro
+        && ! ['in_chiamata', 'messaggio_attesa', 'offline'].includes(stato) && ! fineSessioneAttiva.current;
+    const mostraPresenzaBadge = presenza.online && ! inChiaro && ! inParlato && ! schermataAttesa;
 
     // ── Handler annullo chiamata (stato in_chiamata raggiungibile da demo) ──
     const handleAnnullaChiamata = async () => {
@@ -113,6 +122,7 @@ export default function KioskIndex({ chiosco, stato_iniziale, messaggio_attesa: 
     const ultimoAiRef = useRef<{ ui: typeof lk.aiUi; scopo: ScopoAi } | null>(null);
     const [fineSessione, setFineSessione] = useState<{ ui: typeof lk.aiUi; scopo: ScopoAi } | null>(null);
     const eraInAi = useRef(false);
+    fineSessioneAttiva.current = fineSessione !== null;
     useEffect(() => {
         if (inAi) {
             ultimoAiRef.current = { ui: lk.aiUi, scopo: aiScopo };
@@ -136,9 +146,9 @@ export default function KioskIndex({ chiosco, stato_iniziale, messaggio_attesa: 
         <KioskLayout>
             <Head title="Chiosco" />
 
-            {/* Miniatura presenza receptionist — sempre visibile tranne nei
-                collegamenti pieni, dove il receptionist è già a schermo */}
-            {mostraPresenza && presenza.track && <PresenzaBadge track={presenza.track} />}
+            {/* Miniatura presenza receptionist — nelle schermate in cui non è
+                già grande (attesa) né a schermo pieno (chiaro/parlato) */}
+            {mostraPresenzaBadge && presenza.track && <PresenzaBadge track={presenza.track} />}
 
             {/* Pagamento POS remoto — priorità massima, non interrompe video attivi */}
             {pagamento && ! inParlato && ! inChiaro ? (
@@ -223,6 +233,7 @@ export default function KioskIndex({ chiosco, stato_iniziale, messaggio_attesa: 
                 /* idle / in_nascosto (guest non sa) / stati sconosciuti → schermata attesa */
                 <AttesoScreen
                     chiosco={chiosco}
+                    presenza={presenza}
                     onAvviaAi={handleAvviaAi}
                     aiLoading={aiLoading}
                     aiErrore={aiErrore}

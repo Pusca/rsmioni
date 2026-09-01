@@ -9,6 +9,7 @@ import { usePortineriaRealtime, usePortineriaPolling, StatoAggiornato, AiHandoff
 import { cambiaStato, demoSimula, demoReset } from '@/services/portineriaApi';
 import * as liveKitCall from '@/services/liveKitCall';
 import { suonaChiamata, suonaCampanellaAi } from '@/services/suoneria';
+import * as presenza from '@/services/presenzaReceptionist';
 import { ChioscoConStato, StatoChiosco, SharedProps } from '@/types';
 
 interface Props {
@@ -160,6 +161,16 @@ export default function PortineriaIndex({ chioschi: chioschiIniziali, hotel_ids,
     const handleCardClick = useCallback((id: string) => {
         setSelezioneId((prev) => (prev === id ? null : id));
     }, []);
+
+    // ── Presenza: video live di ogni chiosco + microfono verso UNO solo ───
+    // Cambiare chiosco selezionato spegne il microfono verso il precedente:
+    // il receptionist lo riaccende quando vuole sul nuovo (workflow docs/11).
+    const snapPresenza = presenza.usePresenza();
+    useEffect(() => {
+        if (snapPresenza.parlaCon && snapPresenza.parlaCon !== selezioneId) {
+            void presenza.parlaCon(null);
+        }
+    }, [selezioneId, snapPresenza.parlaCon]);
 
     // ── Demo toolbar ──────────────────────────────────────────────────────
     const DEMO_STATI: { label: string; stato: StatoChiosco; color: string }[] = [
@@ -336,6 +347,8 @@ export default function PortineriaIndex({ chioschi: chioschiIniziali, hotel_ids,
                             puoInteragire={puoInteragire}
                             onCardClick={handleCardClick}
                             calls={snap.calls}
+                            presenzaTracks={snapPresenza.tracks}
+                            micVerso={snapPresenza.parlaCon}
                         />
                     )}
                 </div>
@@ -359,14 +372,16 @@ export default function PortineriaIndex({ chioschi: chioschiIniziali, hotel_ids,
 // ── Griglia chioschi ───────────────────────────────────────────────────────
 
 interface GrigliaProps {
-    chioschi:      ChioscoConStato[];
-    selezioneId:   string | null;
-    puoInteragire: boolean;
-    onCardClick:   (id: string) => void;
-    calls:         Record<string, { attiva: boolean }>;
+    chioschi:       ChioscoConStato[];
+    selezioneId:    string | null;
+    puoInteragire:  boolean;
+    onCardClick:    (id: string) => void;
+    calls:          Record<string, { attiva: boolean }>;
+    presenzaTracks: Record<string, MediaStreamTrack>;
+    micVerso:       string | null;
 }
 
-function GrigliaChioschi({ chioschi, selezioneId, puoInteragire, onCardClick, calls }: GrigliaProps) {
+function GrigliaChioschi({ chioschi, selezioneId, puoInteragire, onCardClick, calls, presenzaTracks, micVerso }: GrigliaProps) {
     // Raggruppa per hotel
     const perHotel = chioschi.reduce<Record<string, ChioscoConStato[]>>((acc, c) => {
         const nomeHotel = c.hotel?.nome ?? c.hotel_id;
@@ -401,6 +416,8 @@ function GrigliaChioschi({ chioschi, selezioneId, puoInteragire, onCardClick, ca
                                     puoInteragire={puoInteragire}
                                     onClick={() => onCardClick(chiosco.id)}
                                     callBadge={callBadge}
+                                    presenzaTrack={presenzaTracks[chiosco.id] ?? null}
+                                    micAttivo={micVerso === chiosco.id}
                                 />
                             );
                         })}

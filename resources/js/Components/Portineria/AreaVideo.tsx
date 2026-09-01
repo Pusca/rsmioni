@@ -12,6 +12,7 @@ import {
 import type { ErroreMedia, StatoCollegamento, TipoCollegamento } from '@/types/media';
 import { useLiveKitCall } from '@/hooks/useLiveKitCall';
 import * as liveKitCall from '@/services/liveKitCall';
+import * as presenza from '@/services/presenzaReceptionist';
 import CatturaDocumento from './CatturaDocumento';
 import CollegamentoView from './CollegamentoView';
 import ParlatoView from './ParlatoView';
@@ -43,6 +44,19 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
     const call = chiosco ? snap.calls[chiosco.id] : undefined;
     const localVideoRef  = useRef<HTMLVideoElement | null>(null);
     const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
+
+    // ── Presenza: video live del chiosco + microfono (canale sempre acceso) ─
+    const snapPresenza  = presenza.usePresenza();
+    const presenzaTrack = chiosco ? snapPresenza.tracks[chiosco.id] ?? null : null;
+    const micAttivo     = !!chiosco && snapPresenza.parlaCon === chiosco.id;
+    const [micLoading, setMicLoading] = useState(false);
+    const presenzaVideoRef = useRef<HTMLVideoElement | null>(null);
+    useEffect(() => {
+        const el = presenzaVideoRef.current;
+        if (!el) return;
+        el.srcObject = presenzaTrack ? new MediaStream([presenzaTrack]) : null;
+        if (presenzaTrack) el.play().catch(() => {});
+    }, [presenzaTrack, chiosco?.id, chiosco?.stato]);
 
     // Resetta solo lo stato LOCALE quando cambia il chiosco selezionato
     // (NON tocca la chiamata nel singleton: quella persiste).
@@ -206,6 +220,22 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
         setLoading(false);
     };
 
+    // ── Microfono verso il chiosco selezionato (workflow docs/11) ─────────
+    // Un solo chiosco alla volta; su una sessione AI equivale a Subentra.
+    const toggleMic = async () => {
+        if (!chiosco || micLoading) return;
+        if (call?.gestitaDa === 'ai' && !micAttivo) { await subentraAi(); return; }
+        setMicLoading(true);
+        setErrore(null);
+        const ok = await presenza.parlaCon(micAttivo ? null : chiosco.id);
+        if (!micAttivo && !ok) {
+            setErrore(presenza.raggiungibile(chiosco.id)
+                ? 'Microfono non disponibile: controlla i permessi del browser.'
+                : 'Il chiosco non è collegato alla presenza (schermata chiosco chiusa o offline).');
+        }
+        setMicLoading(false);
+    };
+
     // ── Termina sessione AI (supervisione umana: il receptionist può sempre) ─
     const terminaAi = async () => {
         if (!chiosco || !call || loading) return;
@@ -291,10 +321,31 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
                             )}
                         </div>
 
-                        <div className="flex items-center gap-2" style={{ fontSize: '11px', color: '#5c6380' }}>
-                            <span className="uppercase font-mono">{chiosco.tipo}</span>
-                            {chiosco.has_pos && <span>POS</span>}
-                            {chiosco.has_stampante && <span>🖨</span>}
+                        <div className="flex items-center gap-3">
+                            {/* Microfono: il modo veloce di parlare con QUESTO chiosco */}
+                            {!isRL && chiosco.stato !== 'offline' && (
+                                <button
+                                    onClick={toggleMic}
+                                    disabled={micLoading}
+                                    title={micAttivo ? 'Spegni il microfono verso questo chiosco' : 'Parla con questo chiosco (gli altri non sentono)'}
+                                    className="flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all active:scale-95"
+                                    style={{
+                                        backgroundColor: micAttivo ? '#22c55e' : 'rgba(59,130,246,0.12)',
+                                        color:           micAttivo ? '#052e16' : '#93c5fd',
+                                        border:          `1px solid ${micAttivo ? '#22c55e' : 'rgba(59,130,246,0.45)'}`,
+                                        boxShadow:       micAttivo ? '0 0 0 4px rgba(34,197,94,0.18)' : 'none',
+                                        opacity:         micLoading ? 0.6 : 1,
+                                    }}
+                                >
+                                    <MicIcon />
+                                    {micAttivo ? 'Microfono acceso' : call?.gestitaDa === 'ai' ? 'Parla (subentra all\'AI)' : 'Parla col chiosco'}
+                                </button>
+                            )}
+                            <div className="flex items-center gap-2" style={{ fontSize: '11px', color: '#5c6380' }}>
+                                <span className="uppercase font-mono">{chiosco.tipo}</span>
+                                {chiosco.has_pos && <span>POS</span>}
+                                {chiosco.has_stampante && <span>🖨</span>}
+                            </div>
                         </div>
                     </div>
 
@@ -359,22 +410,49 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
                             </div>
                         )}
 
-                        {/* ── IDLE: opzioni di collegamento ── */}
+                        {/* ── Video live (presenza) — sempre, finché non c'è una sessione media ── */}
+                        {['idle', 'in_chiamata', 'messaggio_attesa'].includes(chiosco.stato) && (
+                            <div className="w-full flex flex-col items-center gap-2" style={{ maxWidth: 720 }}>
+                                <div className="relative w-full rounded-xl overflow-hidden"
+                                     style={{ aspectRatio: '16/9', backgroundColor: '#060810',
+                                              border: `2px solid ${micAttivo ? '#22c55e' : 'var(--color-border)'}`,
+                                              boxShadow: micAttivo ? '0 0 0 6px rgba(34,197,94,0.15)' : 'none' }}>
+                                    <video ref={presenzaVideoRef} autoPlay muted playsInline
+                                           className="absolute inset-0 w-full h-full" style={{ objectFit: 'cover', display: presenzaTrack ? 'block' : 'none' }} />
+                                    {!presenzaTrack && (
+                                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+                                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-muted)" strokeWidth="1.5">
+                                                <path d="M15 10l4.553-2.069A1 1 0 0121 8.87v6.26a1 1 0 01-1.447.894L15 14M4 6h8a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V8a2 2 0 012-2z" />
+                                            </svg>
+                                            <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                                                Video del chiosco non disponibile (schermata chiosco chiusa o webcam negata)
+                                            </p>
+                                        </div>
+                                    )}
+                                    <div className="absolute top-2 left-2 flex items-center gap-1.5 rounded px-2 py-0.5"
+                                         style={{ backgroundColor: 'rgba(6,8,16,0.6)', fontSize: '10px', color: '#e2e8f0' }}>
+                                        <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: presenzaTrack ? '#22c55e' : '#5c6380' }} />
+                                        LIVE · {chiosco.nome}
+                                    </div>
+                                    {micAttivo && (
+                                        <div className="absolute bottom-2 left-2 flex items-center gap-1.5 rounded px-2 py-1"
+                                             style={{ backgroundColor: 'rgba(34,197,94,0.95)', fontSize: '11px', fontWeight: 700, color: '#052e16' }}>
+                                            <MicIcon /> Stai parlando con il chiosco — l'ospite ti sente e tu senti lui
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* ── IDLE: opzioni di collegamento (secondarie rispetto al microfono) ── */}
                         {chiosco.stato === 'idle' && (
                             <div className="text-center w-full max-w-sm">
-                                <div className="mx-auto mb-4 rounded-full flex items-center justify-center"
-                                     style={{ width: 64, height: 64, backgroundColor: 'rgba(34,197,94,0.08)', border: '2px solid rgba(34,197,94,0.3)' }}>
-                                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="1.5">
-                                        <path d="M15 10l4.553-2.069A1 1 0 0121 8.87v6.26a1 1 0 01-1.447.894L15 14M4 6h8a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V8a2 2 0 012-2z" />
-                                    </svg>
-                                </div>
-                                <p className="font-medium mb-1" style={{ color: 'var(--color-text-primary)' }}>Chiosco disponibile</p>
-                                <p className="text-xs mb-6" style={{ color: 'var(--color-text-muted)' }}>
+                                <p className="text-xs mb-3" style={{ color: 'var(--color-text-muted)' }}>
                                     {isRL
                                         ? 'Avvia un monitoraggio nascosto del chiosco.'
-                                        : 'Avvia un collegamento per interagire con il chiosco.'}
+                                        : 'Per parlare usa il microfono in alto. Collegamenti classici:'}
                                 </p>
-                                <div className="flex gap-3 justify-center">
+                                <div className="flex gap-3 justify-center flex-wrap">
                                     {!isRL && chiosco.interattivo && (
                                         <AzioneBtn
                                             label="Collegamento in chiaro"

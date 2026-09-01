@@ -1,22 +1,38 @@
+import { useEffect, useRef } from 'react';
 import { router } from '@inertiajs/react';
 import { Chiosco } from '@/types';
 
 // ── AttesoScreen ─────────────────────────────────────────────────────────────
 // Mostrata in idle e in_nascosto (monitoraggio silenzioso: il guest non sa nulla).
+//
+// Con un receptionist online la sua webcam è GRANDE e centrale (muta): l'ospite
+// vede che dietro il chiosco c'è una persona. Quando il receptionist accende il
+// microfono verso questo chiosco, il riquadro si accende e si sente la voce.
+
+export interface PresenzaProps {
+    track:           MediaStreamTrack | null;
+    nome:            string | null;
+    parla:           boolean;
+    microfonoAttivo: boolean;
+    audioBloccato:   boolean;
+}
 
 interface AttesoScreenProps {
     chiosco:   Chiosco;
+    presenza:  PresenzaProps;
     onAvviaAi: (scopo: 'checkin' | 'checkout' | 'info') => void;
     aiLoading: 'checkin' | 'checkout' | 'info' | null;
     aiErrore:  string | null;
 }
 
-export default function AttesoScreen({ chiosco, onAvviaAi, aiLoading, aiErrore }: AttesoScreenProps) {
+export default function AttesoScreen({ chiosco, presenza, onAvviaAi, aiLoading, aiErrore }: AttesoScreenProps) {
     const handleLogout = () => {
         if (confirm('Disconnettere il chiosco?')) {
             router.post('/logout');
         }
     };
+
+    const online = presenza.track !== null;
 
     return (
         <>
@@ -42,20 +58,24 @@ export default function AttesoScreen({ chiosco, onAvviaAi, aiLoading, aiErrore }
             </button>
 
             {/* Area principale */}
-            <div className="w-full h-full flex flex-col items-center justify-center">
-                {/* Benvenuto */}
-                <div className="text-center mb-10 px-8">
-                    <h1 className="font-light mb-2 kiosk-title" style={{ color: 'var(--color-text-primary)' }}>
-                        Benvenuto
-                    </h1>
-                    <p style={{ fontSize: 16, color: 'var(--color-text-muted)' }}>
-                        Welcome · Tocca un pulsante per iniziare
-                    </p>
-                </div>
+            <div className="kiosk-atteso w-full h-full flex flex-col items-center justify-center">
+
+                {online ? (
+                    <PresenzaGrande presenza={presenza} />
+                ) : (
+                    <div className="text-center mb-10 px-8">
+                        <h1 className="font-light mb-2 kiosk-title" style={{ color: 'var(--color-text-primary)' }}>
+                            Benvenuto
+                        </h1>
+                        <p style={{ fontSize: 16, color: 'var(--color-text-muted)' }}>
+                            Welcome · Tocca un pulsante per iniziare
+                        </p>
+                    </div>
+                )}
 
                 {/* Self check-in / check-out AI — azioni principali del chiosco.
                     Misure e impilamento su schermi stretti: .kiosk-actions in app.css */}
-                <div className="kiosk-actions mb-8">
+                <div className="kiosk-actions mb-6">
                     <button
                         onClick={() => onAvviaAi('checkin')}
                         disabled={aiLoading !== null}
@@ -145,5 +165,73 @@ export default function AttesoScreen({ chiosco, onAvviaAi, aiLoading, aiErrore }
                 </div>
             )}
         </>
+    );
+}
+
+/**
+ * Il receptionist in grande al centro dello schermo: video muto in attesa;
+ * quando parla con questo chiosco il riquadro si accende e compare lo stato
+ * del microfono dell'ospite.
+ */
+function PresenzaGrande({ presenza }: { presenza: PresenzaProps }) {
+    const videoRef = useRef<HTMLVideoElement | null>(null);
+
+    useEffect(() => {
+        const el = videoRef.current;
+        if (!el || !presenza.track) return;
+        el.srcObject = new MediaStream([presenza.track]);
+        el.play().catch(() => {});
+        return () => { el.srcObject = null; };
+    }, [presenza.track]);
+
+    const parla = presenza.parla;
+
+    return (
+        <div className="kiosk-presenza flex flex-col items-center">
+            <div className={`kiosk-presenza-frame relative overflow-hidden${parla ? ' kiosk-presenza-parla' : ''}`}>
+                <video ref={videoRef} autoPlay muted playsInline className="block w-full h-full" style={{ objectFit: 'cover' }} />
+
+                {/* Etichetta in basso: chi c'è e cosa succede */}
+                <div className="absolute left-0 right-0 bottom-0 flex items-center justify-between gap-3 px-5 py-3"
+                     style={{ background: 'linear-gradient(180deg, rgba(6,8,16,0), rgba(6,8,16,0.75))' }}>
+                    <div className="flex items-center gap-2 min-w-0">
+                        <span className={`w-2.5 h-2.5 rounded-full shrink-0${parla ? ' animate-pulse' : ''}`}
+                              style={{ backgroundColor: parla ? '#60a5fa' : '#22c55e' }} />
+                        <span className="truncate font-medium" style={{ fontSize: 17, color: '#f1f5f9' }}>
+                            {parla
+                                ? 'La reception ti sta parlando'
+                                : `Reception${presenza.nome ? ` · ${presenza.nome}` : ''} online`}
+                        </span>
+                    </div>
+                    {parla && (
+                        <span className="flex items-center gap-1.5 shrink-0 rounded-full px-3 py-1"
+                              style={{ fontSize: 12, color: presenza.microfonoAttivo ? '#bbf7d0' : '#fde68a',
+                                       backgroundColor: 'rgba(15,23,42,0.6)', border: '1px solid rgba(148,163,184,0.35)' }}>
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3zM19 10v2a7 7 0 01-14 0v-2M12 19v4" />
+                            </svg>
+                            {presenza.microfonoAttivo ? 'Ti sente' : 'Microfono in attivazione…'}
+                        </span>
+                    )}
+                </div>
+            </div>
+
+            {parla ? (
+                <p className="kiosk-presenza-hint mt-3 text-center" style={{ color: '#93c5fd' }}>
+                    Parla pure, la reception ti ascolta
+                </p>
+            ) : (
+                <p className="kiosk-presenza-hint mt-3 text-center" style={{ color: 'var(--color-text-muted)' }}>
+                    Benvenuto · Welcome — tocca un pulsante per iniziare
+                </p>
+            )}
+
+            {parla && presenza.audioBloccato && (
+                <div className="mt-2 rounded-lg border px-4 py-2 text-center animate-pulse"
+                     style={{ borderColor: 'rgba(245,158,11,0.5)', backgroundColor: 'rgba(245,158,11,0.10)' }}>
+                    <p className="text-sm font-medium" style={{ color: '#fbbf24' }}>🔇 Tocca lo schermo per attivare l'audio</p>
+                </div>
+            )}
+        </div>
     );
 }

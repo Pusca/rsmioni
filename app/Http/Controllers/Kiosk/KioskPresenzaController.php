@@ -10,9 +10,13 @@ use Illuminate\Http\JsonResponse;
 /**
  * Accesso del chiosco alla stanza presenza del proprio hotel.
  *
- * Sola visione (canPublish=false): il chiosco mostra la miniatura della
- * webcam del receptionist quando questi è operativo in portineria, anche in
- * attesa e durante il self check-in AI. Nessun audio, nessuna pubblicazione.
+ * Canale "sempre acceso" tra hall e portineria (docs/11):
+ *   - il chiosco RICEVE la webcam del receptionist (grande e muta in attesa)
+ *     e la sua voce solo quando il receptionist accende il microfono verso
+ *     questo chiosco (permessi di sottoscrizione lato receptionist);
+ *   - il chiosco PUBBLICA la propria webcam a bassa risoluzione (griglia live
+ *     in Portineria) e il microfono solo quando il receptionist glielo chiede
+ *     (messaggio dati "mic").
  *
  * GET /kiosk/presenza/token
  */
@@ -38,8 +42,8 @@ class KioskPresenzaController extends Controller
         $token = $this->livekit->genera(
             room:       'presenza-' . $chiosco->hotel_id,
             identity:   'presenza-kiosk-' . $chiosco->id,
-            nome:       'Chiosco',
-            canPublish: false,
+            nome:       $chiosco->nome,
+            canPublish: true,
         );
 
         return response()->json([
