@@ -18,9 +18,35 @@ L'applicativo è in due pezzi con esigenze diverse:
 ```bash
 git pull origin main
 composer install --no-dev --optimize-autoloader
-php artisan migrate --force          # oggi è un no-op: nessuna migration nuova
+php artisan migrate --force          # 2026-09-01: links_temporanei.primo_accesso_at, hotels.ai_walkin_abilitato/istruzioni_ai
 php artisan config:cache && php artisan route:cache
 ```
+
+### Primo go-live in una struttura reale (docs/11)
+
+Sequenza da eseguire UNA volta sul server, dopo il deploy:
+
+```bash
+# 1. Struttura reale (idempotente): hotel, 15 camere, chiosco — walk-in AI spento
+php artisan db:seed --class=VillaGaspariniSeeder
+
+# 2. Utenti reali: la password viene generata e stampata una volta sola
+php artisan rsmioni:crea-utente gasparini_gestore  gestore_hotel --hotel="Hotel Villa Gasparini" --email=...
+php artisan rsmioni:crea-utente gasparini_reception receptionist --hotel="Hotel Villa Gasparini" --email=...
+php artisan rsmioni:crea-utente gasparini_chiosco   chiosco       --hotel="Hotel Villa Gasparini"
+
+# 3. Via i dati demo (chiede conferma; --force per saltarla)
+php artisan rsmioni:rimuovi-demo
+php artisan cache:clear
+
+# 4. Prime prenotazioni da Slope (Prenotazioni → Elenco → Esporta → CSV)
+php artisan prenotazioni:importa-slope /percorso/export.csv --hotel="Hotel Villa Gasparini" --dry-run
+php artisan prenotazioni:importa-slope /percorso/export.csv --hotel="Hotel Villa Gasparini"
+```
+
+Da lì in avanti l'import lo fa il gestore dal bottone **Importa da Slope** in Prenotazioni.
+Il regolamento e le "Informazioni per l'assistente vocale" (Configurazioni → Hotel → Receptionist AI)
+vanno compilati dal gestore con i dati veri della struttura.
 
 **Variabili nuove nel `.env` di produzione** (poi ri-eseguire `config:cache`):
 

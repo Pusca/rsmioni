@@ -66,6 +66,13 @@ sequenza viene rifiutato con l'istruzione correttiva; errori ripetuti nella
 stessa fase fanno scattare il suggerimento di escalation al receptionist.
 Ogni azione è auditata lato Laravel su `storage/logs/ai-audit-*.log`.
 
+Dal metadata del dispatch arrivano anche (docs/11):
+- `walkin` (bool, default true) — se false l'agent usa `CHECKIN_ESISTENTE_SCRIPT`:
+  check-in SOLO su prenotazioni già presenti, niente creazione né camere in
+  vendita; Laravel rifiuta comunque `/agent/prenotazione` e `/agent/camere` (403).
+- `istruzioni_hotel` (testo) — informazioni scritte dal gestore in
+  Configurazioni → Receptionist AI, uniche fonti per le risposte dell'agent.
+
 ## Stato / Roadmap
 
 - **FASE 0/1 — fatta:** connessione, voce multilingua, handoff.
