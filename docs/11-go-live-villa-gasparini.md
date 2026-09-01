@@ -34,14 +34,14 @@ Arrivi previsti 15:30–22:00 (il chiosco serve esattamente per chi arriva dopo)
 
 ## 1. Decisioni da prendere adesso (bloccano il resto)
 
-| # | Decisione | Raccomandazione |
-|---|-----------|-----------------|
-| A | **Come consegna la chiave il chiosco?** | Key box a codice per camera (o smart lock): rsMioni ha già `codice_chiave` per camera/prenotazione e lo mostra a fine check-in. Da verificare con l'hotel cosa esiste già. |
-| B | **AI: solo prenotazioni esistenti o anche walk-in?** | Solo esistenti al go-live. Walk-in → escalation al receptionist. |
-| C | **POS al go-live?** | No. Incassi restano in Slope (VCC, Slope Pay link). Rivalutare con l'hardware reale (kiosk-agent). |
-| D | **Chi è il receptionist remoto, in che fascia (es. 22:00–08:00), e chi fa Alloggiati la mattina?** | Va nominato: senza umano dietro, l'AI non deve andare online. |
-| E | **Ponte dati con Slope** | Export CSV 2 volte al giorno dal gestore (mattina + pomeriggio prima degli arrivi) caricato in rsMioni. In parallelo, chiedere **subito** a Slope l'attivazione API. |
-| F | **Hardware chiosco** | Mini PC Windows + monitor touch 21–24" + webcam 1080p ad altezza volto + **speakerphone USB con cancellazione eco** (la voce AI dagli altoparlanti rientra nel microfono) + ethernet + piccolo UPS. Cosa c'è già in struttura? |
+| # | Decisione | Stato (1 set 2026) |
+|---|-----------|--------------------|
+| A | **Come consegna la chiave il chiosco?** | **Chiavi = tessere.** Modalità di consegna da definire a breve con l'hotel. Ipotesi tecniche: dispenser di tessere collegato al totem, oppure tessere pre-caricate in un contenitore a codice per camera (rsMioni mostra già `codice_chiave` a fine check-in). Finché non è deciso, l'AI dice all'ospite che il receptionist gli indica come ritirare la tessera. |
+| B | **AI: solo prenotazioni esistenti o anche walk-in?** | ✅ Solo esistenti (implementato, spento per Villa Gasparini). Walk-in → receptionist. |
+| C | **POS al go-live?** | ✅ No. Chiosco seedato senza POS; incassi in Slope. |
+| D | **Chi è il receptionist remoto?** | **Edoardo Mioni**, per ora. Da fissare: fascia oraria di copertura e chi fa Alloggiati la mattina. |
+| E | **Ponte dati con Slope** | ✅ Import CSV pronto. Nota: Slope **non scarica** il CSV, lo **manda via email** all'utente che clicca Esporta (asincrono). Quindi il flusso è: Esporta → mail → allegato → "Importa da Slope". Richiesta API a Slope da inviare. |
+| F | **Hardware chiosco** | **Totem.** Da verificare sul modello: webcam ad altezza volto, microfono/altoparlante con cancellazione eco (o speakerphone USB aggiunto), rete, alimentazione, sistema operativo (Windows/Android) per Chrome in kiosk mode. |
 
 ---
 
