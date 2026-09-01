@@ -1,4 +1,4 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useCallback, useRef, useState } from 'react';
 import GestoreHotelLayout from '@/Layouts/GestoreHotelLayout';
 import ReceptionistLayout from '@/Layouts/ReceptionistLayout';
@@ -53,6 +53,7 @@ function paxLabel(p: PrenotazioneRow): string {
 export default function Index({ prenotazioni, hotels, profilo, filtri, can }: Props) {
     const isGestore = profilo === 'gestore_hotel';
     const Layout    = isGestore ? GestoreHotelLayout : ReceptionistLayout;
+    const importAvvisi = (usePage().props as { flash?: { import_avvisi?: string[] } }).flash?.import_avvisi ?? [];
 
     // Finestra di visibilità calendario per il Receptionist.
     // Il backend (PrenotazioneService) applica min(giorni_visibilita_calendario) tra gli hotel
@@ -124,17 +125,31 @@ export default function Index({ prenotazioni, hotels, profilo, filtri, can }: Pr
                             {prenotazioni.total} totali
                         </span>
                     </h1>
-                    {can.create && (
-                        <Link
-                            href="/prenotazioni/create"
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium"
-                            style={{ backgroundColor: 'var(--color-parlato)', color: '#fff' }}
-                        >
-                            <PlusIcon />
-                            Nuova
-                        </Link>
-                    )}
+                    <div className="flex items-center gap-2">
+                        {isGestore && <ImportaSlopeButton hotels={hotels} />}
+                        {can.create && (
+                            <Link
+                                href="/prenotazioni/create"
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium"
+                                style={{ backgroundColor: 'var(--color-parlato)', color: '#fff' }}
+                            >
+                                <PlusIcon />
+                                Nuova
+                            </Link>
+                        )}
+                    </div>
                 </div>
+
+                {/* Avvisi dell'ultimo import Slope (flash) */}
+                {importAvvisi.length > 0 && (
+                    <div className="px-6 py-2 text-xs shrink-0"
+                         style={{ backgroundColor: 'rgba(234,179,8,0.10)', borderBottom: '1px solid rgba(234,179,8,0.3)', color: '#a16207' }}>
+                        <div className="font-medium mb-1">Da controllare dopo l'import:</div>
+                        <ul className="list-disc pl-5 space-y-0.5">
+                            {importAvvisi.map((a, i) => <li key={i}>{a}</li>)}
+                        </ul>
+                    </div>
+                )}
 
                 {/* ── Filtri ── */}
                 <div
@@ -483,6 +498,57 @@ function PlusIcon() {
     return (
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+        </svg>
+    );
+}
+
+/**
+ * Ponte Slope → rsMioni (docs/11): il gestore carica l'export CSV di
+ * «Prenotazioni → Elenco → Esporta». Con più hotel chiede prima quale.
+ */
+function ImportaSlopeButton({ hotels }: { hotels: HotelConfig[] }) {
+    const inputRef = useRef<HTMLInputElement>(null);
+    const [hotelId, setHotelId] = useState<string>(hotels.length === 1 ? hotels[0].id : '');
+    const [busy, setBusy]       = useState(false);
+
+    const onFile = (file: File | null) => {
+        if (!file) return;
+        if (hotels.length > 1 && !hotelId) return;
+        setBusy(true);
+        router.post('/prenotazioni/importa-slope', { file, hotel_id: hotelId || null }, {
+            forceFormData: true,
+            onFinish: () => { setBusy(false); if (inputRef.current) inputRef.current.value = ''; },
+        });
+    };
+
+    return (
+        <div className="flex items-center gap-2">
+            {hotels.length > 1 && (
+                <select value={hotelId} onChange={(e) => setHotelId(e.target.value)}
+                        className="text-xs px-2 py-1.5 rounded"
+                        style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}>
+                    <option value="">Hotel per l'import…</option>
+                    {hotels.map((h) => <option key={h.id} value={h.id}>{h.nome}</option>)}
+                </select>
+            )}
+            <input ref={inputRef} type="file" accept=".csv,text/csv,text/plain" className="hidden"
+                   onChange={(e) => onFile(e.target.files?.[0] ?? null)} />
+            <button type="button" disabled={busy || (hotels.length > 1 && !hotelId)}
+                    onClick={() => inputRef.current?.click()}
+                    title="Carica l'export CSV di Slope (Prenotazioni → Elenco → Esporta)"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium disabled:opacity-50"
+                    style={{ border: '1px solid var(--color-border)', color: 'var(--color-text-secondary)', backgroundColor: 'var(--color-bg-card)' }}>
+                <UploadIcon />
+                {busy ? 'Importo…' : 'Importa da Slope'}
+            </button>
+        </div>
+    );
+}
+
+function UploadIcon() {
+    return (
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" />
         </svg>
     );
 }

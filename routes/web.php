@@ -143,6 +143,10 @@ Route::middleware(['auth', 'role:gestore_hotel,receptionist'])
 */
 Route::middleware(['auth', 'role:gestore_hotel'])
     ->group(function () {
+        // Ponte Slope → rsMioni: upload dell'export CSV (docs/11)
+        Route::post('/prenotazioni/importa-slope', [\App\Http\Controllers\Prenotazioni\ImportSlopeController::class, 'store'])
+            ->name('prenotazioni.importa_slope');
+
         Route::resource('camere', CamereController::class);
     });
 

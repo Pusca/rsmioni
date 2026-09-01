@@ -84,8 +84,9 @@ class HandleInertiaRequests extends Middleware
                 'nome' => $hotelCorrente->nome,
             ] : null,
             'flash' => [
-                'success' => fn () => $request->session()->get('success'),
-                'error'   => fn () => $request->session()->get('error'),
+                'success'       => fn () => $request->session()->get('success'),
+                'error'         => fn () => $request->session()->get('error'),
+                'import_avvisi' => fn () => $request->session()->get('import_avvisi'),
             ],
         ];
     }
