@@ -196,6 +196,33 @@ class AgentCheckinController extends Controller
     }
 
     /** Posti letto effettivi di una camera (adulti+ragazzi). */
+    /**
+     * L'AI chiede l'intervento di un receptionist umano (FLOW 06): campanella
+     * e badge sulla cella del chiosco per tutti i receptionist dell'hotel. La
+     * sessione resta dell'AI finché un umano non preme "Subentra".
+     *
+     * POST /agent/handoff {motivo?}
+     */
+    public function richiediReceptionist(Request $request): JsonResponse
+    {
+        $sessione = $this->sessione($request);
+        if (! $sessione) {
+            return response()->json(['error' => 'Sessione AI non trovata o scaduta.'], 404);
+        }
+
+        $validated = $request->validate(['motivo' => ['nullable', 'string', 'max:300']]);
+        $chiosco   = Chiosco::findOrFail($sessione['chiosco_id']);
+
+        $this->portineria->segnaRichiestaAiuto($chiosco, $validated['motivo'] ?? null);
+        $this->audit('handoff.richiesta', $request, $sessione, true, ['motivo' => $validated['motivo'] ?? null]);
+
+        return response()->json([
+            'ok'         => true,
+            'istruzione' => 'Il receptionist è stato avvisato (campanella in portineria). Di\' all\'ospite che un '
+                          . 'operatore sta arrivando e resta a disposizione finché non subentra; non chiudere la sessione.',
+        ]);
+    }
+
     // ── Corrispondenza nominativi da voce ───────────────────────────────────
 
     /** "Pöplawska  Natalia" → "poplawska natalia" (solo lettere ASCII e spazi singoli). */
@@ -605,11 +632,14 @@ class AgentCheckinController extends Controller
         $q      = Prenotazione::where('hotel_id', $sessione['hotel_id']);
 
         if ($ambito === 'arrivo') {
-            // Check-in: arrivi non ancora confermati. Finestra larga (ieri → +30
-            // giorni) per RICONOSCERE la prenotazione anche se l'ospite arriva
-            // in un giorno diverso; l'aggancio automatico vale solo ieri..domani.
+            // Check-in: arrivi non ancora confermati, con soggiorno non finito.
+            // Finestra larga (−7 → +30 giorni) per RICONOSCERE la prenotazione
+            // anche se l'ospite arriva in un giorno diverso; l'aggancio
+            // automatico vale −3 → +2 giorni (arrivo in ritardo o anticipo di
+            // poco), con precedenza a oggi.
             $q->where('checkin_confermato', false)
-              ->whereBetween('check_in', [now()->subDay()->toDateString(), now()->addDays(30)->toDateString()]);
+              ->where('check_out', '>', $oggi)
+              ->whereBetween('check_in', [now()->subDays(7)->toDateString(), now()->addDays(30)->toDateString()]);
         } else {
             // Check-out: soggiorno in corso
             $q->where('check_out', '>=', $oggi)->where('check_in', '<=', $oggi);
@@ -632,10 +662,12 @@ class AgentCheckinController extends Controller
                 } elseif ($detto !== '') {
                     $punteggio = $this->somiglianzaNominativo($detto, $p);
                 }
-                return ['pren' => $p, 'punteggio' => $punteggio];
+                // Precedenza a oggi: a pari punteggio vince l'arrivo più vicino
+                $distanza = abs((int) $p->check_in->startOfDay()->diffInDays(now()->startOfDay(), false));
+                return ['pren' => $p, 'punteggio' => $punteggio, 'distanza' => $distanza];
             })
             ->filter(fn ($m) => $m['punteggio'] >= 0.8)
-            ->sortByDesc('punteggio')
+            ->sortBy([['punteggio', 'desc'], ['distanza', 'asc']])
             ->values();
 
         if ($trovate->isEmpty()) {
@@ -651,10 +683,12 @@ class AgentCheckinController extends Controller
             ], 404);
         }
 
-        // Arrivo: preferisci chi è atteso ieri..domani; le altre sono "fuori finestra"
-        $limiteFinestra = now()->addDay()->toDateString();
+        // Arrivo: agganciabili −3 → +2 giorni (già ordinate: oggi per primo); le altre sono "fuori finestra"
+        $daFinestra = now()->subDays(3)->toDateString();
+        $aFinestra  = now()->addDays(2)->toDateString();
         $inFinestra = $ambito === 'arrivo'
-            ? $trovate->filter(fn ($m) => $m['pren']->check_in->toDateString() <= $limiteFinestra)->values()
+            ? $trovate->filter(fn ($m) => $m['pren']->check_in->toDateString() >= $daFinestra
+                                        && $m['pren']->check_in->toDateString() <= $aFinestra)->values()
             : $trovate;
 
         // Ambiguità reale: più prenotazioni di persone diverse con lo stesso punteggio massimo

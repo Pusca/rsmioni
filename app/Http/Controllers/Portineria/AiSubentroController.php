@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Portineria;
 use App\Http\Controllers\Controller;
 use App\Models\Chiosco;
 use App\Services\LiveKitDispatchService;
+use App\Services\PortineriaService;
 use App\Services\WebRtcSessionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -23,6 +24,7 @@ class AiSubentroController extends Controller
     public function __construct(
         private readonly WebRtcSessionService   $sessioni,
         private readonly LiveKitDispatchService $livekit,
+        private readonly PortineriaService      $portineria,
     ) {}
 
     public function subentra(Request $request): JsonResponse
@@ -42,6 +44,7 @@ class AiSubentroController extends Controller
         }
 
         $this->sessioni->subentroUmano($sessionId, $request->user()->id);
+        $this->portineria->azzeraRichiestaAiuto($chiosco); // campanella spenta: c'è l'umano
 
         try {
             $this->livekit->rimuoviAgent($sessionId);

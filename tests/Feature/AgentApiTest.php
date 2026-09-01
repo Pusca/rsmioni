@@ -255,6 +255,45 @@ class AgentApiTest extends TestCase
         $this->agentPost('/agent/acquisizione', ['lingua' => 'it'])->assertStatus(422);
     }
 
+    public function test_cerca_aggancia_arrivi_in_ritardo_o_in_anticipo_di_poco_e_preferisce_oggi(): void
+    {
+        $ieri  = $this->prenotazioneInArrivo('Anna', 'Neri', giorni: -1);   // arrivata in ritardo, soggiorno in corso
+        $oggi  = $this->prenotazioneInArrivo('Bruno', 'Neri', giorni: 0);
+        $tra2  = $this->prenotazioneInArrivo('Carla', 'Neri', giorni: 2);   // anticipo di due giorni
+
+        // Omonimi: chiede il codice/nome
+        $this->agentPost('/agent/prenotazione/cerca', ['cognome' => 'Neri', 'ambito' => 'arrivo'])->assertStatus(409);
+
+        // Con il nome: tutte e tre agganciabili (−3 → +2)
+        foreach ([['Anna', $ieri], ['Bruno', $oggi], ['Carla', $tra2]] as [$nome, $p]) {
+            $this->agentPost('/agent/prenotazione/cerca', ['cognome' => 'Neri', 'nome' => $nome, 'ambito' => 'arrivo'])
+                ->assertOk()->assertJsonPath('prenotazione.codice', $p->codice);
+        }
+    }
+
+    public function test_handoff_avvisa_la_portineria_e_si_spegne_al_subentro(): void
+    {
+        $this->agentPost('/agent/handoff', ['motivo' => 'documento illeggibile'])
+            ->assertOk()->assertJsonStructure(['istruzione']);
+
+        $portineria = app(\App\Services\PortineriaService::class);
+        $this->assertSame('documento illeggibile', $portineria->richiestaAiuto($this->chiosco->id)['motivo']);
+        $this->assertSame('documento illeggibile', collect($portineria->chioschiConStato([$this->hotel->id]))->first()['ai_handoff']['motivo']);
+
+        // Il receptionist subentra → campanella spenta
+        $receptionist = User::create([
+            'id' => Str::uuid()->toString(), 'username' => 'rec_test', 'email' => 'rec@test.local',
+            'password' => Hash::make('password'), 'profilo' => Profilo::Receptionist, 'ip_whitelist' => [], 'attivo' => true,
+        ]);
+        $receptionist->hotels()->attach($this->hotel->id);
+
+        $this->actingAs($receptionist)
+            ->postJson('/portineria/ai/subentra', ['chiosco_id' => $this->chiosco->id])
+            ->assertOk();
+
+        $this->assertNull($portineria->richiestaAiuto($this->chiosco->id));
+    }
+
     public function test_cerca_omonimi_lo_stesso_giorno_chiede_il_codice(): void
     {
         $this->prenotazioneInArrivo('Mario', 'Rossi');

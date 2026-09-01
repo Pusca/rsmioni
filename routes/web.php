@@ -354,6 +354,7 @@ Route::middleware([\App\Http\Middleware\AgentServiceAuth::class])
         Route::post('/pagamento',           [\App\Http\Controllers\Agent\AgentCheckinController::class, 'avviaPagamento'])->name('pagamento');
         Route::post('/pagamento/stato',     [\App\Http\Controllers\Agent\AgentCheckinController::class, 'statoPagamento'])->name('pagamento.stato');
         Route::post('/termina',             [\App\Http\Controllers\Agent\AgentCheckinController::class, 'termina'])->name('termina');
+        Route::post('/handoff',             [\App\Http\Controllers\Agent\AgentCheckinController::class, 'richiediReceptionist'])->name('handoff');
     });
 
 /*

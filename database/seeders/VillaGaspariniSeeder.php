@@ -51,30 +51,38 @@ class VillaGaspariniSeeder extends Seeder
         );
 
         // ── Tipologie (da Slope → Struttura → Alloggi) ───────────────────────
+        // `prezzo` = prezzo a notte INDICATIVO per l'AI: mediana degli importi
+        // per notte dell'export Slope del 1 set 2026 (60/27/21/6 prenotazioni
+        // per tipologia). Il gestore lo corregge in Camere; il seeder non lo
+        // sovrascrive mai su camere già esistenti.
         $tipologie = [
             'Camera Economy' => [
                 'descrizione' => 'Camera doppia con letto matrimoniale, bagno privato, aria condizionata, Wi-Fi e TV.',
                 'vasca'       => false,
                 'minibar'     => false,
                 'mq'          => 14,
+                'prezzo'      => 69.00,
             ],
             'Camera standard' => [
                 'descrizione' => 'Camera doppia al piano nobile della villa, ognuna con un tema diverso. Letto matrimoniale, bagno privato, aria condizionata, minibar, Wi-Fi e TV.',
                 'vasca'       => false,
                 'minibar'     => true,
                 'mq'          => 16,
+                'prezzo'      => 89.00,
             ],
             'Camera superior con Jacuzzi' => [
                 'descrizione' => 'Camera doppia a tema con vasca idromassaggio Jacuzzi in camera. Letto matrimoniale, bagno privato, aria condizionata, minibar, Wi-Fi e TV.',
                 'vasca'       => true,
                 'minibar'     => true,
                 'mq'          => 20,
+                'prezzo'      => 99.00,
             ],
             'Junior Suite con Jacuzzi' => [
                 'descrizione' => 'Junior Suite spaziosa con vasca idromassaggio Jacuzzi, zona relax, letto matrimoniale, bagno privato, aria condizionata, minibar, Wi-Fi e TV.',
                 'vasca'       => true,
                 'minibar'     => true,
                 'mq'          => 28,
+                'prezzo'      => 110.00,
             ],
         ];
 
@@ -103,7 +111,7 @@ class VillaGaspariniSeeder extends Seeder
         foreach ($camere as $numero => [$tipo, $piano, $dove]) {
             $t = $tipologie[$tipo];
 
-            Camera::updateOrCreate(
+            $camera = Camera::updateOrCreate(
                 ['hotel_id' => $hotel->id, 'nome' => $numero],
                 [
                     'tipo'                      => $tipo,
@@ -121,10 +129,14 @@ class VillaGaspariniSeeder extends Seeder
                     'minibar_pieno'             => false,
                     'aria_condizionata'         => true,
                     'mq'                        => $t['mq'],
-                    'prezzo_notte'              => null, // i prezzi li fa Slope
                     'descrizione'               => "{$dove}. {$t['descrizione']}",
                 ],
             );
+
+            // Prezzo indicativo solo se il gestore non ne ha ancora messo uno
+            if ($camera->prezzo_notte === null) {
+                $camera->update(['prezzo_notte' => $t['prezzo']]);
+            }
         }
 
         // ── Chiosco in hall ─────────────────────────────────────────────────

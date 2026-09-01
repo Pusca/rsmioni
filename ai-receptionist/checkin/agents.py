@@ -399,9 +399,12 @@ class ReceptionistAgent(Agent):
         if not esito.ok:
             if esito.get("fuori_finestra"):
                 # Riconosciuta, ma l'arrivo è previsto un altro giorno: non si aggancia
+                coda = (" Se l'ospite vuole comunque una camera per queste notti, procedi come NUOVA "
+                        "prenotazione (persone, date, lista_camere): quella futura resta valida."
+                        if self._walkin else " NON creare una nuova prenotazione.")
                 return self._fallimento(
-                    f"{esito.errore} (prenotazione a nome {esito.get('cognome')}, arrivo {esito.get('check_in')}). "
-                    "NON creare una nuova prenotazione.")
+                    f"{esito.errore} (prenotazione a nome {esito.get('cognome')}, arrivo {esito.get('check_in')})."
+                    + coda)
             if self.stato.scopo == "checkin" and self._walkin:
                 # Nessuna prenotazione in arrivo: NON è un errore — si crea da zero
                 return ("Nessuna prenotazione esistente a questo nome: procedi con il "
@@ -487,6 +490,26 @@ class ReceptionistAgent(Agent):
                 return self._fallimento(f"Pagamento {s}. Offri UNA nuova possibilità o indirizza al receptionist.")
         await self._schermo.pagamento(importo, "ko")
         return self._fallimento("Tempo scaduto: pagamento non completato. Indirizza al receptionist.")
+
+    # ── Tool: passaggio al receptionist umano ───────────────────────────
+
+    @function_tool
+    async def richiedi_receptionist(self, context: RunContext, motivo: str) -> str:
+        """Chiama un receptionist umano: suona la campanella in portineria e
+        segnala il chiosco. Chiamalo OGNI volta che dici all'ospite che passa
+        al receptionist (prenotazione non trovata, documento illeggibile,
+        pagamento fallito, richiesta esplicita di una persona, situazione
+        fuori dal tuo processo). Poi resta in linea finché l'umano non subentra.
+
+        Args:
+            motivo: In poche parole perché serve un umano (lo legge il receptionist).
+        """
+        esito = await self._backend.richiedi_receptionist(motivo)
+        if not esito.ok:
+            return ("Non sono riuscita ad avvisare il receptionist automaticamente. Di' all'ospite "
+                    f"di rivolgersi alla reception o di attendere. ({esito.errore})")
+        logger.info("handoff richiesto: %s", motivo)
+        return esito.get("istruzione") or "Receptionist avvisato: resta a disposizione finché non subentra."
 
     # ── Tool: chiusura ──────────────────────────────────────────────────
 

@@ -94,6 +94,13 @@ html, body { height: 100%; margin: 0; padding: 0; }
 button:focus { outline: none; }
 button:focus-visible { outline: 2px solid #3b82f6; outline-offset: 2px; }
 
+/* Cella chiosco quando l'AI chiede aiuto: alone viola pulsante */
+@keyframes ai-handoff-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(167,139,250,0.0); }
+    50%      { box-shadow: 0 0 0 6px rgba(167,139,250,0.35); }
+}
+.ai-handoff-card { animation: ai-handoff-pulse 1.4s ease-in-out infinite; }
+
 /* Transizione hover card chiosco */
 .chiosco-card-hover:hover { background-color: var(--color-bg-hover); }
 

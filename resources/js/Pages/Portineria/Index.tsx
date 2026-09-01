@@ -1,13 +1,14 @@
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { Head, usePage } from '@inertiajs/react';
 import { useLiveKitCall } from '@/hooks/useLiveKitCall';
 import ReceptionistLayout from '@/Layouts/ReceptionistLayout';
 import ChioscoCard from '@/Components/Portineria/ChioscoCard';
 import AreaVideo from '@/Components/Portineria/AreaVideo';
 import MessaggioAttesaModal from '@/Components/Portineria/MessaggioAttesaModal';
-import { usePortineriaRealtime, usePortineriaPolling, StatoAggiornato } from '@/hooks/usePortineriaRealtime';
+import { usePortineriaRealtime, usePortineriaPolling, StatoAggiornato, AiHandoffEvento } from '@/hooks/usePortineriaRealtime';
 import { cambiaStato, demoSimula, demoReset } from '@/services/portineriaApi';
 import * as liveKitCall from '@/services/liveKitCall';
+import { suonaChiamata, suonaCampanellaAi } from '@/services/suoneria';
 import { ChioscoConStato, StatoChiosco, SharedProps } from '@/types';
 
 interface Props {
@@ -60,12 +61,30 @@ export default function PortineriaIndex({ chioschi: chioschiIniziali, hotel_ids,
         }
     }, [snap.activeChioscoId, selezioneId, chioschi]);
 
+    // Snapshot sincrono dei chioschi per decidere i suoni sulle TRANSIZIONI
+    // (la suoneria deve partire una volta, non a ogni evento ripetuto).
+    const chioschiRef = useRef(chioschi);
+    useEffect(() => { chioschiRef.current = chioschi; }, [chioschi]);
+
+    const opzioniSuoneria = useCallback((chioscoId: string) => {
+        const h = chioschiRef.current.find((c) => c.id === chioscoId)?.hotel;
+        return { attiva: h?.suoneria_attiva ?? true, volume: h?.volume_suoneria ?? 80 };
+    }, []);
+
     // ── Aggiornamento stato da evento realtime ────────────────────────────
     const handleStatoCambiato = useCallback((update: StatoAggiornato) => {
+        const precedente = chioschiRef.current.find((c) => c.id === update.chiosco_id)?.stato;
+
         setChioschi((prev) =>
             prev.map((c) =>
                 c.id === update.chiosco_id
-                    ? { ...c, stato: update.stato, messaggio_attesa: update.messaggio ?? c.messaggio_attesa }
+                    ? {
+                        ...c,
+                        stato: update.stato,
+                        messaggio_attesa: update.messaggio ?? c.messaggio_attesa,
+                        // sessione finita → la richiesta di aiuto dell'AI decade
+                        ai_handoff: ['idle', 'offline'].includes(update.stato) ? null : c.ai_handoff,
+                    }
                     : c,
             ),
         );
@@ -75,13 +94,33 @@ export default function PortineriaIndex({ chioschi: chioschiIniziali, hotel_ids,
         // Non sovrascrive una selezione già attiva — il receptionist gestisce la situazione.
         if (update.stato === 'in_chiamata') {
             setSelezioneId((prev) => prev ?? update.chiosco_id);
+            if (precedente !== 'in_chiamata') suonaChiamata(opzioniSuoneria(update.chiosco_id));
         }
-    }, []);
+    }, [opzioniSuoneria]);
+
+    // ── L'AI chiede un receptionist: campanella + badge sulla cella ───────
+    const handleAiHandoff = useCallback((e: AiHandoffEvento) => {
+        const giaAttivo = !!chioschiRef.current.find((c) => c.id === e.chiosco_id)?.ai_handoff;
+
+        setChioschi((prev) =>
+            prev.map((c) =>
+                c.id === e.chiosco_id
+                    ? { ...c, ai_handoff: e.attivo ? { motivo: e.motivo, at: e.at } : null }
+                    : c,
+            ),
+        );
+
+        if (e.attivo) {
+            setSelezioneId((prev) => prev ?? e.chiosco_id);
+            if (!giaAttivo) suonaCampanellaAi(opzioniSuoneria(e.chiosco_id));
+        }
+    }, [opzioniSuoneria]);
 
     // ── Realtime (Reverb) ─────────────────────────────────────────────────
     const { realtimeAttivo } = usePortineriaRealtime({
         hotelIds:        hotel_ids,
         onStatoCambiato: handleStatoCambiato,
+        onAiHandoff:     handleAiHandoff,
     });
 
     // ── Polling fallback (se Reverb non è attivo) ─────────────────────────
@@ -147,6 +186,7 @@ export default function PortineriaIndex({ chioschi: chioschiIniziali, hotel_ids,
     // ── Conteggio badge header ────────────────────────────────────────────
     const chioschiAttivi   = chioschi.filter((c) => !['offline', 'idle'].includes(c.stato)).length;
     const chioschiChiamata = chioschi.filter((c) => c.stato === 'in_chiamata').length;
+    const chioschiAiuto    = chioschi.filter((c) => c.ai_handoff);
 
     // Limite sessioni concorrenti: minimo tra gli hotel presenti (coerente con il backend).
     // 0 = nessun limite configurato.
@@ -180,6 +220,12 @@ export default function PortineriaIndex({ chioschi: chioschiIniziali, hotel_ids,
                     {chioschiChiamata > 0 && (
                         <span className="animate-blink font-semibold" style={{ color: '#ef4444' }}>
                             ⚡ {chioschiChiamata} chiamata{chioschiChiamata > 1 ? 'e' : ''} in arrivo
+                        </span>
+                    )}
+                    {chioschiAiuto.length > 0 && (
+                        <span className="animate-blink font-semibold" style={{ color: '#c4b5fd' }}
+                              title={chioschiAiuto.map((c) => `${c.nome}${c.ai_handoff?.motivo ? `: ${c.ai_handoff.motivo}` : ''}`).join(' · ')}>
+                            🔔 L'AI chiede aiuto su {chioschiAiuto.map((c) => c.nome).join(', ')} — premi Subentra
                         </span>
                     )}
                     {chioschiAttivi > 0 && chioschiChiamata === 0 && (

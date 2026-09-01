@@ -93,14 +93,16 @@ export default function ChioscoCard({ chiosco, isSelezionato, puoInteragire, onC
         : borderColorForStato(chiosco.stato);
 
     const isAttivo = !['offline', 'idle'].includes(chiosco.stato);
+    const aiuto    = chiosco.ai_handoff ?? null;
 
     return (
         <button
             onClick={onClick}
-            className="w-full text-left rounded-lg border transition-all"
+            className={`w-full text-left rounded-lg border transition-all${aiuto ? ' ai-handoff-card' : ''}`}
+            title={aiuto ? `L'assistente AI chiede un receptionist${aiuto.motivo ? `: ${aiuto.motivo}` : ''}` : undefined}
             style={{
                 backgroundColor: isSelezionato ? 'var(--color-bg-hover)' : 'var(--color-bg-card)',
-                borderColor,
+                borderColor: aiuto ? '#a78bfa' : borderColor,
                 borderWidth:    isSelezionato || isAttivo ? '2px' : '1px',
                 padding:        '10px',
                 outline:        'none',
@@ -137,6 +139,19 @@ export default function ChioscoCard({ chiosco, isSelezionato, puoInteragire, onC
                     <div className="absolute top-1.5 left-1.5 flex items-center gap-1 rounded px-1.5 py-0.5 animate-blink"
                          style={{ backgroundColor: 'rgba(245,158,11,0.95)', color: '#1a1d2b', fontSize: '9px', fontWeight: 700, letterSpacing: '0.03em' }}>
                         IN ATTESA
+                    </div>
+                )}
+
+                {/* Campanella: l'AI chiede un umano → Subentra */}
+                {aiuto && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-1"
+                         style={{ backgroundColor: 'rgba(139,92,246,0.22)' }}>
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#c4b5fd" strokeWidth="2" className="animate-blink">
+                            <path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" />
+                        </svg>
+                        <span className="animate-blink" style={{ fontSize: '9px', color: '#e9d5ff', fontWeight: 700, letterSpacing: '0.04em' }}>
+                            L'AI CHIEDE AIUTO
+                        </span>
                     </div>
                 )}
             </div>

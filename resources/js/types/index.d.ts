@@ -77,10 +77,18 @@ export interface UltimaPresenza {
 }
 
 /** Chiosco arricchito con stato runtime (usato in Portineria) */
+/** Richiesta di aiuto del receptionist AI (campanella in Portineria) */
+export interface AiHandoff {
+    motivo: string | null;
+    at: string;
+}
+
 export interface ChioscoConStato extends Chiosco {
     stato: StatoChiosco;
     messaggio_attesa: string | null;
     ultima_presenza: UltimaPresenza | null;
+    ai_handoff?: AiHandoff | null;
+    hotel?: Hotel & { suoneria_attiva?: boolean; volume_suoneria?: number };
 }
 
 export interface Utente {

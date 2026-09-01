@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\Profilo;
 use App\Enums\StatoChiosco;
+use App\Events\AiHandoffRichiesto;
 use App\Events\ChioscoStatoCambiato;
 use App\Models\Chiosco;
 use App\Models\Hotel;
@@ -51,6 +52,36 @@ class PortineriaService
         return Cache::get($this->keyMessaggio($chioscoId));
     }
 
+    // ── Richiesta di aiuto dell'AI (campanella in Portineria) ─────────────
+
+    /** @return array{motivo: ?string, at: string}|null */
+    public function richiestaAiuto(string $chioscoId): ?array
+    {
+        return Cache::get($this->keyAiuto($chioscoId));
+    }
+
+    /** L'AI chiede un umano: memorizza (TTL 15 min) e suona la campanella a tutti i receptionist. */
+    public function segnaRichiestaAiuto(Chiosco $chiosco, ?string $motivo): void
+    {
+        Cache::put($this->keyAiuto($chiosco->id), ['motivo' => $motivo, 'at' => now()->toIso8601String()], 900);
+        try {
+            broadcast(new AiHandoffRichiesto($chiosco, true, $motivo));
+        } catch (\Throwable) {
+        }
+    }
+
+    /** Richiesta chiusa (subentro umano o fine sessione): spegne la campanella. */
+    public function azzeraRichiestaAiuto(Chiosco $chiosco): void
+    {
+        if (! Cache::pull($this->keyAiuto($chiosco->id))) {
+            return;
+        }
+        try {
+            broadcast(new AiHandoffRichiesto($chiosco, false));
+        } catch (\Throwable) {
+        }
+    }
+
     /**
      * Carica tutti i chioschi arricchiti con stato runtime.
      * @param  string[]  $hotelIds
@@ -60,7 +91,7 @@ class PortineriaService
     {
         $chioschi = Chiosco::whereIn('hotel_id', $hotelIds)
             ->where('attivo', true)
-            ->with('hotel:id,nome,chioschi_concorrenti_max')
+            ->with('hotel:id,nome,chioschi_concorrenti_max,suoneria_attiva,volume_suoneria')
             ->orderBy('hotel_id')
             ->orderBy('nome')
             ->get();
@@ -73,6 +104,7 @@ class PortineriaService
                 ...$c->toArray(),
                 'stato'            => $this->statoChiosco($c->id)->value,
                 'messaggio_attesa' => $this->messaggioAttesa($c->id),
+                'ai_handoff'       => $this->richiestaAiuto($c->id),
                 'ultima_presenza'  => $presenza['online']
                     ? ['online' => true,  'secondi_fa' => $presenza['secondi_fa']]
                     : ['online' => false, 'secondi_fa' => null],
@@ -153,6 +185,7 @@ class PortineriaService
             Cache::put($this->keyMessaggio($chiosco->id), $messaggio, self::TTL_MESSAGGIO);
         } elseif ($stato === StatoChiosco::Idle || $stato === StatoChiosco::Offline) {
             Cache::forget($this->keyMessaggio($chiosco->id));
+            $this->azzeraRichiestaAiuto($chiosco); // sessione finita: campanella spenta
         }
 
         try {
@@ -225,5 +258,10 @@ class PortineriaService
     private function keyMessaggio(string $chioscoId): string
     {
         return "kiosk_messaggio:{$chioscoId}";
+    }
+
+    private function keyAiuto(string $chioscoId): string
+    {
+        return "kiosk_ai_handoff:{$chioscoId}";
     }
 }

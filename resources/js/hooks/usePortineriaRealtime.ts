@@ -8,10 +8,19 @@ export interface StatoAggiornato {
     messaggio:    string | null;
 }
 
+/** Evento `.ai.handoff`: il receptionist AI chiede (o smette di chiedere) un umano. */
+export interface AiHandoffEvento {
+    chiosco_id:   string;
+    chiosco_nome: string;
+    attivo:       boolean;
+    motivo:       string | null;
+    at:           string;
+}
+
 // Tipo minimo per i canali Echo che usiamo — evita dipendenza dal tipo
 // generico di Echo<'reverb'> che non espone i metodi in modo diretto.
 interface EchoChannel {
-    listen(event: string, callback: (data: StatoAggiornato) => void): this;
+    listen<T>(event: string, callback: (data: T) => void): this;
     subscribed(callback: () => void): this;
     error(callback: (error: unknown) => void): this;
 }
@@ -19,6 +28,7 @@ interface EchoChannel {
 interface Options {
     hotelIds:        string[];
     onStatoCambiato: (update: StatoAggiornato) => void;
+    onAiHandoff?:    (evento: AiHandoffEvento) => void;
 }
 
 /**
@@ -26,12 +36,14 @@ interface Options {
  * Se Echo non è disponibile o la connessione fallisce, segnala realtimeAttivo=false
  * così il chiamante può attivare il polling fallback.
  */
-export function usePortineriaRealtime({ hotelIds, onStatoCambiato }: Options): {
+export function usePortineriaRealtime({ hotelIds, onStatoCambiato, onAiHandoff }: Options): {
     realtimeAttivo: boolean;
 } {
     const [realtimeAttivo, setRealtimeAttivo] = useState(false);
     const callbackRef = useRef(onStatoCambiato);
     callbackRef.current = onStatoCambiato;
+    const handoffRef = useRef(onAiHandoff);
+    handoffRef.current = onAiHandoff;
 
     useEffect(() => {
         if (typeof window === 'undefined' || !window.Echo || hotelIds.length === 0) {
@@ -45,8 +57,12 @@ export function usePortineriaRealtime({ hotelIds, onStatoCambiato }: Options): {
             try {
                 const ch = window.Echo.private(`portineria.${hotelId}`) as unknown as EchoChannel;
 
-                ch.listen('.chiosco.stato_cambiato', (e: StatoAggiornato) => {
+                ch.listen<StatoAggiornato>('.chiosco.stato_cambiato', (e) => {
                     callbackRef.current(e);
+                });
+
+                ch.listen<AiHandoffEvento>('.ai.handoff', (e) => {
+                    handoffRef.current?.(e);
                 });
 
                 ch.subscribed(() => {

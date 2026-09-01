@@ -94,6 +94,9 @@ class BackendRsmioni:
         campi = {k: v for k, v in {"cognome": cognome, "nome": nome, "codice": codice, "ambito": ambito}.items() if v}
         return await self._post("/agent/prenotazione/cerca", campi)
 
+    async def richiedi_receptionist(self, motivo: str | None) -> EsitoApi:
+        return await self._post("/agent/handoff", {"motivo": motivo} if motivo else {})
+
     async def avvia_pagamento(self) -> EsitoApi:
         return await self._post("/agent/pagamento")
 
