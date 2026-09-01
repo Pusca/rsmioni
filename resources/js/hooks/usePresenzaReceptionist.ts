@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Room, RoomEvent, Track, VideoPresets, type RemoteTrack, type RemoteParticipant } from 'livekit-client';
+import { DisconnectReason, Room, RoomEvent, Track, VideoPresets, type RemoteTrack, type RemoteParticipant } from 'livekit-client';
 
 /**
  * Presenza del receptionist sul chiosco (docs/11 — canale sempre acceso).
@@ -33,6 +33,8 @@ interface Result {
     microfonoAttivo:  boolean;
     /** Il browser ha bloccato la riproduzione audio finché l'ospite non tocca lo schermo. */
     audioBloccato:    boolean;
+    /** Stessa identità chiosco connessa altrove: qui la presenza si è fermata. */
+    duplicato:        boolean;
 }
 
 export function usePresenzaReceptionist(pubblicaCamera: boolean): Result {
@@ -41,6 +43,7 @@ export function usePresenzaReceptionist(pubblicaCamera: boolean): Result {
     const [parla, setParla]       = useState(false);
     const [mic, setMic]           = useState(false);
     const [bloccato, setBloccato] = useState(false);
+    const [duplicato, setDuplicato] = useState(false);
     const roomRef  = useRef<Room | null>(null);
     const audioRef = useRef<HTMLMediaElement[]>([]);
 
@@ -120,12 +123,17 @@ export function usePresenzaReceptionist(pubblicaCamera: boolean): Result {
                             }
                         } catch { /* messaggio non nostro */ }
                     })
-                    .on(RoomEvent.Disconnected, () => {
+                    .on(RoomEvent.Disconnected, (reason?: DisconnectReason) => {
                         roomRef.current = null;
-                        if (!cancelled) {
-                            setTrack(null); setNome(null); setParla(false); setMic(false);
-                            retryTimer = setTimeout(connect, RETRY_MS);
+                        if (cancelled) return;
+                        setTrack(null); setNome(null); setParla(false); setMic(false);
+                        if (reason === DisconnectReason.DUPLICATE_IDENTITY) {
+                            // Un altro dispositivo ha aperto questo chiosco: non
+                            // riconnettersi, o ci si scalcia a vicenda all'infinito.
+                            setDuplicato(true);
+                            return;
                         }
+                        retryTimer = setTimeout(connect, RETRY_MS);
                     });
 
                 await room.connect(cred.url, cred.token);
@@ -151,5 +159,5 @@ export function usePresenzaReceptionist(pubblicaCamera: boolean): Result {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    return { track, online: track !== null, nome, parla, microfonoAttivo: mic, audioBloccato: bloccato };
+    return { track, online: track !== null, nome, parla, microfonoAttivo: mic, audioBloccato: bloccato, duplicato };
 }

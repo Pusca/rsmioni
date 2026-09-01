@@ -144,6 +144,15 @@ async def entrypoint(ctx: agents.JobContext) -> None:
         ),
     )
 
+    # Sessione chiusa (ospite/chiosco scollegato, close_on_disconnect): il job
+    # deve terminare SUBITO così la shutdown callback chiude la sessione lato
+    # Laravel e il chiosco torna idle. Senza, il processo restava vivo e il
+    # chiosco appeso in "in_parlato" senza nessun agent in stanza.
+    @session.on("close")
+    def _on_session_close(ev) -> None:
+        logger.info("sessione agent chiusa (%s): shutdown del job", getattr(ev, "reason", "?"))
+        ctx.shutdown(reason="sessione_chiusa")
+
     # Guasto non recuperabile della pipeline voce (es. TTS senza credito):
     # meglio chiudere subito la sessione che lasciare l'ospite davanti a un
     # assistente muto. La shutdown callback riporta il chiosco a idle.

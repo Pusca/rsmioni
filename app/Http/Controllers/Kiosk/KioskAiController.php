@@ -51,15 +51,23 @@ class KioskAiController extends Controller
         // covert (o una sessione rimasta appesa) non deve bloccare l'ospite.
         // La vecchia sessione viene chiusa; la Portineria si riaggancia da
         // sola in osservazione sulla nuova sessione AI (recoverCalls).
-        $stato = $this->portineria->statoChiosco($chiosco->id);
-        if (! in_array($stato, [StatoChiosco::Idle, StatoChiosco::Offline, StatoChiosco::InNascosto], true)) {
+        $stato           = $this->portineria->statoChiosco($chiosco->id);
+        $vecchiaSessione = $this->sessioni->sessioneAttivaPerChiosco($chiosco->id);
+        $vecchiaAi       = $vecchiaSessione
+            && (($this->sessioni->trova($vecchiaSessione)['gestita_da'] ?? 'umano') === 'ai');
+
+        // Consentito anche da in_parlato SE la sessione appesa è dell'AI: un
+        // agent caduto (o un chiosco scollegato) non deve lasciare il chiosco
+        // bloccato con i bottoni che rispondono "già impegnato". Se invece il
+        // parlato è di un receptionist umano, resta il rifiuto.
+        $ripartenzaAi = $stato === StatoChiosco::InParlato && $vecchiaAi;
+
+        if (! $ripartenzaAi && ! in_array($stato, [StatoChiosco::Idle, StatoChiosco::Offline, StatoChiosco::InNascosto], true)) {
             return response()->json([
                 'error'   => 'Il chiosco è già impegnato in un collegamento.',
                 'attuale' => $stato->value,
             ], 422);
         }
-
-        $vecchiaSessione = $this->sessioni->sessioneAttivaPerChiosco($chiosco->id);
         if ($vecchiaSessione) {
             $this->sessioni->chiudi($vecchiaSessione);
         }

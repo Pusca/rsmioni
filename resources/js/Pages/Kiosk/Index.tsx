@@ -30,6 +30,37 @@ interface Props {
 }
 
 /**
+ * Lo stesso account chiosco è stato aperto su un altro dispositivo/tab: LiveKit
+ * ammette UNA connessione per identità e l'ultima arrivata vince. Invece di
+ * riconnettersi a ripetizione (e far saltare la schermata ogni 2 secondi su
+ * entrambi), questo dispositivo si ferma e lascia scegliere.
+ */
+function DuplicatoScreen({ chiosco }: { chiosco: Chiosco }) {
+    return (
+        <div className="w-full h-full flex flex-col items-center justify-center text-center px-8">
+            <div className="rounded-full flex items-center justify-center mb-6"
+                 style={{ width: 84, height: 84, backgroundColor: 'rgba(245,158,11,0.10)', border: '2px solid rgba(245,158,11,0.5)' }}>
+                <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" strokeWidth="1.6">
+                    <rect x="2" y="4" width="13" height="10" rx="2" /><rect x="9" y="10" width="13" height="10" rx="2" />
+                </svg>
+            </div>
+            <h1 className="kiosk-title font-light mb-2" style={{ color: 'var(--color-text-primary)' }}>
+                «{chiosco.nome}» è aperto su un altro dispositivo
+            </h1>
+            <p className="max-w-xl" style={{ fontSize: 16, color: 'var(--color-text-muted)', lineHeight: 1.55 }}>
+                Ogni chiosco può essere attivo su un solo schermo alla volta. Chiudi l'altra finestra,
+                oppure prendi il controllo da qui: l'altro dispositivo si fermerà.
+            </p>
+            <button onClick={() => window.location.reload()}
+                    className="mt-8 rounded-xl px-8 py-4 font-semibold active:scale-95 transition-transform"
+                    style={{ fontSize: 17, backgroundColor: 'var(--color-parlato)', color: '#fff', minHeight: 56 }}>
+                Usa questo dispositivo
+            </button>
+        </div>
+    );
+}
+
+/**
  * Schermata Kiosk — profilo CHIOSCO, fullscreen.
  *
  * Routing visivo basato su stato Portineria:
@@ -150,8 +181,10 @@ export default function KioskIndex({ chiosco, stato_iniziale, messaggio_attesa: 
                 già grande (attesa) né a schermo pieno (chiaro/parlato) */}
             {mostraPresenzaBadge && presenza.track && <PresenzaBadge track={presenza.track} />}
 
-            {/* Pagamento POS remoto — priorità massima, non interrompe video attivi */}
-            {pagamento && ! inParlato && ! inChiaro ? (
+            {/* Chiosco aperto su un altro dispositivo: qui ci fermiamo (niente scalci reciproci) */}
+            {(lk.duplicato || presenza.duplicato) ? (
+                <DuplicatoScreen chiosco={chiosco} />
+            ) : pagamento && ! inParlato && ! inChiaro ? (
                 <PagamentoPOSScreen
                     chiosco={chiosco}
                     importo={pagamento.importo}

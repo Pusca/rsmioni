@@ -1,11 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 import {
+    DisconnectReason,
     Room,
     RoomEvent,
     Track,
     type RemoteTrack,
 } from 'livekit-client';
 import type { ErroreMedia, StatoMediaChiosco, TipoMedia } from '@/types/media';
+import { terminaSessioneAi } from '@/services/kioskApi';
+
+/** Dopo quanti secondi senza agent in stanza una sessione AI è considerata orfana. */
+const AI_ORFANA_MS = 40_000;
 
 /**
  * Livello media LiveKit lato chiosco — chiaro / nascosto / parlato.
@@ -75,6 +80,8 @@ interface Result {
     remoteAudioTrack:   MediaStreamTrack | null; // audio del remoto (voce AI) per visualizzazioni reattive
     localCameraTrack:   MediaStreamTrack | null; // webcam già pubblicata: riusabile dove la camera è occupata (mobile)
     audioBloccato:      boolean; // autoplay negato dal browser: serve un tocco per sentire l'audio
+    /** Questo chiosco è aperto su un altro dispositivo con la stessa identità: qui ci siamo fermati. */
+    duplicato:          boolean;
 }
 
 interface TokenResp {
@@ -115,11 +122,33 @@ export function useLiveKitChiosco(): Result {
     const [remoteAudioTrack, setRemoteAudioTrack] = useState<MediaStreamTrack | null>(null);
     const [localCameraTrack, setLocalCameraTrack] = useState<MediaStreamTrack | null>(null);
     const [audioBloccato, setAudioBloccato] = useState(false);
+    const [duplicato, setDuplicato] = useState(false);
+    const duplicatoRef = useRef(false);
+    const gestitaRef   = useRef<'umano' | 'ai' | null>(null);
 
     useEffect(() => {
         let cancelled = false;
+        let orfanaTimer: ReturnType<typeof setTimeout> | null = null;
+
+        // Sessione AI orfana: se nella stanza non c'è (più) nessun agent per
+        // AI_ORFANA_MS, la sessione lato server viene chiusa dal chiosco stesso
+        // così lo stato torna idle e i bottoni tornano a funzionare. Senza
+        // questo, un agent caduto lasciava il chiosco appeso in "in_parlato".
+        const haAgent = (room: Room) =>
+            Array.from(room.remoteParticipants.values()).some((p) =>
+                p.identity.startsWith('agent-') || String((p as unknown as { kind?: unknown }).kind) === '4' /* ParticipantKind.AGENT */);
+        const controllaOrfana = (room: Room, gestita: string | null) => {
+            if (orfanaTimer) { clearTimeout(orfanaTimer); orfanaTimer = null; }
+            if (gestita !== 'ai' || haAgent(room)) return;
+            orfanaTimer = setTimeout(async () => {
+                if (cancelled || roomRef.current !== room || haAgent(room)) return;
+                console.warn('[LiveKit-K] sessione AI senza agent: la chiudo');
+                await terminaSessioneAi();
+            }, AI_ORFANA_MS);
+        };
 
         const disconnect = () => {
+            if (orfanaTimer) { clearTimeout(orfanaTimer); orfanaTimer = null; }
             if (roomRef.current) {
                 try { roomRef.current.disconnect(); } catch { /* ignore */ }
                 roomRef.current = null;
@@ -194,7 +223,19 @@ export function useLiveKitChiosco(): Result {
                         }
                     } catch { /* ignora messaggi non riconosciuti */ }
                 })
-                .on(RoomEvent.Disconnected, () => { if (!cancelled) disconnect(); });
+                .on(RoomEvent.ParticipantConnected,    () => controllaOrfana(room, gestitaRef.current))
+                .on(RoomEvent.ParticipantDisconnected, () => controllaOrfana(room, gestitaRef.current))
+                .on(RoomEvent.Disconnected, (reason?: DisconnectReason) => {
+                    if (cancelled) return;
+                    // Stessa identità connessa da un altro dispositivo: LiveKit ci ha
+                    // buttati fuori. NON riconnettersi (altrimenti ci si scalcia a
+                    // vicenda ogni 2 secondi): ci fermiamo e lo diciamo a schermo.
+                    if (reason === DisconnectReason.DUPLICATE_IDENTITY) {
+                        duplicatoRef.current = true;
+                        setDuplicato(true);
+                    }
+                    disconnect();
+                });
 
             // Autoplay: senza un gesto utente "fresco" il browser (soprattutto
             // mobile) blocca la riproduzione audio in silenzio. startAudio()
@@ -234,6 +275,7 @@ export function useLiveKitChiosco(): Result {
                 room.remoteParticipants.forEach((p) => {
                     p.trackPublications.forEach((tp) => { if (tp.track) attachRemote(tp.track as RemoteTrack); });
                 });
+                controllaOrfana(room, gestitaRef.current);
             } catch (err) {
                 if (cancelled) return;
                 console.error('[LiveKit-K] connessione fallita', err);
@@ -244,7 +286,7 @@ export function useLiveKitChiosco(): Result {
         };
 
         const poll = async () => {
-            if (cancelled) return;
+            if (cancelled || duplicatoRef.current) return; // fermi: il chiosco è altrove
             const resp = await fetchToken();
             if (cancelled || !resp) return;
 
@@ -262,7 +304,10 @@ export function useLiveKitChiosco(): Result {
 
             // gestita_da può cambiare a sessione invariata (subentro del
             // receptionist sull'AI): sincronizza a ogni poll.
-            setGestitaDa(resp.gestita_da === 'ai' ? 'ai' : 'umano');
+            const gestita = resp.gestita_da === 'ai' ? 'ai' : 'umano';
+            gestitaRef.current = gestita;
+            setGestitaDa(gestita);
+            if (roomRef.current && sid === connectedRef.current) controllaOrfana(roomRef.current, gestita);
 
             // Nuova sessione da connettere (o cambio di sessione)
             if (sid !== connectedRef.current) {
@@ -281,5 +326,5 @@ export function useLiveKitChiosco(): Result {
         };
     }, []);
 
-    return { sessionTipo, gestitaDa, localVideoRef, remoteVideoRef, stato, errore, condivisioneAttiva, grigliaDoc, inAttesa, messaggioAttesa, aiUi, remoteAudioTrack, localCameraTrack, audioBloccato };
+    return { sessionTipo, gestitaDa, localVideoRef, remoteVideoRef, stato, errore, condivisioneAttiva, grigliaDoc, inAttesa, messaggioAttesa, aiUi, remoteAudioTrack, localCameraTrack, audioBloccato, duplicato };
 }
