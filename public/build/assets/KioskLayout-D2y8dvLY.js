@@ -1,0 +1,1 @@
+import{t as e}from"./app-BAzRoCOm.js";var t=e();function n({children:e}){return(0,t.jsx)(`div`,{className:`w-screen kiosk-root overflow-hidden relative select-none`,style:{backgroundColor:`var(--color-bg-primary)`,color:`var(--color-text-primary)`},children:e})}export{n as t};

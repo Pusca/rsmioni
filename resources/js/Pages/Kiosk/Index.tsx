@@ -104,7 +104,9 @@ export default function KioskIndex({ chiosco, stato_iniziale, messaggio_attesa: 
     // ── Presenza receptionist: canale sempre acceso ─────────────────────────
     // La camera del chiosco va in stanza presenza (griglia live in Portineria)
     // solo quando NON è già impegnata in una sessione media (chiaro/parlato/AI).
-    const sessioneMediaAttiva = inAi || inParlato || inChiaro || lk.stato === 'connected';
+    // 'connecting' incluso: la presenza rilascia la webcam PRIMA che la sessione la chieda
+    const sessioneMediaAttiva = inAi || inParlato || inChiaro || lk.stato === 'connected' || lk.stato === 'connecting'
+        || (lk.sessionTipo !== null && lk.stato !== 'error');
     const presenza = usePresenzaReceptionist(! sessioneMediaAttiva);
 
     // In attesa il receptionist è grande al centro (AttesoScreen); la miniatura

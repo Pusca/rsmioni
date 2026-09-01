@@ -99,6 +99,21 @@ interface TokenResp {
     gestita_da?: string | null;
 }
 
+/** Riprova un'operazione media (webcam/microfono occupati per un istante) prima di arrendersi. */
+async function conRitenti<T>(fn: () => Promise<T>, cosa: string, tentativi = 4, pausaMs = 1200): Promise<T> {
+    let ultimo: unknown;
+    for (let i = 0; i < tentativi; i++) {
+        try {
+            return await fn();
+        } catch (e) {
+            ultimo = e;
+            console.warn(`[LiveKit-K] ${cosa} non disponibile (tentativo ${i + 1}/${tentativi})`, e);
+            await new Promise((r) => setTimeout(r, pausaMs));
+        }
+    }
+    throw ultimo;
+}
+
 async function fetchToken(): Promise<TokenResp | null> {
     try {
         const res = await fetch('/kiosk/livekit/token', {
@@ -282,9 +297,13 @@ export function useLiveKitChiosco(): Result {
 
                 // Il chiosco pubblica sempre la webcam (anche in nascosto);
                 // nel parlato aggiunge anche il microfono.
-                await room.localParticipant.setCameraEnabled(true);
+                // La webcam può essere ancora impegnata dalla stanza presenza
+                // (che la rilascia appena la sessione parte): su Windows la
+                // seconda apertura fallisce con NotReadableError → si riprova
+                // qualche volta invece di far fallire tutta la connessione.
+                await conRitenti(() => room.localParticipant.setCameraEnabled(true), 'webcam');
                 if (tipo === 'parlato') {
-                    await room.localParticipant.setMicrophoneEnabled(true);
+                    await conRitenti(() => room.localParticipant.setMicrophoneEnabled(true), 'microfono');
                 }
                 const pub = room.localParticipant.getTrackPublication(Track.Source.Camera);
                 if (pub?.track && localVideoRef.current) pub.track.attach(localVideoRef.current);
