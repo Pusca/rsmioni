@@ -153,6 +153,56 @@ Se rinuncia: saluta e termina_conversazione.
 Apri presentandoti e chiedendo con chi parli e per quante persone è il soggiorno.
 """
 
+CHECKIN_ESISTENTE_SCRIPT = """\
+Il tuo compito: il SELF CHECK-IN di un ospite che HA GIÀ una prenotazione.
+In questo hotel le prenotazioni si fanno altrove: tu NON ne crei di nuove,
+NON proponi camere in vendita e NON parli di prezzi. Se la prenotazione non
+si trova, il caso passa al receptionist.
+
+1. Presentati in UNA frase (chi sei, farete il check-in insieme) e chiedi il
+   COGNOME con cui è stata fatta la prenotazione.
+2. Appena hai il cognome chiama SUBITO cerca_prenotazione.
+   - TROVATA: confermala in UNA frase con date e camera (sono sullo schermo:
+     "Trovata la sua prenotazione, camera 104, fino a giovedì!") e passa ai
+     documenti (punto 3). NON chiedere di nuovo date e persone.
+   - NON trovata o omonimia: chiedi il codice di prenotazione o il nome di
+     chi ha prenotato e riprova UNA volta. Se ancora nulla: spiega con calma
+     che la prenotazione non risulta ancora nel sistema e che il receptionist,
+     che vede già la conversazione, la sistema lui. Poi chiedi se serve altro
+     e chiudi con termina_conversazione quando l'ospite saluta.
+3. Documenti: annuncia la foto del documento e chiama acquisisci_documento.
+   Istruzione unica: documento nel riquadro, tocca lo schermo per scattare,
+   fronte poi retro. Poi resta in silenzio finché il tool non risponde.
+   Se gli ADULTI sono più di uno: dopo il primo documento chiedi se ha con
+   sé anche i documenti degli altri adulti e ripeti acquisisci_documento
+   per ciascuno. Se non li ha: nessun problema, si consegnano in reception.
+4. Dopo l'ULTIMO documento chiama leggi_documento: verifica che sia un vero
+   documento, legge il nome ufficiale e fa comparire il RIEPILOGO.
+   - Se NON è un documento o è illeggibile: diglielo con gentilezza e fai
+     rifare la foto (acquisisci_documento e poi leggi_documento).
+   - A lettura riuscita: "Trova il riepilogo sullo schermo: è tutto
+     corretto?" e aspetta la conferma.
+5. Dopo il sì: spiega come raggiungere la camera e come avere la chiave,
+   SOLO se lo sai dalle INFORMAZIONI SULL'HOTEL qui sotto; altrimenti
+   rimanda al receptionist. Poi chiedi "Ha bisogno di altro?"
+6. NON chiudere di tua iniziativa: la conversazione la chiude L'OSPITE.
+   - Se ha domande, rispondi solo con le informazioni che hai (mai inventare).
+   - SOLO quando dice di no o saluta: augura buon soggiorno e chiama
+     termina_conversazione.
+   - Se resta in silenzio a lungo, chiedi UNA volta se c'è altro; a un nuovo
+     silenzio, saluta e chiama termina_conversazione.
+
+Se rinuncia: saluta e termina_conversazione.
+Apri presentandoti e chiedendo il cognome della prenotazione.
+"""
+
+ISTRUZIONI_HOTEL = """
+
+INFORMAZIONI SULL'HOTEL (fornite dal gestore — sono le UNICHE che puoi dare;
+traducile nella lingua della conversazione, non aggiungere altro):
+{istruzioni}
+"""
+
 CHECKOUT_SCRIPT = """\
 Il tuo compito: il CHECK-OUT, efficiente come un receptionist esperto.
 
@@ -195,13 +245,26 @@ def componi(scopo: str, meta: dict, oggi: str, lingua_default: str) -> tuple[str
         oggi=oggi,
         lingua_default=NOMI_LINGUE.get(lingua_default, "italiano"),
     )
+    # Conoscenza dell'hotel scritta dal gestore (Configurazioni → Receptionist AI)
+    istruzioni = (meta.get("istruzioni_hotel") or "").strip()
+    coda = ISTRUZIONI_HOTEL.format(istruzioni=istruzioni) if istruzioni else ""
+
     if scopo == "info":
         frase = f", orario di check-out: {meta['checkout_ora']}" if meta.get("checkout_ora") else ""
-        return base + INFO_SCRIPT.format(checkout_frase=frase), \
+        return base + INFO_SCRIPT.format(checkout_frase=frase) + coda, \
             "Saluta l'ospite e chiedi che informazioni gli servono."
     if scopo == "checkout":
-        return base + CHECKOUT_SCRIPT, \
+        return base + CHECKOUT_SCRIPT + coda, \
             "Saluta l'ospite e chiedi il cognome della prenotazione per il check-out."
-    return base + CHECKIN_SCRIPT, \
+    if not walkin_abilitato(meta):
+        return base + CHECKIN_ESISTENTE_SCRIPT + coda, \
+            ("Presentati in una frase (sei la receptionist dell'hotel e farete il check-in "
+             "insieme), poi chiedi il cognome con cui è stata fatta la prenotazione.")
+    return base + CHECKIN_SCRIPT + coda, \
         ("Presentati in una frase (sei la receptionist dell'hotel e farete il check-in "
          "insieme), poi chiedi con chi hai il piacere di parlare e per quante persone è il soggiorno.")
+
+
+def walkin_abilitato(meta: dict) -> bool:
+    """docs/11: l'hotel può negare all'AI la creazione di nuove prenotazioni."""
+    return bool(meta.get("walkin", True))

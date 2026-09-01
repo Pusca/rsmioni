@@ -73,8 +73,10 @@ async def entrypoint(ctx: agents.JobContext) -> None:
     session_id = meta.get("session_id") or ctx.room.name  # la stanza È il sessionId
     lingua     = meta.get("lingua", CONFIG.lingua_default)
 
-    logger.info("receptionist AI su stanza %s (scopo=%s, hotel=%s)",
-                ctx.room.name, scopo, meta.get("hotel_nome"))
+    walkin     = prompts.walkin_abilitato(meta)
+
+    logger.info("receptionist AI su stanza %s (scopo=%s, hotel=%s, walkin=%s)",
+                ctx.room.name, scopo, meta.get("hotel_nome"), walkin)
 
     stato   = StatoConversazione(scopo=scopo)
     backend = BackendRsmioni(CONFIG.api_base_url, CONFIG.api_token, session_id)
@@ -134,6 +136,7 @@ async def entrypoint(ctx: agents.JobContext) -> None:
         agent=ReceptionistAgent(
             instructions=istruzioni, stato=stato,
             backend=backend, schermo=schermo, lingua=lingua, config=CONFIG,
+            walkin=walkin,
         ),
         room_input_options=RoomInputOptions(
             participant_identity=f"kiosk-{chiosco_id}" if chiosco_id else None,

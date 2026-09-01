@@ -13,6 +13,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Camera;
 use App\Models\Chiosco;
 use App\Models\Documento;
+use App\Models\Hotel;
 use App\Models\Pagamento;
 use App\Models\Prenotazione;
 use App\Services\CameraService;
@@ -132,6 +133,16 @@ class AgentCheckinController extends Controller
             }
         }
 
+        // Walk-in disabilitato (docs/11): il master delle prenotazioni è un
+        // altro PMS, creare qui una prenotazione rischia la doppia vendita.
+        if (! $this->walkinAbilitato($sessione)) {
+            $this->audit('prenotazione.crea', $request, $sessione, false, ['motivo' => 'walk-in disabilitato']);
+            return response()->json([
+                'error' => 'In questo hotel le nuove prenotazioni non si fanno al chiosco. '
+                         . 'Se la ricerca non trova la prenotazione, invita l\'ospite a rivolgersi al receptionist.',
+            ], 403);
+        }
+
         // Servono le date; il nome vocale è un segnaposto (A29): quello
         // ufficiale arriva dal documento e aggiorna la prenotazione dopo.
         $mancanti = array_filter(
@@ -185,6 +196,12 @@ class AgentCheckinController extends Controller
     }
 
     /** Posti letto effettivi di una camera (adulti+ragazzi). */
+    /** Impostazione hotel (docs/11): l'AI può creare prenotazioni walk-in? */
+    private function walkinAbilitato(array $sessione): bool
+    {
+        return (bool) (Hotel::find($sessione['hotel_id'])?->ai_walkin_abilitato ?? true);
+    }
+
     private function postiCamera(Camera $c): int
     {
         return 2 * (int) $c->letti_matrimoniali + (int) $c->letti_singoli
@@ -236,6 +253,12 @@ class AgentCheckinController extends Controller
             $adulti   = (int) ($pren->pax['adulti'] ?? 1);
             $ragazzi  = (int) ($pren->pax['ragazzi'] ?? 0);
         } else {
+            if (! $this->walkinAbilitato($sessione)) {
+                return response()->json([
+                    'error' => 'In questo hotel le camere in vendita le propone solo il receptionist: '
+                             . 'senza una prenotazione esistente invita l\'ospite a rivolgersi a lui.',
+                ], 403);
+            }
             if (empty($form['check_in']) || empty($form['check_out'])) {
                 return response()->json(['error' => 'Servono prima le date di arrivo e partenza: chiedile all\'ospite.'], 422);
             }

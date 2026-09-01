@@ -192,6 +192,53 @@ class AgentApiTest extends TestCase
         $this->assertSame(1, Prenotazione::count());
     }
 
+    // ── Walk-in disabilitato (docs/11: PMS esterno master) ──────────────────
+
+    public function test_walkin_disabilitato_blocca_creazione_e_lista_camere(): void
+    {
+        $this->hotel->update(['ai_walkin_abilitato' => false]);
+        $this->camera('101', matrimoniali: 1);
+
+        $this->agentPost('/agent/form', [
+            'check_in'  => now()->toDateString(),
+            'check_out' => now()->addDays(2)->toDateString(),
+            'adulti'    => 2,
+        ])->assertOk();
+
+        $this->agentPost('/agent/prenotazione')->assertStatus(403);
+        $this->agentPost('/agent/camere')->assertStatus(403);
+        $this->assertSame(0, Prenotazione::count());
+    }
+
+    public function test_walkin_disabilitato_permette_checkin_su_prenotazione_esistente(): void
+    {
+        $this->hotel->update(['ai_walkin_abilitato' => false]);
+        $camera = $this->camera('102', matrimoniali: 1);
+
+        $pren = Prenotazione::create([
+            'id'                  => Str::uuid()->toString(),
+            'hotel_id'            => $this->hotel->id,
+            'codice'              => '7725229',
+            'check_in'            => now()->toDateString(),
+            'check_out'           => now()->addDay()->toDateString(),
+            'pax'                 => ['adulti' => 2, 'ragazzi' => 0, 'bambini' => 0],
+            'nome'                => 'Luca',
+            'cognome'             => 'Bianchi',
+            'tipo_pagamento'      => 'gia_pagato',
+            'documento_identita'  => 'da_acquisire',
+            'inserito_da_profilo' => 'gestore_hotel',
+        ]);
+        $pren->camere()->attach($camera->id);
+
+        $this->agentPost('/agent/prenotazione/cerca', ['cognome' => 'Bianchi', 'ambito' => 'arrivo'])
+            ->assertOk()
+            ->assertJsonPath('prenotazione.codice', '7725229')
+            ->assertJsonPath('prenotazione.camera', '102');
+
+        // La prenotazione agganciata consente i passi successivi (es. acquisizione documento)
+        $this->agentPost('/agent/acquisizione', ['lingua' => 'it'])->assertOk();
+    }
+
     // ── Camera ─────────────────────────────────────────────────────────────
 
     public function test_camera_rifiutata_senza_prenotazione(): void

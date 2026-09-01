@@ -31,17 +31,24 @@ logger = logging.getLogger("ai-receptionist.agent")
 ESCALATION = ("ATTENZIONE: troppi tentativi falliti in questa fase. Proponi "
               "all'ospite di proseguire con il receptionist, che vede già la conversazione.")
 
+NO_WALKIN = ("In questo hotel le nuove prenotazioni NON si fanno al chiosco: non creare "
+             "nulla e non proporre camere. Se cerca_prenotazione non trova l'ospite, chiedi "
+             "codice o nome di chi ha prenotato e riprova una volta; poi rimanda al "
+             "receptionist, che vede già la conversazione.")
+
 
 class ReceptionistAgent(Agent):
     def __init__(self, *, instructions: str, stato: StatoConversazione,
                  backend: BackendRsmioni, schermo: SchermoChiosco, lingua: str,
-                 config: Impostazioni) -> None:
+                 config: Impostazioni, walkin: bool = True) -> None:
         super().__init__(instructions=instructions)
         self.stato = stato
         self._backend = backend
         self._schermo = schermo
         self._lingua = lingua
         self._config = config
+        # docs/11: False → check-in solo su prenotazioni esistenti (PMS esterno master)
+        self._walkin = walkin
         # Anti chiusura prematura: il primo termina con passi pendenti viene
         # respinto con l'istruzione correttiva; il secondo chiude davvero.
         self._termina_avvisato = False
@@ -122,6 +129,8 @@ class ReceptionistAgent(Agent):
     async def salva_prenotazione(self, context: RunContext) -> str:
         """Crea la prenotazione reale con i dati registrati nel form.
         Chiamalo SOLO dopo che l'ospite ha confermato il riepilogo a voce."""
+        if not self._walkin:
+            return self._fallimento(NO_WALKIN)
         try:
             if not self.stato.dati_completi:
                 raise AzioneFuoriFase(
@@ -145,6 +154,10 @@ class ReceptionistAgent(Agent):
         """Verifica la disponibilità: elenca le camere libere per le date e le
         persone raccolte, con prezzo e caratteristiche, e le mostra sullo
         schermo. Chiamalo appena hai persone e date, PRIMA di salvare."""
+        # Senza walk-in le camere in vendita non si propongono; resta lecito
+        # solo per una prenotazione esistente rimasta senza camera.
+        if not self._walkin and self.stato.indice(self.stato.fase) < self.stato.indice(Fase.SALVATA):
+            return self._fallimento(NO_WALKIN)
         try:
             if not self.stato.dati_completi:
                 raise AzioneFuoriFase(
@@ -380,10 +393,16 @@ class ReceptionistAgent(Agent):
         ambito = "arrivo" if self.stato.scopo == "checkin" else "soggiorno"
         esito = await self._backend.cerca_prenotazione(cognome, codice, ambito)
         if not esito.ok:
-            if self.stato.scopo == "checkin":
+            if self.stato.scopo == "checkin" and self._walkin:
                 # Nessuna prenotazione in arrivo: NON è un errore — si crea da zero
                 return ("Nessuna prenotazione esistente a questo nome: procedi con il "
                         "check-in normale (raccogli date e persone e creane una nuova).")
+            if self.stato.scopo == "checkin":
+                # Solo prenotazioni esistenti: un tentativo con codice/prenotante, poi receptionist
+                return self._fallimento(
+                    f"Prenotazione non trovata ({esito.errore}). Chiedi il codice di prenotazione "
+                    "o il nome di chi ha prenotato e riprova UNA volta; se ancora nulla, spiega che "
+                    "il receptionist la sistema lui e resta a disposizione.")
             return self._fallimento(f"Ricerca fallita: {esito.errore}")
 
         p = esito.get("prenotazione", {})
@@ -407,8 +426,13 @@ class ReceptionistAgent(Agent):
             })
             self.stato.avanza_a(Fase.SALVATA)
             await self._schermo.fase(self.stato.fase)
-            camera = (f"camera già assegnata: {p['camera']}" if p.get("camera")
-                      else "nessuna camera ancora assegnata: proponila con lista_camere e assegna_camera")
+            if p.get("camera"):
+                camera = f"camera già assegnata: {p['camera']}"
+            elif self._walkin:
+                camera = "nessuna camera ancora assegnata: proponila con lista_camere e assegna_camera"
+            else:
+                camera = ("nessuna camera ancora assegnata: NON sceglierla tu, di' all'ospite che "
+                          "il receptionist gliela comunica")
             return await self._successo(
                 None,
                 f"Prenotazione esistente trovata e agganciata: {p.get('nome')} {p.get('cognome')}, "

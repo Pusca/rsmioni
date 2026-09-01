@@ -82,6 +82,9 @@ class KioskAiController extends Controller
                 'hotel_nome'   => $chiosco->hotel?->nome,
                 'lingua'       => $chiosco->hotel?->lingua_default ?? 'it',
                 'checkout_ora' => $chiosco->hotel?->checkout_ora,
+                // docs/11: senza walk-in l'AI lavora solo su prenotazioni esistenti
+                'walkin'           => (bool) ($chiosco->hotel?->ai_walkin_abilitato ?? true),
+                'istruzioni_hotel' => $chiosco->hotel?->istruzioni_ai,
             ]);
         } catch (\Throwable $e) {
             // Niente agent → niente sessione fantasma: pulizia e errore onesto

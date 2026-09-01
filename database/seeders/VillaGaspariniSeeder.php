@@ -45,6 +45,8 @@ class VillaGaspariniSeeder extends Seeder
                 'volume_suoneria'              => 80,
                 'numero_massimo_pax'           => 4,
                 'campi_pax_obbligatori'        => ['nome', 'cognome'],
+                // docs/11 decisione B: Slope è il master → l'AI non crea walk-in
+                'ai_walkin_abilitato'          => false,
             ],
         );
 

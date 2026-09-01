@@ -75,6 +75,8 @@ class HotelConfigController extends Controller
             'volume_suoneria'              => ['required', 'integer', 'min:0', 'max:100'],
             'numero_massimo_pax'           => ['required', 'integer', 'min:1', 'max:20'],
             'giorni_cancellazione_automatica' => ['nullable', 'integer', 'min:1', 'max:365'],
+            'ai_walkin_abilitato'          => ['boolean'],
+            'istruzioni_ai'                => ['nullable', 'string', 'max:4000'],
         ], [
             'nome.required'                         => 'Il nome hotel è obbligatorio.',
             'giorni_visibilita_calendario.required' => 'I giorni di visibilità calendario sono obbligatori.',

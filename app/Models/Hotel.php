@@ -32,6 +32,8 @@ class Hotel extends Model
         'volume_suoneria',
         'numero_massimo_pax',
         'campi_pax_obbligatori',
+        'ai_walkin_abilitato',
+        'istruzioni_ai',
     ];
 
     protected function casts(): array
@@ -50,6 +52,7 @@ class Hotel extends Model
             'chioschi_concorrenti_max'        => 'integer',
             'volume_suoneria'                 => 'integer',
             'numero_massimo_pax'              => 'integer',
+            'ai_walkin_abilitato'             => 'boolean',
         ];
     }
 

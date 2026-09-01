@@ -18,6 +18,8 @@ interface HotelData {
     volume_suoneria:               number;
     numero_massimo_pax:            number;
     giorni_cancellazione_automatica: number | null;
+    ai_walkin_abilitato:           boolean;
+    istruzioni_ai:                 string | null;
 }
 
 interface Props {
@@ -92,6 +94,8 @@ function HotelForm({ hotel, lingue_disponibili }: { hotel: HotelData; lingue_dis
         volume_suoneria:               hotel.volume_suoneria,
         numero_massimo_pax:            hotel.numero_massimo_pax,
         giorni_cancellazione_automatica: hotel.giorni_cancellazione_automatica ?? '',
+        ai_walkin_abilitato:           hotel.ai_walkin_abilitato ?? true,
+        istruzioni_ai:                 hotel.istruzioni_ai ?? '',
     });
     const [errors,  setErrors]  = useState<Record<string, string>>({});
     const [saving,  setSaving]  = useState(false);
@@ -225,6 +229,27 @@ function HotelForm({ hotel, lingue_disponibili }: { hotel: HotelData; lingue_dis
                         </div>
                     </Field>
                 )}
+            </Section>
+
+            {/* ── Receptionist AI ── */}
+            <Section title="Receptionist AI">
+                <Toggle
+                    label="L'AI può creare nuove prenotazioni (walk-in)"
+                    descrizione="Spento: l'AI fa il check-in solo su prenotazioni già presenti (es. importate dal gestionale) e manda i walk-in al receptionist. Consigliato quando le prenotazioni si gestiscono in un altro PMS."
+                    value={form.ai_walkin_abilitato}
+                    onChange={v => set('ai_walkin_abilitato', v)}
+                />
+                <Field label="Informazioni per l'assistente vocale" error={errors.istruzioni_ai}>
+                    <textarea value={form.istruzioni_ai}
+                        onChange={e => set('istruzioni_ai', e.target.value)}
+                        rows={6} maxLength={4000}
+                        placeholder={"Es.: Colazione dalle 7:30 alle 10:00 nella sala al piano terra. Wi-Fi: rete VillaGasparini, password alla reception. Le camere 111–115 sono nella Dépendance: uscire dal portone, attraversare il cortile a sinistra. Chiavi: nella cassetta a codice accanto al chiosco, codice mostrato a fine check-in."}
+                        className="w-full rounded-lg px-3 py-2 text-sm"
+                        style={{ backgroundColor: 'rgba(0,0,0,0.04)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)', resize: 'vertical' }} />
+                    <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
+                        L'AI le usa per rispondere agli ospiti e non inventa nulla oltre a queste. Scrivile in italiano: le traduce da sola.
+                    </p>
+                </Field>
             </Section>
 
             {/* Salva */}
