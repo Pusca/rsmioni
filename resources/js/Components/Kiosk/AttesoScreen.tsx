@@ -45,7 +45,7 @@ export default function AttesoScreen({ chiosco, onAvviaAi, aiLoading, aiErrore }
             <div className="w-full h-full flex flex-col items-center justify-center">
                 {/* Benvenuto */}
                 <div className="text-center mb-10 px-8">
-                    <h1 className="font-light mb-2" style={{ fontSize: 40, color: 'var(--color-text-primary)' }}>
+                    <h1 className="font-light mb-2 kiosk-title" style={{ color: 'var(--color-text-primary)' }}>
                         Benvenuto
                     </h1>
                     <p style={{ fontSize: 16, color: 'var(--color-text-muted)' }}>
@@ -53,14 +53,14 @@ export default function AttesoScreen({ chiosco, onAvviaAi, aiLoading, aiErrore }
                     </p>
                 </div>
 
-                {/* Self check-in / check-out AI — azioni principali del chiosco */}
-                <div className="flex items-stretch justify-center gap-5 mb-8 px-8 w-full" style={{ maxWidth: 1020 }}>
+                {/* Self check-in / check-out AI — azioni principali del chiosco.
+                    Misure e impilamento su schermi stretti: .kiosk-actions in app.css */}
+                <div className="kiosk-actions mb-8">
                     <button
                         onClick={() => onAvviaAi('checkin')}
                         disabled={aiLoading !== null}
-                        className="flex-1 rounded-2xl transition-all active:scale-95"
+                        className="kiosk-action rounded-2xl transition-all active:scale-95"
                         style={{
-                            padding:    '26px 32px',
                             background: aiLoading === 'checkin'
                                 ? 'rgba(59,130,246,0.10)'
                                 : 'linear-gradient(180deg, rgba(59,130,246,0.22), rgba(59,130,246,0.10))',
@@ -74,7 +74,7 @@ export default function AttesoScreen({ chiosco, onAvviaAi, aiLoading, aiErrore }
                                 <path d="M9 12l2 2 4-4" />
                                 <path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
-                            <span className="text-xl font-medium" style={{ color: '#93c5fd' }}>
+                            <span className="kiosk-action-label font-medium" style={{ color: '#93c5fd' }}>
                                 {aiLoading === 'checkin' ? 'Un attimo…' : 'Esegui il check-in'}
                             </span>
                             <span className="text-sm" style={{ color: 'var(--color-text-muted)' }}>Self check-in</span>
@@ -84,9 +84,8 @@ export default function AttesoScreen({ chiosco, onAvviaAi, aiLoading, aiErrore }
                     <button
                         onClick={() => onAvviaAi('checkout')}
                         disabled={aiLoading !== null}
-                        className="flex-1 rounded-2xl transition-all active:scale-95"
+                        className="kiosk-action rounded-2xl transition-all active:scale-95"
                         style={{
-                            padding:    '26px 32px',
                             background: aiLoading === 'checkout'
                                 ? 'rgba(245,158,11,0.08)'
                                 : 'linear-gradient(180deg, rgba(245,158,11,0.18), rgba(245,158,11,0.08))',
@@ -99,7 +98,7 @@ export default function AttesoScreen({ chiosco, onAvviaAi, aiLoading, aiErrore }
                                 <rect x="2" y="5" width="20" height="14" rx="2" />
                                 <path d="M2 10h20" />
                             </svg>
-                            <span className="text-xl font-medium" style={{ color: '#fcd34d' }}>
+                            <span className="kiosk-action-label font-medium" style={{ color: '#fcd34d' }}>
                                 {aiLoading === 'checkout' ? 'Un attimo…' : 'Esegui il check-out'}
                             </span>
                             <span className="text-sm" style={{ color: 'var(--color-text-muted)' }}>Check-out &amp; payment</span>
@@ -109,9 +108,8 @@ export default function AttesoScreen({ chiosco, onAvviaAi, aiLoading, aiErrore }
                     <button
                         onClick={() => onAvviaAi('info')}
                         disabled={aiLoading !== null}
-                        className="flex-1 rounded-2xl transition-all active:scale-95"
+                        className="kiosk-action rounded-2xl transition-all active:scale-95"
                         style={{
-                            padding:         '26px 32px',
                             backgroundColor: aiLoading === 'info' ? 'rgba(148,163,184,0.06)' : 'rgba(148,163,184,0.08)',
                             border:          '2px solid rgba(148,163,184,0.35)',
                             cursor:          aiLoading ? 'default' : 'pointer',
@@ -122,7 +120,7 @@ export default function AttesoScreen({ chiosco, onAvviaAi, aiLoading, aiErrore }
                                 <circle cx="12" cy="12" r="9" />
                                 <path d="M12 16v-4M12 8h.01" />
                             </svg>
-                            <span className="text-xl font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+                            <span className="kiosk-action-label font-medium" style={{ color: 'var(--color-text-secondary)' }}>
                                 {aiLoading === 'info' ? 'Un attimo…' : 'Richiedi informazioni'}
                             </span>
                             <span className="text-sm" style={{ color: 'var(--color-text-muted)' }}>Ask for information</span>

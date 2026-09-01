@@ -29,6 +29,12 @@ class Impostazioni:
     elevenlabs_api_key: str | None
     elevenlabs_voice_id: str
     elevenlabs_model: str
+    # Carattere della voce (regolabili da .env senza toccare il codice):
+    # stability bassa = più espressiva/variabile, alta = più piatta e costante.
+    tts_stability: float
+    tts_similarity: float
+    tts_style: float
+    tts_speed: float
 
     # Conversazione
     llm_max_tokens: int
@@ -48,8 +54,13 @@ class Impostazioni:
             problemi.append("Nessuna chiave LLM (OPENROUTER_API_KEY o ANTHROPIC_API_KEY): l'agent non può ragionare.")
         if not os.environ.get("DEEPGRAM_API_KEY"):
             problemi.append("DEEPGRAM_API_KEY mancante: niente riconoscimento vocale.")
-        if not os.environ.get("ELEVENLABS_API_KEY"):
+        el_key = os.environ.get("ELEVENLABS_API_KEY", "")
+        if not el_key:
             problemi.append("ELEVENLABS_API_KEY mancante: niente sintesi vocale.")
+        elif not el_key.startswith("sk_"):
+            # Errore visto in produzione: incollato l'ID della chiave invece della chiave
+            problemi.append("ELEVENLABS_API_KEY non sembra una API key valida (le chiavi ElevenLabs iniziano con 'sk_'): "
+                            "probabilmente è stato copiato l'ID della chiave. La voce NON funzionerà.")
 
         return cls(
             api_base_url=os.environ.get("RSMIONI_API_BASE_URL", "http://localhost:8000"),
@@ -61,6 +72,10 @@ class Impostazioni:
             elevenlabs_api_key=os.environ.get("ELEVENLABS_API_KEY") or None,
             elevenlabs_voice_id=os.environ.get("ELEVENLABS_VOICE_ID", "Xb7hH8MSUJpSbSDYk0k2"),
             elevenlabs_model=os.environ.get("ELEVENLABS_MODEL", "eleven_flash_v2_5"),
+            tts_stability=float(os.environ.get("TTS_STABILITY", "0.5")),
+            tts_similarity=float(os.environ.get("TTS_SIMILARITY", "0.8")),
+            tts_style=float(os.environ.get("TTS_STYLE", "0.0")),
+            tts_speed=float(os.environ.get("TTS_SPEED", "1.08")),
             llm_max_tokens=int(os.environ.get("LLM_MAX_TOKENS", "600")),
             lingua_default=os.environ.get("AGENT_DEFAULT_LANGUAGE", "it"),
             problemi=problemi,

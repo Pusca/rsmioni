@@ -89,6 +89,12 @@ Checklist in §3.
 
 ---
 
+## 2-bis. Prima prova in produzione (1 set, sera) — cosa è emerso
+
+- **L'AI non parlava**: nel `.env` del worker `ELEVENLABS_API_KEY` conteneva l'**ID** della chiave (64 caratteri hex), non la chiave (`sk_…`). ElevenLabs risponde `api_key_id_used_as_api_key`, la pipeline voce si chiude e la sessione termina subito. Fix: incollare la chiave vera e `systemctl restart rsmioni-ai`. Il worker ora lo segnala all'avvio (`CONFIG: ELEVENLABS_API_KEY non sembra una API key valida`). Stesso problema nel `.env` locale.
+- **Voce più spigliata**: regola di RITMO nel prompt (risposta immediata; prima di ogni tool lento una frase breve tipo "un attimo, controllo", poi ripresa naturale), voce meno "piatta" (`TTS_STABILITY` 0.5, `TTS_SPEED` 1.08, regolabili da `.env`). Da ascoltare dal vivo e tarare: la voce di default (`Xb7hH8MSUJpSbSDYk0k2`) è una voce inglese multilingua — vale la pena provare una voce italiana nativa dalla libreria ElevenLabs e mettere l'id in `ELEVENLABS_VOICE_ID`.
+- **Chiosco da smartphone**: misure spostate in CSS (`.kiosk-*`, `.ai-orb-*`) con media query ≤ 760 px: azioni impilate, orb e recap ridotti, autoritratto e "Termina" che non si sovrappongono, altezza `100dvh`.
+
 ## 3. Checklist giorno di installazione
 
 1. **Rete**: ethernet o Wi-Fi stabile; test velocità; porte non bloccate (LiveKit WSS/UDP, Pusher).

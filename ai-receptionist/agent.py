@@ -106,11 +106,12 @@ async def entrypoint(ctx: agents.JobContext) -> None:
             api_key=CONFIG.elevenlabs_api_key,
             voice_id=CONFIG.elevenlabs_voice_id,
             model=CONFIG.elevenlabs_model,
-            # Senza stability fissata, flash v2.5 ogni tanto cambia tono/voce
-            # tra una battuta e l'altra. speed>1: parlato un filo più svelto.
+            # Carattere della voce da .env (TTS_STABILITY/SIMILARITY/STYLE/SPEED):
+            # stability ~0.5 = spigliata ed espressiva senza cambiare voce tra
+            # una battuta e l'altra; speed>1: parlato un filo più svelto.
             voice_settings=elevenlabs.VoiceSettings(
-                stability=0.7, similarity_boost=0.8, style=0.0,
-                speed=1.05, use_speaker_boost=False,
+                stability=CONFIG.tts_stability, similarity_boost=CONFIG.tts_similarity,
+                style=CONFIG.tts_style, speed=CONFIG.tts_speed, use_speaker_boost=False,
             ),
         ),
         # Rilevamento attività vocale → barge-in (interruzione).

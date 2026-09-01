@@ -181,3 +181,61 @@ button:focus-visible { outline: 2px solid #3b82f6; outline-offset: 2px; }
     .ai-screen-layout { gap: 5rem; }
     .ai-recap-card { max-width: 560px; }
 }
+
+/* ── Kiosk — dimensioni responsive ───────────────────────────────────────
+   Il chiosco nasce per un totem, ma deve stare in piedi anche su tablet e
+   smartphone (test, demo, emergenza). Le misure fisse stanno QUI, non
+   inline nei componenti, così una sola media query le ridimensiona tutte. */
+
+/* Altezza reale della viewport mobile (barra del browser che va e viene) */
+.kiosk-root { height: 100vh; height: 100dvh; }
+
+.kiosk-title { font-size: clamp(26px, 6vw, 40px); }
+
+/* Tre azioni principali affiancate; su schermi stretti impilate */
+.kiosk-actions {
+    display: flex; align-items: stretch; justify-content: center;
+    gap: 1.25rem; width: 100%; max-width: 1020px; padding: 0 2rem;
+}
+.kiosk-action { flex: 1; padding: 26px 32px; }
+.kiosk-action-label { font-size: 1.25rem; }
+
+/* Orb vocale */
+.ai-orb-wrap { width: 180px; height: 180px; margin-bottom: 2rem; }
+.ai-orb-halo { width: 150px; height: 150px; }
+.ai-orb-core { width: 104px; height: 104px; }
+.ai-title    { font-size: 28px; }
+.ai-recap-card { padding: 1.75rem; }
+
+/* Autoritratto camera e bottone "Termina": angoli in basso, mai sovrapposti */
+.kiosk-selfie  { position: absolute; right: 20px; bottom: 20px; width: 170px; height: 128px; }
+.kiosk-termina { position: absolute; left: 24px; bottom: 24px; font-size: 16px; padding: 1rem 2rem; min-height: 56px; }
+
+/* Miniatura del receptionist (presenza) */
+.presenza-badge { position: fixed; top: 64px; right: 16px; width: 176px; }
+
+@media (max-width: 760px) {
+    .kiosk-actions { flex-direction: column; gap: 0.75rem; padding: 0 1rem; max-width: 480px; }
+    .kiosk-action  { padding: 14px 18px; }
+    .kiosk-action-label { font-size: 1.05rem; }
+    .kiosk-action svg { width: 26px; height: 26px; }
+
+    .ai-screen-layout { flex-direction: column; gap: 1.25rem; padding: 3.25rem 1rem 6.5rem; justify-content: flex-start; overflow-y: auto; }
+    .ai-orb-wrap   { width: 130px; height: 130px; margin-bottom: 1rem; }
+    .ai-orb-halo   { width: 108px; height: 108px; }
+    .ai-orb-core   { width: 78px;  height: 78px; }
+    .ai-title      { font-size: 22px; }
+    .ai-recap-card { padding: 1.1rem; max-width: 100%; }
+
+    .kiosk-selfie  { width: 104px; height: 78px; right: 12px; bottom: 12px; }
+    .kiosk-termina { left: 12px; bottom: 12px; font-size: 14px; padding: 0.7rem 1.1rem; min-height: 48px; }
+    .presenza-badge { width: 112px; top: 44px; right: 10px; }
+}
+/* Telefoni bassi in landscape: l'orb non deve mangiarsi lo schermo */
+@media (max-height: 480px) {
+    .ai-screen-layout { padding-top: 2.5rem; }
+    .ai-orb-wrap { width: 96px; height: 96px; margin-bottom: 0.5rem; }
+    .ai-orb-halo { width: 80px; height: 80px; }
+    .ai-orb-core { width: 60px; height: 60px; }
+    .ai-title    { font-size: 18px; }
+}

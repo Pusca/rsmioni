@@ -25,9 +25,8 @@ export default function PresenzaBadge({ track }: Props) {
 
     return (
         <div
-            className="fixed z-40 overflow-hidden rounded-xl border shadow-lg"
+            className="presenza-badge z-40 overflow-hidden rounded-xl border shadow-lg"
             style={{
-                top: 64, right: 16, width: 176,
                 borderColor: 'rgba(34,197,94,0.45)',
                 backgroundColor: 'rgba(15,23,42,0.85)',
             }}

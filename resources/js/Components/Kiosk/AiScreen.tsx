@@ -244,12 +244,11 @@ export default function AiScreen({ scopo, statoMedia, localVideoRef, aiUi, audio
         <div className="ai-screen-layout">
             {/* Colonna sinistra: orb vocale audio-reattivo */}
             <div className="flex flex-col items-center shrink-0">
-                <div className="relative flex items-center justify-center mb-8" style={{ width: 180, height: 180 }}>
-                    {/* Alone conico rotante */}
-                    {connesso && <div className="ai-orb-halo absolute rounded-full" style={{ width: 150, height: 150 }} />}
+                <div className="ai-orb-wrap relative flex items-center justify-center">
+                    {/* Alone conico rotante (misure in app.css: .ai-orb-*) */}
+                    {connesso && <div className="ai-orb-halo absolute rounded-full" />}
                     <div className="ai-orb-core rounded-full flex items-center justify-center relative"
-                         style={{ width: 104, height: 104,
-                                  background: 'radial-gradient(circle at 35% 30%, rgba(96,165,250,0.40), rgba(30,41,80,0.85))',
+                         style={{ background: 'radial-gradient(circle at 35% 30%, rgba(96,165,250,0.40), rgba(30,41,80,0.85))',
                                   border: '1px solid rgba(96,165,250,0.55)',
                                   boxShadow: '0 0 40px rgba(59,130,246,0.25), inset 0 0 24px rgba(59,130,246,0.15)' }}>
                         {connesso
@@ -264,7 +263,7 @@ export default function AiScreen({ scopo, statoMedia, localVideoRef, aiUi, audio
                     </div>
                 </div>
 
-                <h1 className="font-light mb-2 text-center" style={{ fontSize: 28, color: 'var(--color-text-primary)' }}>{titolo}</h1>
+                <h1 className="ai-title font-light mb-2 text-center" style={{ color: 'var(--color-text-primary)' }}>{titolo}</h1>
                 <p className="text-base text-center" style={{ color: connesso ? '#93c5fd' : 'var(--color-text-muted)' }}>
                     {connesso ? 'Parla pure — l’assistente ti ascolta' : 'Connessione in corso…'}
                 </p>
@@ -283,7 +282,7 @@ export default function AiScreen({ scopo, statoMedia, localVideoRef, aiUi, audio
 
             {/* Colonna destra: recap live di quello che dici */}
             {mostraRecap && (
-                <div className="ai-recap-card rounded-2xl p-7"
+                <div className="ai-recap-card rounded-2xl"
                      style={{ backgroundColor: 'rgba(148,163,184,0.05)',
                               border: '1px solid rgba(148,163,184,0.18)' }}>
                     <FaseStepper fase={aiUi.fase} scopo={scopo} />
@@ -352,15 +351,14 @@ export default function AiScreen({ scopo, statoMedia, localVideoRef, aiUi, audio
 
             {/* Autoritratto camera — sempre attiva, in basso a destra */}
             <video ref={localVideoRef} autoPlay muted playsInline
-                   className="absolute rounded-xl"
-                   style={{ right: 20, bottom: 20, width: 170, height: 128, objectFit: 'cover',
-                            backgroundColor: '#060810', border: '1px solid var(--color-border)', transform: 'scaleX(-1)' }} />
+                   className="kiosk-selfie rounded-xl"
+                   style={{ objectFit: 'cover', backgroundColor: '#060810',
+                            border: '1px solid var(--color-border)', transform: 'scaleX(-1)' }} />
 
-            {/* Termina — discreto ma con bersaglio touch da totem */}
+            {/* Termina — discreto ma con bersaglio touch da totem (misure: .kiosk-termina) */}
             <button onClick={onTermina}
-                    className="absolute rounded-xl px-8 py-4 transition-all active:scale-95"
-                    style={{ left: 24, bottom: 24, fontSize: 16, color: '#ef4444',
-                             border: '1px solid rgba(239,68,68,0.35)', minHeight: 56 }}>
+                    className="kiosk-termina rounded-xl transition-all active:scale-95"
+                    style={{ color: '#ef4444', border: '1px solid rgba(239,68,68,0.35)' }}>
                 Termina conversazione
             </button>
         </div>
