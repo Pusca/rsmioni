@@ -113,7 +113,48 @@ class SlopeImportService
             $this->importaPrenotazione($righeGruppo, $hotel, $eseguitoDa, $dryRun, $report);
         }
 
+        $this->segnalaAssenti($righe, $hotel, $report);
+
         return $report;
+    }
+
+    /**
+     * Prenotazioni importate da Slope in un giro precedente che NON compaiono
+     * più nel file, pur avendo l'arrivo nell'intervallo di date coperto dal
+     * file: quasi sempre sono state cancellate (o spostate) in Slope dopo
+     * l'ultimo import e in rsMioni continuano a bloccare la camera. Non si
+     * cancellano da sole — l'export potrebbe essere filtrato — ma il gestore
+     * deve saperlo.
+     */
+    private function segnalaAssenti(Collection $righe, Hotel $hotel, SlopeImportReport $report): void
+    {
+        $codici = $righe->map(fn (array $r) => $this->codice($r))->filter()->unique()->values();
+        $arrivi = $righe->map(fn (array $r) => $this->date($r)[0])->filter();
+        if ($codici->isEmpty() || $arrivi->isEmpty()) {
+            return;
+        }
+
+        $assenti = Prenotazione::where('hotel_id', $hotel->id)
+            ->where('checkin_confermato', false)
+            ->whereNotIn('codice', $codici->all())
+            ->whereBetween('check_in', [$arrivi->min()->toDateString(), $arrivi->max()->toDateString()])
+            ->orderBy('check_in')
+            ->get()
+            ->filter(fn (Prenotazione $p) => ctype_digit((string) $p->codice)); // solo codici Slope: AI-*/manuali non c'entrano
+
+        if ($assenti->isEmpty()) {
+            return;
+        }
+
+        $report->assenti = $assenti->count();
+        $elenco = $assenti->take(10)
+            ->map(fn (Prenotazione $p) => "#{$p->codice} {$p->cognome} (arrivo {$p->check_in->format('d/m')})")
+            ->implode(', ');
+        $report->avvisa(
+            "{$assenti->count()} prenotazioni Slope presenti in rsMioni ma ASSENTI dal file, con arrivo nel periodo coperto "
+            . "dal file: {$elenco}" . ($assenti->count() > 10 ? ', …' : '')
+            . '. Se in Slope risultano cancellate, cancellale anche qui (bloccano la camera).'
+        );
     }
 
     // ── Una prenotazione (n righe) ───────────────────────────────────────────
@@ -132,6 +173,7 @@ class SlopeImportService
         $stato = mb_strtolower((string) $this->col($prima, 'stato'));
         if ($stato !== '' && preg_match('/cancell|annull|no.?show|rifiut/u', $stato)) {
             $report->cancellate++;
+            $this->rimuoviCancellata($codice, $hotel, $dryRun, $report);
             return;
         }
 
@@ -214,6 +256,32 @@ class SlopeImportService
         }
 
         $this->assegnaCamere($pren, array_values($camereIds), $codice, $report);
+    }
+
+    /**
+     * Cancellata in Slope: se era già stata importata in rsMioni (e l'ospite
+     * non ha ancora fatto il check-in) va tolta, altrimenti resta a bloccare
+     * la camera e l'AI la proporrebbe come occupata.
+     */
+    private function rimuoviCancellata(string $codice, Hotel $hotel, bool $dryRun, SlopeImportReport $report): void
+    {
+        $locale = Prenotazione::where('hotel_id', $hotel->id)->where('codice', $codice)->first();
+        if (! $locale) {
+            return;
+        }
+
+        if ($locale->checkin_confermato) {
+            $report->avvisa("#{$codice}: risulta cancellata in Slope ma in rsMioni il check-in è già confermato — verifica a mano");
+            return;
+        }
+
+        $report->rimosse++;
+        if ($dryRun) {
+            return;
+        }
+
+        $locale->camere()->detach();
+        $locale->delete();
     }
 
     /**

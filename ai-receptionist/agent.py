@@ -71,12 +71,13 @@ async def entrypoint(ctx: agents.JobContext) -> None:
         meta = {}
     scopo      = meta.get("scopo", "checkin")
     session_id = meta.get("session_id") or ctx.room.name  # la stanza È il sessionId
-    lingua     = meta.get("lingua", CONFIG.lingua_default)
+    # Lingua scelta dall'ospite sul chiosco (bandierine) o default dell'hotel
+    lingua     = (meta.get("lingua") or CONFIG.lingua_default or "it").lower()
 
     walkin     = prompts.walkin_abilitato(meta)
 
-    logger.info("receptionist AI su stanza %s (scopo=%s, hotel=%s, walkin=%s)",
-                ctx.room.name, scopo, meta.get("hotel_nome"), walkin)
+    logger.info("receptionist AI su stanza %s (scopo=%s, hotel=%s, walkin=%s, lingua=%s)",
+                ctx.room.name, scopo, meta.get("hotel_nome"), walkin, lingua)
 
     stato   = StatoConversazione(scopo=scopo)
     backend = BackendRsmioni(CONFIG.api_base_url, CONFIG.api_token, session_id)
@@ -165,15 +166,15 @@ async def entrypoint(ctx: agents.JobContext) -> None:
         ctx.shutdown(reason="pipeline_voce_guasta")
 
     # Il saluto DEVE aspettare che il chiosco sia nella stanza: il chiosco
-    # scopre la sessione via polling (~2s) e si aggancia dopo — parlare prima
-    # significa salutare una stanza vuota, con l'ospite che poi aspetta una
-    # voce già passata. Piccolo margine extra per la sottoscrizione audio.
+    # scopre la sessione subito dopo il tocco (poll immediato) e si aggancia —
+    # parlare prima significa salutare una stanza vuota, con l'ospite che poi
+    # aspetta una voce già passata. Piccolo margine per la sottoscrizione audio.
     if chiosco_id:
         try:
             await asyncio.wait_for(
                 ctx.wait_for_participant(identity=f"kiosk-{chiosco_id}"), timeout=30
             )
-            await asyncio.sleep(1.0)
+            await asyncio.sleep(0.6)
         except asyncio.TimeoutError:
             logger.warning("chiosco non entrato in stanza entro 30s: saluto comunque")
 

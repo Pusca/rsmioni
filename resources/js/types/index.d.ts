@@ -54,6 +54,10 @@ export interface Hotel {
     giorni_visibilita_calendario: number;
     overbooking_permesso: boolean;
     chioschi_concorrenti_max: number;
+    /** Lingua di apertura dell'assistente vocale (ISO 639-1) */
+    lingua_default?: string;
+    /** Lingue selezionabili sul chiosco */
+    lingue_abilitate?: string[] | null;
 }
 
 export interface Chiosco {

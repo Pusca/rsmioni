@@ -37,7 +37,10 @@ class KioskAiController extends Controller
     public function avvia(Request $request): JsonResponse
     {
         $request->validate([
-            'scopo' => ['required', Rule::in(['checkin', 'info', 'checkout'])],
+            'scopo'  => ['required', Rule::in(['checkin', 'info', 'checkout'])],
+            // Lingua scelta dall'ospite sul chiosco (bandierine); se assente o
+            // non abilitata per l'hotel, si parte dalla lingua di default.
+            'lingua' => ['nullable', 'string', 'size:2'],
         ]);
 
         $chioscoId = session('chiosco_id');
@@ -72,6 +75,8 @@ class KioskAiController extends Controller
             $this->sessioni->chiudi($vecchiaSessione);
         }
 
+        $lingua = $this->linguaConversazione($chiosco, $request->input('lingua'));
+
         $sessionId = $this->sessioni->crea(
             receptionistId: $request->user()->id, // account chiosco: "conduce" la sessione AI
             chioscoId:      $chiosco->id,
@@ -88,7 +93,7 @@ class KioskAiController extends Controller
                 'chiosco_nome' => $chiosco->nome,
                 'hotel_id'     => $chiosco->hotel_id,
                 'hotel_nome'   => $chiosco->hotel?->nome,
-                'lingua'       => $chiosco->hotel?->lingua_default ?? 'it',
+                'lingua'       => $lingua,
                 'checkout_ora' => $chiosco->hotel?->checkout_ora,
                 // docs/11: senza walk-in l'AI lavora solo su prenotazioni esistenti
                 'walkin'           => (bool) ($chiosco->hotel?->ai_walkin_abilitato ?? true),
@@ -112,7 +117,18 @@ class KioskAiController extends Controller
             'ok'         => true,
             'session_id' => $sessionId,
             'scopo'      => $request->scopo,
+            'lingua'     => $lingua,
         ]);
+    }
+
+    /** Lingua di apertura della conversazione: quella scelta se abilitata, altrimenti il default dell'hotel. */
+    private function linguaConversazione(Chiosco $chiosco, ?string $scelta): string
+    {
+        $default  = $chiosco->hotel?->lingua_default ?: 'it';
+        $abilitate = $chiosco->hotel?->lingue_abilitate ?: [$default];
+        $scelta    = $scelta ? strtolower($scelta) : null;
+
+        return $scelta && in_array($scelta, $abilitate, true) ? $scelta : $default;
     }
 
     public function termina(): JsonResponse

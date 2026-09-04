@@ -271,30 +271,39 @@ Apri salutando e chiedendo che informazioni servono.
 
 
 def componi(scopo: str, meta: dict, oggi: str, lingua_default: str) -> tuple[str, str]:
-    """Restituisce (istruzioni complete, istruzione di apertura) per lo scopo."""
+    """Restituisce (istruzioni complete, istruzione di apertura) per lo scopo.
+
+    `lingua_default` è la lingua scelta dall'ospite sul chiosco (bandierine)
+    o, in mancanza, quella dell'hotel: la conversazione APRE in quella lingua.
+    """
+    nome_lingua = NOMI_LINGUE.get(lingua_default, "italiano")
     base = BASE_RULES.format(
         hotel=meta.get("hotel_nome") or "l'hotel",
         chiosco=meta.get("chiosco_nome") or "chiosco",
         oggi=oggi,
-        lingua_default=NOMI_LINGUE.get(lingua_default, "italiano"),
+        lingua_default=nome_lingua,
     )
     # Conoscenza dell'hotel scritta dal gestore (Configurazioni → Receptionist AI)
     istruzioni = (meta.get("istruzioni_hotel") or "").strip()
     coda = ISTRUZIONI_HOTEL.format(istruzioni=istruzioni) if istruzioni else ""
 
+    # L'apertura è l'unico turno senza input dell'ospite: la lingua va detta
+    # esplicitamente, altrimenti il modello tende a salutare in italiano.
+    in_lingua = f"Parla in {nome_lingua}. "
+
     if scopo == "info":
         frase = f", orario di check-out: {meta['checkout_ora']}" if meta.get("checkout_ora") else ""
         return base + INFO_SCRIPT.format(checkout_frase=frase) + coda, \
-            "Saluta l'ospite e chiedi che informazioni gli servono."
+            in_lingua + "Saluta l'ospite in una frase e chiedi che informazioni gli servono."
     if scopo == "checkout":
         return base + CHECKOUT_SCRIPT + coda, \
-            "Saluta l'ospite e chiedi il cognome della prenotazione per il check-out."
+            in_lingua + "Saluta l'ospite in una frase e chiedi il cognome della prenotazione per il check-out."
     if not walkin_abilitato(meta):
         return base + CHECKIN_ESISTENTE_SCRIPT + coda, \
-            ("Presentati in una frase (sei la receptionist dell'hotel e farete il check-in "
+            (in_lingua + "Presentati in una frase (sei la receptionist dell'hotel e farete il check-in "
              "insieme), poi chiedi il cognome con cui è stata fatta la prenotazione.")
     return base + CHECKIN_SCRIPT + coda, \
-        ("Presentati in una frase (sei la receptionist dell'hotel e farete il check-in "
+        (in_lingua + "Presentati in una frase (sei la receptionist dell'hotel e farete il check-in "
          "insieme), poi chiedi con chi hai il piacere di parlare e per quante persone è il soggiorno.")
 
 

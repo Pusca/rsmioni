@@ -23,7 +23,8 @@ class KioskController extends Controller
             return redirect()->route('kiosk.seleziona');
         }
 
-        $chiosco = Chiosco::with('hotel:id,nome')->find($chioscoId);
+        // Lingue: per le bandierine sul chiosco (l'ospite sceglie in che lingua parlare con l'AI)
+        $chiosco = Chiosco::with('hotel:id,nome,lingua_default,lingue_abilitate')->find($chioscoId);
 
         // Chiosco inesistente o non più dell'hotel dell'account (es. account
         // spostato di hotel, chiosco disattivato): la selezione in sessione

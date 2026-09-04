@@ -84,6 +84,8 @@ interface Result {
     duplicato:          boolean;
     /** Ultimo errore di connessione LiveKit, in chiaro (diagnostica remota). */
     ultimoErrore:       string | null;
+    /** Forza subito un giro di scoperta sessione (senza aspettare il prossimo poll). */
+    aggiorna:           () => void;
 }
 
 /** Dopo un DUPLICATE_IDENTITY si riprova: l'altro dispositivo potrebbe essere stato chiuso. */
@@ -149,6 +151,27 @@ export function useLiveKitChiosco(): Result {
     const duplicatoRef = useRef(false);
     const gestitaRef   = useRef<'umano' | 'ai' | null>(null);
     const ritentaDopoRef = useRef(0); // timestamp prima del quale NON riconnettere
+    const pollRef        = useRef<() => Promise<void>>(async () => {});
+    // Track video remote (camera del receptionist e condivisione schermo):
+    // tenute in stato così da riattaccarle quando la SCHERMATA cambia e il
+    // <video> viene rimontato (es. Subentra: AiScreen → ParlatoScreen).
+    const [remoteCamTrack,    setRemoteCamTrack]    = useState<RemoteTrack | null>(null);
+    const [remoteScreenTrack, setRemoteScreenTrack] = useState<RemoteTrack | null>(null);
+
+    // Riaggancio dei <video> dopo un cambio di schermata: gli elementi del
+    // chiosco vengono creati/distrutti al variare di sessione e conduttore.
+    useEffect(() => {
+        const track = remoteScreenTrack ?? remoteCamTrack;
+        const el = remoteVideoRef.current;
+        if (el && track) track.attach(el);
+    }, [remoteCamTrack, remoteScreenTrack, sessionTipo, gestitaDa, stato]);
+    useEffect(() => {
+        const el = localVideoRef.current;
+        if (!el || !localCameraTrack) return;
+        if (el.srcObject instanceof MediaStream && el.srcObject.getVideoTracks()[0] === localCameraTrack) return;
+        el.srcObject = new MediaStream([localCameraTrack]);
+        el.play().catch(() => {});
+    }, [localCameraTrack, sessionTipo, gestitaDa, stato]);
 
     useEffect(() => {
         let cancelled = false;
@@ -187,6 +210,8 @@ export function useLiveKitChiosco(): Result {
             setGestitaDa(null);
             setAiUi(AI_UI_INIZIALE);
             setRemoteAudioTrack(null);
+            setRemoteCamTrack(null);
+            setRemoteScreenTrack(null);
             setLocalCameraTrack(null);
             setAudioBloccato(false);
             setStato('idle');
@@ -207,9 +232,14 @@ export function useLiveKitChiosco(): Result {
             roomRef.current = room;
 
             const attachRemote = (track: RemoteTrack) => {
-                if (track.kind === Track.Kind.Video && remoteVideoRef.current) {
-                    track.attach(remoteVideoRef.current);
-                    if (track.source === Track.Source.ScreenShare) setCondivisioneAttiva(true);
+                if (track.kind === Track.Kind.Video) {
+                    if (remoteVideoRef.current) track.attach(remoteVideoRef.current);
+                    if (track.source === Track.Source.ScreenShare) {
+                        setCondivisioneAttiva(true);
+                        setRemoteScreenTrack(track);
+                    } else {
+                        setRemoteCamTrack(track);
+                    }
                     if (!cancelled) setStato('connected');
                 }
                 if (track.kind === Track.Kind.Audio) {
@@ -225,7 +255,14 @@ export function useLiveKitChiosco(): Result {
             room
                 .on(RoomEvent.TrackSubscribed, (track: RemoteTrack) => attachRemote(track))
                 .on(RoomEvent.TrackUnsubscribed, (track: RemoteTrack) => {
-                    if (track.source === Track.Source.ScreenShare) setCondivisioneAttiva(false);
+                    if (track.source === Track.Source.ScreenShare) {
+                        setCondivisioneAttiva(false);
+                        setRemoteScreenTrack((t) => (t === track ? null : t));
+                    } else if (track.kind === Track.Kind.Video) {
+                        setRemoteCamTrack((t) => (t === track ? null : t));
+                    } else if (track.kind === Track.Kind.Audio) {
+                        setRemoteAudioTrack((t) => (t === track.mediaStreamTrack ? null : t));
+                    }
                 })
                 .on(RoomEvent.DataReceived, (payload: Uint8Array) => {
                     try {
@@ -367,8 +404,18 @@ export function useLiveKitChiosco(): Result {
             }
         };
 
-        poll();
-        const id = setInterval(poll, POLL_MS);
+        // Un solo giro alla volta: `aggiorna()` dall'esterno e il timer non
+        // devono sovrapporsi (due connect sulla stessa sessione).
+        let inCorso: Promise<void> | null = null;
+        const pollSerializzato = () => {
+            if (inCorso) return inCorso;
+            inCorso = poll().catch(() => {}).finally(() => { inCorso = null; });
+            return inCorso;
+        };
+        pollRef.current = pollSerializzato;
+
+        pollSerializzato();
+        const id = setInterval(pollSerializzato, POLL_MS);
 
         return () => {
             cancelled = true;
@@ -377,5 +424,7 @@ export function useLiveKitChiosco(): Result {
         };
     }, []);
 
-    return { sessionTipo, gestitaDa, localVideoRef, remoteVideoRef, stato, errore, condivisioneAttiva, grigliaDoc, inAttesa, messaggioAttesa, aiUi, remoteAudioTrack, localCameraTrack, audioBloccato, duplicato, ultimoErrore };
+    const aggiorna = () => { void pollRef.current(); };
+
+    return { sessionTipo, gestitaDa, localVideoRef, remoteVideoRef, stato, errore, condivisioneAttiva, grigliaDoc, inAttesa, messaggioAttesa, aiUi, remoteAudioTrack, localCameraTrack, audioBloccato, duplicato, ultimoErrore, aggiorna };
 }

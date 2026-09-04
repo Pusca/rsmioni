@@ -36,6 +36,13 @@ interface Result {
 }
 
 const POLLING_MS = 5_000;
+/**
+ * Riallineamento periodico anche quando Reverb è attivo: un evento perso
+ * (websocket caduto e risalito senza errore) lasciava il chiosco con uno stato
+ * vecchio per sempre — e la schermata "sbagliata". Una GET leggera ogni 15 s
+ * mette un tetto al disallineamento.
+ */
+const RIALLINEAMENTO_MS = 15_000;
 
 export function useKioskStato({ chioscoId, statoIniziale, messaggioIniziale }: Options): Result {
     const [stato,           setStato]           = useState<StatoChiosco>(statoIniziale);
@@ -96,8 +103,16 @@ export function useKioskStato({ chioscoId, statoIniziale, messaggioIniziale }: O
             }
         });
 
+        // Riallineamento lento, sempre attivo (vedi RIALLINEAMENTO_MS)
+        const riallinea = setInterval(async () => {
+            if (pollingRef.current) return; // il polling pieno è già attivo
+            const result = await getStatoChiosco();
+            if (result) applicaAggiornamento(result.stato, result.messaggio_attesa);
+        }, RIALLINEAMENTO_MS);
+
         return () => {
             mounted = false;
+            clearInterval(riallinea);
             if (pollingRef.current) {
                 clearInterval(pollingRef.current);
                 pollingRef.current = null;

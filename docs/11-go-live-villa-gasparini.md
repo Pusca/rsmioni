@@ -101,6 +101,14 @@ Checklist in §3.
 - **Schermata che "ballava" (tre bottoni ↔ check-in)**: dai log nginx il chiosco era aperto su **3 dispositivi/tab** con lo stesso account → stessa identità LiveKit → ogni connessione buttava fuori l'altra ogni 2 s. Regola operativa: **un chiosco = un solo schermo aperto**. Robustezza aggiunta: su identità duplicata il chiosco si ferma con la schermata «aperto su un altro dispositivo» e il bottone «Usa questo dispositivo»; una sessione AI senza agent in stanza per 40 s viene chiusa dal chiosco stesso; «Esegui il check-in» riparte anche da una sessione AI rimasta appesa; il worker termina il job (e la sessione lato server) appena la sessione agent si chiude.
 - **Chiosco da smartphone**: misure spostate in CSS (`.kiosk-*`, `.ai-orb-*`) con media query ≤ 760 px: azioni impilate, orb e recap ridotti, autoritratto e "Termina" che non si sovrappongono, altezza `100dvh`.
 
+## 2-ter. Interventi del 4 settembre — lingua, Slope, stabilità chiosco
+
+- **Lingua scelta dall'ospite**: sulla schermata di attesa del chiosco compaiono le bandierine delle lingue abilitate per l'hotel (Configurazioni → Hotel → lingue). L'AI apre e risponde nella lingua toccata (`POST /kiosk/ai/avvia` accetta `lingua`; se non abilitata si usa il default dell'hotel). Le etichette dei tre bottoni seguono la lingua scelta; a fine sessione si torna al default. Il rilevamento automatico durante la conversazione resta attivo.
+- **Import Slope e cancellazioni**: una prenotazione già importata che nel nuovo file risulta *Cancellata* viene **tolta** da rsMioni (camera liberata), salvo check-in già confermato (solo avviso). Le prenotazioni Slope presenti in rsMioni ma **sparite dal file**, con arrivo nel periodo coperto dal file, vengono **segnalate** nel riepilogo (non cancellate da sole: l'export potrebbe essere filtrato). Le prenotazioni `AI-*` non sono toccate.
+- **Chiosco — schermata guidata dalla sessione, non da Reverb**: la schermata AI/parlato/chiaro segue la sessione scoperta dal poll del token LiveKit (2 s). Prima serviva anche lo stato Portineria via websocket: un evento perso lasciava i bottoni a schermo con l'AI che parlava, e un secondo tocco faceva ripartire tutto. Lo stato via Reverb viene comunque riallineato con una GET ogni 15 s.
+- **Subentra senza schermo nero**: le track video (receptionist e condivisione) restano in stato e vengono riattaccate quando la schermata cambia (AI → parlato). Prima il video del receptionist dopo il Subentra poteva non comparire perché l'elemento `<video>` era stato rimontato.
+- **Avvio più rapido**: dopo il tocco il chiosco fa subito il poll della sessione (senza aspettare il giro da 2 s) e l'agent saluta 0,6 s dopo l'ingresso del chiosco (era 1 s).
+
 ## 3. Checklist giorno di installazione
 
 1. **Rete**: ethernet o Wi-Fi stabile; test velocità; porte non bloccate (LiveKit WSS/UDP, Pusher).

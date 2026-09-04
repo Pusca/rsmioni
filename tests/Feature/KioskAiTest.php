@@ -61,6 +61,29 @@ class KioskAiTest extends TestCase
             ->postJson('/kiosk/ai/avvia', ['scopo' => 'checkin']);
     }
 
+    public function test_la_lingua_scelta_sul_chiosco_arriva_all_agent_se_abilitata(): void
+    {
+        $this->hotel->update(['lingue_abilitate' => ['it', 'en', 'de']]);
+        app(PortineriaService::class)->impostaStato($this->chiosco, StatoChiosco::Idle);
+
+        $metadata = [];
+        $this->mock(LiveKitDispatchService::class, function ($m) use (&$metadata) {
+            $m->shouldReceive('dispatch')->andReturnUsing(function ($room, $meta) use (&$metadata) { $metadata[] = $meta; });
+        });
+
+        $this->actingAs($this->account)->withSession(['chiosco_id' => $this->chiosco->id])
+            ->postJson('/kiosk/ai/avvia', ['scopo' => 'checkin', 'lingua' => 'en'])
+            ->assertOk()->assertJsonPath('lingua', 'en');
+        $this->assertSame('en', $metadata[0]['lingua']);
+
+        // Lingua non abilitata → default dell'hotel
+        app(PortineriaService::class)->impostaStato($this->chiosco, StatoChiosco::Idle);
+        $this->actingAs($this->account)->withSession(['chiosco_id' => $this->chiosco->id])
+            ->postJson('/kiosk/ai/avvia', ['scopo' => 'checkin', 'lingua' => 'fr'])
+            ->assertOk()->assertJsonPath('lingua', 'it');
+        $this->assertSame('it', $metadata[1]['lingua']);
+    }
+
     public function test_da_idle_parte_e_porta_il_chiosco_in_parlato(): void
     {
         app(PortineriaService::class)->impostaStato($this->chiosco, StatoChiosco::Idle);

@@ -96,10 +96,14 @@ export default function KioskIndex({ chiosco, stato_iniziale, messaggio_attesa: 
     // ref per sapere se è a schermo senza riordinare gli hook.
     const fineSessioneAttiva = useRef(false);
 
-    // Routing — usa il sessionTipo riportato dall'hook LiveKit
-    const inAi      = stato === 'in_parlato' && lk.sessionTipo === 'parlato' && lk.gestitaDa === 'ai';
-    const inParlato = stato === 'in_parlato' && lk.sessionTipo === 'parlato' && ! inAi;
-    const inChiaro  = stato === 'in_chiaro'  && lk.sessionTipo === 'chiaro';
+    // Routing delle schermate media: la fonte di verità è la SESSIONE scoperta
+    // dal poll del token LiveKit (ogni 2 s), non lo stato Portineria via Reverb.
+    // Prima serviva anche `stato === 'in_parlato'`: un evento Reverb perso
+    // lasciava il chiosco sulla schermata di attesa con l'AI che parlava, e un
+    // secondo tocco sul bottone faceva ripartire la sessione da capo.
+    const inAi      = lk.sessionTipo === 'parlato' && lk.gestitaDa === 'ai';
+    const inParlato = lk.sessionTipo === 'parlato' && lk.gestitaDa === 'umano';
+    const inChiaro  = lk.sessionTipo === 'chiaro';
 
     // ── Presenza receptionist: canale sempre acceso ─────────────────────────
     // La camera del chiosco va in stanza presenza (griglia live in Portineria)
@@ -136,6 +140,11 @@ export default function KioskIndex({ chiosco, stato_iniziale, messaggio_attesa: 
         await annullaChiamata();
     };
 
+    // ── Lingua della conversazione con l'AI (bandierine sulla schermata di attesa)
+    const linguaDefault = chiosco.hotel?.lingua_default ?? 'it';
+    const lingue = (chiosco.hotel?.lingue_abilitate?.length ? chiosco.hotel.lingue_abilitate : [linguaDefault]);
+    const [lingua, setLingua] = useState<string>(lingue.includes(linguaDefault) ? linguaDefault : lingue[0]);
+
     // ── Handler self check-in / check-out AI ────────────────────────────────
     type ScopoAi = 'checkin' | 'checkout' | 'info';
     const [aiLoading, setAiLoading] = useState<ScopoAi | null>(null);
@@ -143,19 +152,21 @@ export default function KioskIndex({ chiosco, stato_iniziale, messaggio_attesa: 
     const [aiErrore,  setAiErrore]  = useState<string | null>(null);
 
     const handleAvviaAi = async (scopo: ScopoAi) => {
-        // Stessi stati di partenza consentiti dal backend (KioskAiController):
-        // anche in_nascosto — l'ospite non sa del monitoraggio e il suo tap
-        // deve funzionare (la vecchia sessione covert viene chiusa) — e
-        // offline, da cui l'heartbeat recupera da solo.
-        if (aiLoading || ! ['idle', 'in_nascosto', 'offline'].includes(stato)) return;
+        // Il backend è l'arbitro (KioskAiController); qui si evita solo di
+        // interrompere un collegamento condotto da un receptionist umano o
+        // una chiamata in corso. Da in_nascosto (l'ospite non sa del
+        // monitoraggio) e da offline il tocco deve funzionare.
+        const collegamentoUmano = inChiaro || inParlato;
+        if (aiLoading || collegamentoUmano || ['in_chiamata', 'messaggio_attesa'].includes(stato)) return;
         setAiLoading(scopo);
         setAiErrore(null);
-        const res = await avviaSessioneAi(scopo);
+        const res = await avviaSessioneAi(scopo, lingua);
         if (! res.ok) setAiErrore(res.error ?? "L'assistente non è disponibile.");
         else setAiScopo(scopo);
         setAiLoading(null);
-        // Lo stato passa a in_parlato via Reverb/polling; il media si aggancia
-        // col normale polling del token LiveKit (gestita_da='ai' → AiScreen).
+        // Aggancio immediato alla nuova sessione (senza aspettare il prossimo
+        // poll da 2 s): meno silenzio tra il tocco e la voce dell'assistente.
+        if (res.ok) lk.aggiorna();
     };
 
     const handleTerminaAi = async () => {
@@ -177,6 +188,7 @@ export default function KioskIndex({ chiosco, stato_iniziale, messaggio_attesa: 
         }
         if (eraInAi.current) {
             eraInAi.current = false;
+            setLingua(lingue.includes(linguaDefault) ? linguaDefault : lingue[0]); // il prossimo ospite riparte dal default
             const u = ultimoAiRef.current;
             const utile = u && (u.ui.codice || u.ui.pagamento?.stato === 'ok');
             if (utile) {
@@ -185,6 +197,7 @@ export default function KioskIndex({ chiosco, stato_iniziale, messaggio_attesa: 
                 return () => clearTimeout(t);
             }
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [inAi, lk.aiUi, aiScopo]);
 
     // ── Rendering condizionale per stato ───────────────────────────────────
@@ -293,6 +306,9 @@ export default function KioskIndex({ chiosco, stato_iniziale, messaggio_attesa: 
                     onAvviaAi={handleAvviaAi}
                     aiLoading={aiLoading}
                     aiErrore={aiErrore}
+                    lingue={lingue}
+                    lingua={lingua}
+                    onLingua={setLingua}
                 />
             )}
         </KioskLayout>

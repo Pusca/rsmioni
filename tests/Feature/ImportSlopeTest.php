@@ -133,6 +133,78 @@ class ImportSlopeTest extends TestCase
         $this->assertSame('2026-09-05', $p2->check_in->toDateString());
     }
 
+    public function test_reimport_toglie_le_prenotazioni_cancellate_in_slope_e_segnala_quelle_sparite(): void
+    {
+        $svc = app(SlopeImportService::class);
+        $svc->importaCsv($this->csv(), $this->hotel, $this->gestore);
+        $this->assertSame(3, Prenotazione::count());
+
+        // Prenotazione creata dall'AI nello stesso periodo: non è di Slope, non va toccata né segnalata
+        Prenotazione::create([
+            'id' => Str::uuid()->toString(), 'hotel_id' => $this->hotel->id, 'codice' => 'AI-ZZZ111',
+            'check_in' => '2026-09-05', 'check_out' => '2026-09-06', 'pax' => ['adulti' => 1, 'ragazzi' => 0, 'bambini' => 0],
+            'nome' => 'W', 'cognome' => 'Walkin', 'tipo_pagamento' => 'da_pagare', 'documento_identita' => 'da_acquisire',
+            'inserito_da_profilo' => 'chiosco',
+        ]);
+
+        // Nuovo export: la 7725229 è stata cancellata in Slope, la 7710712 non compare più
+        $csv2 = implode("
+", [
+            'NUMERO;PRENOTANTE;OSPITE PRINCIPALE;ALLOGGIO;PERIODO;STATO',
+            '#7725229;Mario Rossi;Luca Bianchi;Camera Economy 102;05/09/2026 - 07/09/2026 (2 notti);Cancellata',
+            '#6335361;Anna Verdi;-;Camera Economy 101;05/09/2026 - 06/09/2026 (1 notte);Atteso arrivo',
+            '#8800001;Nuovo Ospite;-;Camera Economy 103;07/09/2026 - 08/09/2026 (1 notte);Atteso arrivo',
+        ]);
+        $report = $svc->importaCsv($csv2, $this->hotel, $this->gestore);
+
+        $this->assertSame(1, $report->cancellate);
+        $this->assertSame(1, $report->rimosse);
+        $this->assertNull(Prenotazione::where('codice', '7725229')->first(), 'la cancellata in Slope va tolta');
+        $this->assertSame(0, Camera::where('nome', '102')->first()->prenotazioni()->count(), 'la 102 torna libera');
+
+        $this->assertSame(1, $report->assenti);
+        $avviso = collect($report->avvisi)->first(fn ($a) => str_contains($a, 'ASSENTI dal file'));
+        $this->assertNotNull($avviso);
+        $this->assertStringContainsString('#7710712', $avviso);
+        $this->assertStringNotContainsString('AI-ZZZ111', $avviso);
+        $this->assertNotNull(Prenotazione::where('codice', '7710712')->first(), 'le sparite NON si cancellano da sole');
+        $this->assertStringContainsString('1 cancellate in Slope e tolte', $report->riepilogo());
+    }
+
+    public function test_cancellata_in_slope_con_checkin_confermato_non_viene_toccata(): void
+    {
+        $svc = app(SlopeImportService::class);
+        $svc->importaCsv($this->csv(), $this->hotel, $this->gestore);
+        Prenotazione::where('codice', '7725229')->update(['checkin_confermato' => true]);
+
+        $csv2 = implode("
+", [
+            'NUMERO;PRENOTANTE;OSPITE PRINCIPALE;ALLOGGIO;PERIODO;STATO',
+            '#7725229;Mario Rossi;Luca Bianchi;Camera Economy 102;05/09/2026 - 07/09/2026 (2 notti);Cancellata',
+        ]);
+        $report = $svc->importaCsv($csv2, $this->hotel, $this->gestore);
+
+        $this->assertSame(0, $report->rimosse);
+        $this->assertNotNull(Prenotazione::where('codice', '7725229')->first());
+        $this->assertTrue(collect($report->avvisi)->contains(fn ($a) => str_contains($a, 'check-in è già confermato')));
+    }
+
+    public function test_dry_run_conta_le_cancellate_senza_toglierle(): void
+    {
+        $svc = app(SlopeImportService::class);
+        $svc->importaCsv($this->csv(), $this->hotel, $this->gestore);
+
+        $csv2 = implode("
+", [
+            'NUMERO;PRENOTANTE;OSPITE PRINCIPALE;ALLOGGIO;PERIODO;STATO',
+            '#7725229;Mario Rossi;Luca Bianchi;Camera Economy 102;05/09/2026 - 07/09/2026 (2 notti);Cancellata',
+        ]);
+        $report = $svc->importaCsv($csv2, $this->hotel, $this->gestore, dryRun: true);
+
+        $this->assertSame(1, $report->rimosse);
+        $this->assertNotNull(Prenotazione::where('codice', '7725229')->first());
+    }
+
     public function test_conflitto_con_prenotazione_locale_marca_overbooking_e_assegna_comunque(): void
     {
         // Prenotazione manuale in rsMioni sulla 102 nelle stesse date

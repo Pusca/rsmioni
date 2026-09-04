@@ -108,12 +108,15 @@ export async function chiamaReceptionist(): Promise<{ ok: boolean; stato?: strin
  * POST /kiosk/ai/avvia — avvia la sessione vocale con il receptionist AI.
  * scopo: 'checkin' (self check-in) | 'checkout' (con pagamento POS) | 'info'.
  */
-export async function avviaSessioneAi(scopo: 'checkin' | 'checkout' | 'info'): Promise<{ ok: boolean; error?: string }> {
+export async function avviaSessioneAi(
+    scopo: 'checkin' | 'checkout' | 'info',
+    lingua?: string,
+): Promise<{ ok: boolean; error?: string }> {
     try {
         const res = await fetch('/kiosk/ai/avvia', {
             method: 'POST',
             headers: headers(),
-            body: JSON.stringify({ scopo }),
+            body: JSON.stringify({ scopo, lingua: lingua ?? null }),
         });
         const data = await res.json() as { error?: string };
         if (! res.ok) return { ok: false, error: data.error ?? "Assistente non disponibile" };

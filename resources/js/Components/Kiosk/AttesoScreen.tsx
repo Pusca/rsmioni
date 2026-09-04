@@ -23,9 +23,31 @@ interface AttesoScreenProps {
     onAvviaAi: (scopo: 'checkin' | 'checkout' | 'info') => void;
     aiLoading: 'checkin' | 'checkout' | 'info' | null;
     aiErrore:  string | null;
+    /** Lingue abilitate per l'hotel (ISO 639-1); con una sola non si mostra la scelta */
+    lingue:    string[];
+    lingua:    string;
+    onLingua:  (lingua: string) => void;
 }
 
-export default function AttesoScreen({ chiosco, presenza, onAvviaAi, aiLoading, aiErrore }: AttesoScreenProps) {
+/** Bandierina + nome nativo per le lingue supportate dall'assistente. */
+const LINGUE: Record<string, { bandiera: string; nome: string }> = {
+    it: { bandiera: '🇮🇹', nome: 'Italiano' },
+    en: { bandiera: '🇬🇧', nome: 'English' },
+    de: { bandiera: '🇩🇪', nome: 'Deutsch' },
+    fr: { bandiera: '🇫🇷', nome: 'Français' },
+    es: { bandiera: '🇪🇸', nome: 'Español' },
+};
+
+/** Etichette dei tre bottoni nella lingua scelta (l'assistente risponderà in quella). */
+const TESTI: Record<string, { checkin: string; checkout: string; info: string; hint: string; lingua: string; attesa: string }> = {
+    it: { checkin: 'Esegui il check-in',  checkout: 'Esegui il check-out', info: 'Richiedi informazioni', hint: 'Tocca un pulsante per iniziare',    lingua: 'Lingua',   attesa: 'Un attimo…' },
+    en: { checkin: 'Check in',            checkout: 'Check out',           info: 'Ask for information',   hint: 'Tap a button to start',             lingua: 'Language', attesa: 'One moment…' },
+    de: { checkin: 'Einchecken',          checkout: 'Auschecken',          info: 'Informationen',         hint: 'Tippen Sie, um zu beginnen',         lingua: 'Sprache',  attesa: 'Einen Moment…' },
+    fr: { checkin: 'Faire le check-in',   checkout: 'Faire le check-out',  info: 'Demander des infos',    hint: 'Touchez un bouton pour commencer',   lingua: 'Langue',   attesa: 'Un instant…' },
+    es: { checkin: 'Hacer el check-in',   checkout: 'Hacer el check-out',  info: 'Pedir información',     hint: 'Toque un botón para empezar',        lingua: 'Idioma',   attesa: 'Un momento…' },
+};
+
+export default function AttesoScreen({ chiosco, presenza, onAvviaAi, aiLoading, aiErrore, lingue, lingua, onLingua }: AttesoScreenProps) {
     const handleLogout = () => {
         if (confirm('Disconnettere il chiosco?')) {
             router.post('/logout');
@@ -33,6 +55,7 @@ export default function AttesoScreen({ chiosco, presenza, onAvviaAi, aiLoading, 
     };
 
     const online = presenza.track !== null;
+    const t = TESTI[lingua] ?? TESTI.it;
 
     return (
         <>
@@ -68,8 +91,42 @@ export default function AttesoScreen({ chiosco, presenza, onAvviaAi, aiLoading, 
                             Benvenuto
                         </h1>
                         <p style={{ fontSize: 16, color: 'var(--color-text-muted)' }}>
-                            Welcome · Tocca un pulsante per iniziare
+                            {lingua === 'it' ? 'Welcome · ' : ''}{t.hint}
                         </p>
+                    </div>
+                )}
+
+                {/* Scelta lingua: l'assistente apre e risponde nella lingua toccata */}
+                {lingue.length > 1 && (
+                    <div className="kiosk-lingue flex items-center justify-center flex-wrap gap-2 mb-5">
+                        <span className="text-xs uppercase tracking-widest mr-1" style={{ color: 'var(--color-text-muted)' }}>
+                            {t.lingua}
+                        </span>
+                        {lingue.map((codice) => {
+                            const l = LINGUE[codice] ?? { bandiera: '🌐', nome: codice.toUpperCase() };
+                            const attiva = codice === lingua;
+                            return (
+                                <button
+                                    key={codice}
+                                    onClick={() => onLingua(codice)}
+                                    disabled={aiLoading !== null}
+                                    aria-pressed={attiva}
+                                    className="kiosk-lingua rounded-full flex items-center gap-2 transition-all active:scale-95"
+                                    style={{
+                                        padding:         '10px 16px',
+                                        fontSize:        15,
+                                        minHeight:       44,
+                                        backgroundColor: attiva ? 'rgba(59,130,246,0.22)' : 'rgba(148,163,184,0.08)',
+                                        border:          `2px solid ${attiva ? 'rgba(96,165,250,0.85)' : 'rgba(148,163,184,0.25)'}`,
+                                        color:           attiva ? '#dbeafe' : 'var(--color-text-secondary)',
+                                        fontWeight:      attiva ? 600 : 400,
+                                    }}
+                                >
+                                    <span style={{ fontSize: 20, lineHeight: 1 }}>{l.bandiera}</span>
+                                    {l.nome}
+                                </button>
+                            );
+                        })}
                     </div>
                 )}
 
@@ -95,7 +152,7 @@ export default function AttesoScreen({ chiosco, presenza, onAvviaAi, aiLoading, 
                                 <path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
                             <span className="kiosk-action-label font-medium" style={{ color: '#93c5fd' }}>
-                                {aiLoading === 'checkin' ? 'Un attimo…' : 'Esegui il check-in'}
+                                {aiLoading === 'checkin' ? t.attesa : t.checkin}
                             </span>
                             <span className="text-sm" style={{ color: 'var(--color-text-muted)' }}>Self check-in</span>
                         </div>
@@ -119,7 +176,7 @@ export default function AttesoScreen({ chiosco, presenza, onAvviaAi, aiLoading, 
                                 <path d="M2 10h20" />
                             </svg>
                             <span className="kiosk-action-label font-medium" style={{ color: '#fcd34d' }}>
-                                {aiLoading === 'checkout' ? 'Un attimo…' : 'Esegui il check-out'}
+                                {aiLoading === 'checkout' ? t.attesa : t.checkout}
                             </span>
                             <span className="text-sm" style={{ color: 'var(--color-text-muted)' }}>Check-out &amp; payment</span>
                         </div>
@@ -141,7 +198,7 @@ export default function AttesoScreen({ chiosco, presenza, onAvviaAi, aiLoading, 
                                 <path d="M12 16v-4M12 8h.01" />
                             </svg>
                             <span className="kiosk-action-label font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-                                {aiLoading === 'info' ? 'Un attimo…' : 'Richiedi informazioni'}
+                                {aiLoading === 'info' ? t.attesa : t.info}
                             </span>
                             <span className="text-sm" style={{ color: 'var(--color-text-muted)' }}>Ask for information</span>
                         </div>
