@@ -8,7 +8,7 @@ import { useKioskStato } from '@/hooks/useKioskStato';
 import { useKioskAcquisizione } from '@/hooks/useKioskAcquisizione';
 import { useKioskStampa } from '@/hooks/useKioskStampa';
 import { useKioskPagamento } from '@/hooks/useKioskPagamento';
-import { annullaChiamata, avviaSessioneAi, terminaSessioneAi, annullaAcquisizione } from '@/services/kioskApi';
+import { annullaChiamata, chiamaReceptionist, avviaSessioneAi, terminaSessioneAi, annullaAcquisizione } from '@/services/kioskApi';
 import PagamentoPOSScreen from '@/Components/Kiosk/PagamentoPOSScreen';
 import StampaScreen from '@/Components/Kiosk/StampaScreen';
 import AcquisizioneScreen from '@/Components/Kiosk/AcquisizioneScreen';
@@ -129,9 +129,23 @@ export default function KioskIndex({ chiosco, stato_iniziale, messaggio_attesa: 
         audio_bloccato:     lk.audioBloccato || (presenza.parla && presenza.audioBloccato),
     });
 
-    // ── Handler annullo chiamata (stato in_chiamata raggiungibile da demo) ──
+    // ── Chiamata dal chiosco: "Parla con il receptionist" sotto il riquadro ──
+    // Il chiosco passa in_chiamata (suoneria in portineria); il receptionist
+    // risponde con "Rispondi" e parte il parlato, oppure ignora.
+    const handleChiama = async () => {
+        if (chiamando) return;
+        setChiamando(true);
+        const res = await chiamaReceptionist();
+        if (! res.ok) setChiamando(false);
+        // a esito positivo lo stato in_chiamata arriva via Reverb/polling
+    };
+    const [chiamando, setChiamando] = useState(false);
+    useEffect(() => { if (stato !== 'in_chiamata') setChiamando(false); }, [stato]);
+
+    // ── Handler annullo chiamata ────────────────────────────────────────────
     const handleAnnullaChiamata = async () => {
         await annullaChiamata();
+        setChiamando(false);
     };
 
     // ── Lingua della conversazione con l'AI (bandierine sulla schermata di attesa)
@@ -193,6 +207,11 @@ export default function KioskIndex({ chiosco, stato_iniziale, messaggio_attesa: 
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [inAi, lk.aiUi, aiScopo]);
 
+    // Il pulsante "Parla con il receptionist" ha senso solo sulla schermata di
+    // attesa (o mentre la chiamata è in corso), non durante AI, documenti, POS.
+    const schermataAttesa = ! pagamento && ! stampa && ! acquisizione && ! inAi && ! inParlato && ! inChiaro
+        && ['idle', 'in_nascosto', 'in_chiamata'].includes(stato) && ! fineSessione;
+
     // ── Rendering condizionale per stato ───────────────────────────────────
     return (
         <KioskLayout>
@@ -207,6 +226,9 @@ export default function KioskIndex({ chiosco, stato_iniziale, messaggio_attesa: 
                     parla={presenza.parla}
                     microfonoAttivo={presenza.microfonoAttivo}
                     audioBloccato={presenza.audioBloccato}
+                    onChiama={schermataAttesa ? handleChiama : undefined}
+                    chiamando={chiamando || stato === 'in_chiamata'}
+                    lingua={lingua}
                 />
             )}
 

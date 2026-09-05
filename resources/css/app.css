@@ -285,6 +285,21 @@ button:focus-visible { outline: 2px solid #3b82f6; outline-offset: 2px; }
     animation: kiosk-parla-glow 1.6s ease-in-out infinite;
 }
 .presenza-badge-hint { font-size: 12px; }
+.presenza-badge-btn {
+    margin-top: 0.5rem; width: 100%; min-height: 44px;
+    display: inline-flex; align-items: center; justify-content: center; gap: 0.45rem;
+    padding: 0.55rem 0.8rem; border-radius: 0.75rem;
+    font-size: 13px; font-weight: 600; color: #052e16;
+    background: #22c55e; border: 1px solid rgba(34,197,94,0.9);
+    box-shadow: 0 8px 22px rgba(0,0,0,0.35);
+    transition: transform .12s ease, filter .15s ease;
+}
+.presenza-badge-btn:hover  { filter: brightness(1.06); }
+.presenza-badge-btn:active { transform: scale(0.96); }
+.presenza-badge-btn-attesa {
+    color: #fde68a; background: rgba(245,158,11,0.16); border-color: rgba(245,158,11,0.55);
+    animation: kiosk-attesa-pulse 1.2s ease-in-out infinite; --c: 245,158,11;
+}
 
 @media (max-width: 760px) {
     .kiosk-welcome { margin-bottom: 1rem; }
@@ -308,6 +323,7 @@ button:focus-visible { outline: 2px solid #3b82f6; outline-offset: 2px; }
     .kiosk-selfie  { width: 104px; height: 78px; right: 12px; bottom: 12px; }
     .kiosk-termina { left: 12px; bottom: 12px; font-size: 14px; padding: 0.7rem 1.1rem; min-height: 48px; }
     .presenza-badge { width: 120px; top: 10px; right: 10px; }
+    .presenza-badge-btn { font-size: 11px; min-height: 38px; padding: 0.4rem 0.5rem; }
     .kiosk-atteso { justify-content: flex-start; padding-top: 3.25rem; overflow-y: auto; }
 }
 @keyframes kiosk-parla-glow {
