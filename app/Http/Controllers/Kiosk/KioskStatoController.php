@@ -37,6 +37,9 @@ class KioskStatoController extends Controller
             ]);
         }
 
+        // Anche questo poll è una prova di vita: stato mai scaduto a pagina aperta
+        $this->portineria->segnalaPresenzaChiosco($chiosco);
+
         return response()->json([
             'stato'           => $this->portineria->statoChiosco($chiosco->id)->value,
             'messaggio_attesa' => $this->portineria->messaggioAttesa($chiosco->id),

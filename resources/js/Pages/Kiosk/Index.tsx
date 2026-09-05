@@ -75,7 +75,7 @@ function DuplicatoScreen({ chiosco }: { chiosco: Chiosco }) {
 export default function KioskIndex({ chiosco, stato_iniziale, messaggio_attesa: messaggioIniziale }: Props) {
 
     // ── Stato runtime Portineria ────────────────────────────────────────────
-    const { stato, messaggioAttesa } = useKioskStato({
+    const { stato, messaggioAttesa, aggiorna: aggiornaStato } = useKioskStato({
         chioscoId:         chiosco.id,
         statoIniziale:     stato_iniziale,
         messaggioIniziale,
@@ -136,8 +136,9 @@ export default function KioskIndex({ chiosco, stato_iniziale, messaggio_attesa: 
         if (chiamando) return;
         setChiamando(true);
         const res = await chiamaReceptionist();
-        if (! res.ok) setChiamando(false);
-        // a esito positivo lo stato in_chiamata arriva via Reverb/polling
+        if (! res.ok) { setChiamando(false); return; }
+        // Schermata "chiamata in corso" subito, senza aspettare Reverb
+        aggiornaStato();
     };
     const [chiamando, setChiamando] = useState(false);
     useEffect(() => { if (stato !== 'in_chiamata') setChiamando(false); }, [stato]);
@@ -146,6 +147,7 @@ export default function KioskIndex({ chiosco, stato_iniziale, messaggio_attesa: 
     const handleAnnullaChiamata = async () => {
         await annullaChiamata();
         setChiamando(false);
+        aggiornaStato();
     };
 
     // ── Lingua della conversazione con l'AI (bandierine sulla schermata di attesa)
@@ -174,7 +176,7 @@ export default function KioskIndex({ chiosco, stato_iniziale, messaggio_attesa: 
         setAiLoading(null);
         // Aggancio immediato alla nuova sessione (senza aspettare il prossimo
         // poll da 2 s): meno silenzio tra il tocco e la voce dell'assistente.
-        if (res.ok) lk.aggiorna();
+        if (res.ok) { lk.aggiorna(); aggiornaStato(); }
     };
 
     const handleTerminaAi = async () => {

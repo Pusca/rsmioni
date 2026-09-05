@@ -61,6 +61,31 @@ class KioskAiTest extends TestCase
             ->postJson('/kiosk/ai/avvia', ['scopo' => 'checkin']);
     }
 
+    public function test_il_poll_del_chiosco_tiene_vivo_lo_stato_anche_senza_sessione(): void
+    {
+        $portineria = app(PortineriaService::class);
+        $portineria->impostaStato($this->chiosco, StatoChiosco::Idle);
+
+        // Senza poll lo stato scade dopo 5 minuti → Offline
+        $this->travel(4)->minutes();
+        $this->actingAs($this->account)->withSession(['chiosco_id' => $this->chiosco->id])
+            ->getJson('/kiosk/livekit/token'); // LiveKit non configurato nei test: 503, ma il rinnovo avviene prima
+        $this->travel(4)->minutes();
+        $this->assertSame(StatoChiosco::Idle, $portineria->statoChiosco($this->chiosco->id), 'il poll del token rinnova lo stato');
+
+        $this->travel(4)->minutes();
+        $this->actingAs($this->account)->withSession(['chiosco_id' => $this->chiosco->id])
+            ->getJson('/kiosk/stato')->assertOk()->assertJsonPath('stato', 'idle');
+        $this->travel(4)->minutes();
+        $this->assertSame(StatoChiosco::Idle, $portineria->statoChiosco($this->chiosco->id), 'il poll dello stato rinnova lo stato');
+
+        // Scaduto davvero → il primo poll lo riporta a Idle
+        $this->travel(6)->minutes();
+        $this->assertSame(StatoChiosco::Offline, $portineria->statoChiosco($this->chiosco->id));
+        $this->actingAs($this->account)->withSession(['chiosco_id' => $this->chiosco->id])
+            ->getJson('/kiosk/stato')->assertJsonPath('stato', 'idle');
+    }
+
     public function test_la_lingua_scelta_sul_chiosco_arriva_all_agent_se_abilitata(): void
     {
         $this->hotel->update(['lingue_abilitate' => ['it', 'en', 'de']]);

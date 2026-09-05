@@ -33,6 +33,8 @@ interface Options {
 interface Result {
     stato:          StatoChiosco;
     messaggioAttesa: string | null;
+    /** Rilegge subito lo stato dal server (dopo un'azione dell'ospite, senza aspettare Reverb). */
+    aggiorna:       () => void;
 }
 
 const POLLING_MS = 5_000;
@@ -48,6 +50,7 @@ export function useKioskStato({ chioscoId, statoIniziale, messaggioIniziale }: O
     const [stato,           setStato]           = useState<StatoChiosco>(statoIniziale);
     const [messaggioAttesa, setMessaggioAttesa] = useState<string | null>(messaggioIniziale);
     const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const aggiornaRef = useRef<() => void>(() => {});
 
     useEffect(() => {
         if (! chioscoId) return;
@@ -103,6 +106,12 @@ export function useKioskStato({ chioscoId, statoIniziale, messaggioIniziale }: O
             }
         });
 
+        aggiornaRef.current = () => {
+            getStatoChiosco().then(result => {
+                if (result && mounted) applicaAggiornamento(result.stato, result.messaggio_attesa);
+            });
+        };
+
         // Riallineamento lento, sempre attivo (vedi RIALLINEAMENTO_MS)
         const riallinea = setInterval(async () => {
             if (pollingRef.current) return; // il polling pieno è già attivo
@@ -121,5 +130,5 @@ export function useKioskStato({ chioscoId, statoIniziale, messaggioIniziale }: O
         };
     }, [chioscoId]);
 
-    return { stato, messaggioAttesa };
+    return { stato, messaggioAttesa, aggiorna: () => aggiornaRef.current() };
 }

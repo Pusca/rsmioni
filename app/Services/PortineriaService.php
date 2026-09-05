@@ -172,6 +172,22 @@ class PortineriaService
     }
 
     /**
+     * Il browser del chiosco si è fatto vivo (poll del token, poll dello
+     * stato, heartbeat): lo stato non deve scadere finché la pagina è aperta.
+     * Se era Offline (cache scaduta o svuotata) torna Idle — prima succedeva
+     * solo al heartbeat (ogni 60 s) e il chiosco mostrava "Offline" per un
+     * minuto ogni 5, con bottoni e chiamata al receptionist spariti.
+     */
+    public function segnalaPresenzaChiosco(Chiosco $chiosco): void
+    {
+        if ($this->statoChiosco($chiosco->id) === StatoChiosco::Offline) {
+            $this->impostaStato($chiosco, StatoChiosco::Idle);
+            return;
+        }
+        $this->rinnovaStato($chiosco->id);
+    }
+
+    /**
      * Forza uno stato (uso interno / demo / kiosk-agent).
      */
     public function impostaStato(

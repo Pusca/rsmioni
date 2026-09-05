@@ -89,11 +89,9 @@ class KioskHeartbeatController extends Controller
             Log::warning('kiosk.media', ['chiosco' => $chiosco->nome, 'ip' => $request->ip(), ...$media]);
         }
 
-        // Auto-recupero: un chiosco che invia heartbeat è presente → se lo stato
-        // Portineria è Offline (es. cache svuotata) lo riporta a Idle.
-        if ($this->portineria->statoChiosco($chiosco->id) === StatoChiosco::Offline) {
-            $this->portineria->impostaStato($chiosco, StatoChiosco::Idle);
-        }
+        // Auto-recupero e rinnovo: un chiosco che invia heartbeat è presente →
+        // da Offline torna Idle, altrimenti lo stato corrente resta vivo.
+        $this->portineria->segnalaPresenzaChiosco($chiosco);
 
         return response()->json(['ok' => true]);
     }
