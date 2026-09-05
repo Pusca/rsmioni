@@ -170,7 +170,14 @@ export default function PortineriaIndex({ chioschi: chioschiIniziali, hotel_ids,
         if (snapPresenza.parlaCon && snapPresenza.parlaCon !== selezioneId) {
             void presenza.parlaCon(null);
         }
-    }, [selezioneId, snapPresenza.parlaCon]);
+        if (snapPresenza.ascoltaCon && snapPresenza.ascoltaCon !== selezioneId) {
+            presenza.ascolta(null);
+        }
+        // Ascolto di una sessione AI: segue il chiosco selezionato
+        Object.values(snap.calls).forEach((c) => {
+            if (c.ascolto && c.chioscoId !== selezioneId) liveKitCall.setAscolto(c.chioscoId, false);
+        });
+    }, [selezioneId, snapPresenza.parlaCon, snapPresenza.ascoltaCon, snap.calls]);
 
     // ── Demo toolbar ──────────────────────────────────────────────────────
     const DEMO_STATI: { label: string; stato: StatoChiosco; color: string }[] = [
@@ -349,6 +356,7 @@ export default function PortineriaIndex({ chioschi: chioschiIniziali, hotel_ids,
                             calls={snap.calls}
                             presenzaTracks={snapPresenza.tracks}
                             micVerso={snapPresenza.parlaCon}
+                            ascoltoDi={snapPresenza.ascoltaCon ?? Object.values(snap.calls).find((c) => c.ascolto)?.chioscoId ?? null}
                         />
                     )}
                 </div>
@@ -379,9 +387,10 @@ interface GrigliaProps {
     calls:          Record<string, { attiva: boolean }>;
     presenzaTracks: Record<string, MediaStreamTrack>;
     micVerso:       string | null;
+    ascoltoDi:      string | null;
 }
 
-function GrigliaChioschi({ chioschi, selezioneId, puoInteragire, onCardClick, calls, presenzaTracks, micVerso }: GrigliaProps) {
+function GrigliaChioschi({ chioschi, selezioneId, puoInteragire, onCardClick, calls, presenzaTracks, micVerso, ascoltoDi }: GrigliaProps) {
     // Raggruppa per hotel
     const perHotel = chioschi.reduce<Record<string, ChioscoConStato[]>>((acc, c) => {
         const nomeHotel = c.hotel?.nome ?? c.hotel_id;
@@ -418,6 +427,7 @@ function GrigliaChioschi({ chioschi, selezioneId, puoInteragire, onCardClick, ca
                                     callBadge={callBadge}
                                     presenzaTrack={presenzaTracks[chiosco.id] ?? null}
                                     micAttivo={micVerso === chiosco.id}
+                                    ascoltoAttivo={ascoltoDi === chiosco.id}
                                 />
                             );
                         })}

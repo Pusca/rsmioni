@@ -50,6 +50,36 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
     const presenzaTrack = chiosco ? snapPresenza.tracks[chiosco.id] ?? null : null;
     const micAttivo     = !!chiosco && snapPresenza.parlaCon === chiosco.id;
     const [micLoading, setMicLoading] = useState(false);
+
+    // ── Ascolto nascosto: sento il chiosco senza che l'ospite se ne accorga ─
+    // Con una sessione AI in corso l'audio arriva dalla stanza della chiamata
+    // (voce ospite + assistente); altrimenti dal canale presenza (microfono
+    // del chiosco acceso su richiesta, senza pubblicare la mia voce).
+    const ascoltoAi       = !!call && call.gestitaDa === 'ai';
+    const ascoltoAttivo   = !!chiosco && (ascoltoAi ? call!.ascolto : snapPresenza.ascoltaCon === chiosco.id);
+    const [ascoltoErrore, setAscoltoErrore] = useState<string | null>(null);
+    const toggleAscolto = () => {
+        if (!chiosco) return;
+        setAscoltoErrore(null);
+        if (ascoltoAi) {
+            liveKitCall.setAscolto(chiosco.id, !call!.ascolto);
+            return;
+        }
+        const ok = presenza.ascolta(ascoltoAttivo ? null : chiosco.id);
+        if (!ascoltoAttivo && !ok) {
+            setAscoltoErrore('Il chiosco non è collegato alla presenza (schermata chiosco chiusa o offline).');
+        }
+    };
+    // Se parte una sessione AI mentre ascolto dalla presenza, l'ascolto passa
+    // alla stanza della chiamata senza che il receptionist debba rifare nulla.
+    useEffect(() => {
+        if (!chiosco || !ascoltoAi) return;
+        if (snapPresenza.ascoltaCon === chiosco.id) {
+            presenza.ascolta(null);
+            liveKitCall.setAscolto(chiosco.id, true);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [chiosco?.id, ascoltoAi]);
     const presenzaVideoRef = useRef<HTMLVideoElement | null>(null);
     useEffect(() => {
         const el = presenzaVideoRef.current;
@@ -298,6 +328,26 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
                         </div>
 
                         <div className="flex items-center gap-3">
+                            {/* Ascolto nascosto: sento il chiosco (o la conversazione con l'AI) senza intervenire */}
+                            {chiosco.stato !== 'offline' && !(call?.gestitaDa === 'umano' && call?.tipo === 'parlato') && (
+                                <button
+                                    onClick={toggleAscolto}
+                                    title={ascoltoAttivo ? 'Smetti di ascoltare' : ascoltoAi ? 'Ascolta la conversazione con l\'assistente (l\'ospite non se ne accorge)' : 'Ascolta il chiosco in nascosto (l\'ospite non se ne accorge)'}
+                                    className="flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all active:scale-95"
+                                    style={{
+                                        backgroundColor: ascoltoAttivo ? '#eab308' : 'rgba(234,179,8,0.10)',
+                                        color:           ascoltoAttivo ? '#1a1d2b' : '#fde68a',
+                                        border:          `1px solid ${ascoltoAttivo ? '#eab308' : 'rgba(234,179,8,0.45)'}`,
+                                        boxShadow:       ascoltoAttivo ? '0 0 0 4px rgba(234,179,8,0.18)' : 'none',
+                                    }}
+                                >
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M3 18v-6a9 9 0 0118 0v6" />
+                                        <path d="M21 19a2 2 0 01-2 2h-1a2 2 0 01-2-2v-3a2 2 0 012-2h3zM3 19a2 2 0 002 2h1a2 2 0 002-2v-3a2 2 0 00-2-2H3z" />
+                                    </svg>
+                                    {ascoltoAttivo ? 'In ascolto' : 'Ascolta'}
+                                </button>
+                            )}
                             {/* Microfono: il modo veloce di parlare con QUESTO chiosco */}
                             {!isRL && chiosco.stato !== 'offline' && (
                                 <button
@@ -776,6 +826,13 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
                                     </div>
                                 )}
                             </div>
+                        )}
+
+                        {ascoltoErrore && (
+                            <p className="text-xs rounded px-3 py-1.5"
+                               style={{ color: '#fde68a', backgroundColor: 'rgba(234,179,8,0.1)', border: '1px solid rgba(234,179,8,0.3)' }}>
+                                {ascoltoErrore}
+                            </p>
                         )}
 
                         {/* Errore transizione */}

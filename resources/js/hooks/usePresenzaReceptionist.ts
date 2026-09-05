@@ -119,7 +119,17 @@ export function usePresenzaReceptionist(pubblicaCamera: boolean): Result {
                         }
                         aggiornaVideo();
                     })
-                    .on(RoomEvent.ParticipantDisconnected, () => { aggiornaVideo(); if (room.remoteParticipants.size === 0) setParla(false); })
+                    .on(RoomEvent.ParticipantDisconnected, () => {
+                        aggiornaVideo();
+                        // Receptionist uscito (browser chiuso, rete): niente più
+                        // parlato né ascolto → il microfono del chiosco si spegne da solo,
+                        // altrimenti resterebbe acceso verso una stanza vuota.
+                        if (room.remoteParticipants.size === 0) {
+                            setParla(false);
+                            room.localParticipant.setMicrophoneEnabled(false).catch(() => {});
+                            setMic(false);
+                        }
+                    })
                     .on(RoomEvent.DataReceived, (payload: Uint8Array, _p, _k, topic?: string) => {
                         if (topic !== TOPIC) return;
                         try {

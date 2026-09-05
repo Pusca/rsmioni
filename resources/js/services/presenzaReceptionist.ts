@@ -32,11 +32,13 @@ export interface SnapshotPresenza {
     tracks:   Record<string, MediaStreamTrack>;
     /** Chiosco verso cui il microfono del receptionist è acceso. */
     parlaCon: string | null;
+    /** Chiosco di cui il receptionist sta ascoltando l'audio in nascosto (senza parlare). */
+    ascoltaCon: string | null;
     /** Numero di stanze presenza connesse. */
     connesse: number;
 }
 
-let snapshot: SnapshotPresenza = { tracks: {}, parlaCon: null, connesse: 0 };
+let snapshot: SnapshotPresenza = { tracks: {}, parlaCon: null, ascoltaCon: null, connesse: 0 };
 const listeners = new Set<() => void>();
 
 function emit(): void {
@@ -50,7 +52,7 @@ function emit(): void {
             });
         });
     });
-    snapshot = { tracks, parlaCon: snapshot.parlaCon, connesse: rooms.size };
+    snapshot = { ...snapshot, tracks, connesse: rooms.size };
     listeners.forEach((l) => l());
 }
 
@@ -70,12 +72,24 @@ export function usePresenza(): SnapshotPresenza {
 
 const audioEls = new Map<string, HTMLMediaElement>(); // trackSid → <audio>
 
-function attaccaAudio(track: RemoteTrack): void {
+function attaccaAudio(track: RemoteTrack, participant?: RemoteParticipant): void {
     if (track.kind !== Track.Kind.Audio) return;
+    // Si riproduce SOLO l'audio del chiosco con cui si sta parlando o che si
+    // sta ascoltando: un chiosco col microfono rimasto acceso non deve farsi
+    // sentire da solo alla riapertura della portineria.
+    const id = participant ? chioscoIdDa(participant.identity) : null;
+    if (id && id !== snapshot.parlaCon && id !== snapshot.ascoltaCon) return;
     const el = track.attach();
     el.setAttribute('data-presenza-audio', '1');
     document.body.appendChild(el);
     audioEls.set(track.sid ?? String(Math.random()), el);
+}
+
+function staccaAudioDi(room: Room, chioscoId: string): void {
+    room.remoteParticipants.forEach((p) => {
+        if (chioscoIdDa(p.identity) !== chioscoId) return;
+        p.audioTrackPublications.forEach((pub) => { if (pub.track) staccaAudio(pub.track as RemoteTrack); });
+    });
 }
 
 function staccaAudio(track: RemoteTrack): void {
@@ -113,12 +127,14 @@ export async function avvia(): Promise<void> {
             rooms.set(hotel_id, room);
 
             room
-                .on(RoomEvent.TrackSubscribed,   (t: RemoteTrack) => { attaccaAudio(t); emit(); })
+                .on(RoomEvent.TrackSubscribed,   (t: RemoteTrack, _pub, participant: RemoteParticipant) => { attaccaAudio(t, participant); emit(); })
                 .on(RoomEvent.TrackUnsubscribed, (t: RemoteTrack) => { staccaAudio(t); emit(); })
                 .on(RoomEvent.ParticipantConnected,    () => { emit(); riapplicaPermessi(room); })
                 .on(RoomEvent.ParticipantDisconnected, (p: RemoteParticipant) => {
-                    // Se stavo parlando proprio con quel chiosco, il microfono si spegne
-                    if (snapshot.parlaCon && chioscoIdDa(p.identity) === snapshot.parlaCon) void parlaCon(null);
+                    // Se stavo parlando (o ascoltando) proprio quel chiosco, si spegne
+                    const id = chioscoIdDa(p.identity);
+                    if (snapshot.parlaCon && id === snapshot.parlaCon) void parlaCon(null);
+                    if (snapshot.ascoltaCon && id === snapshot.ascoltaCon) ascolta(null);
                     emit(); riapplicaPermessi(room);
                 })
                 .on(RoomEvent.LocalTrackPublished, () => riapplicaPermessi(room))
@@ -145,6 +161,7 @@ export async function avvia(): Promise<void> {
 
 export function ferma(): void {
     void parlaCon(null);
+    ascolta(null);
     rooms.forEach((room) => { try { room.disconnect(); } catch { /* ignore */ } });
     rooms.clear();
     audioEls.forEach((el) => el.remove());
@@ -208,11 +225,11 @@ export async function parlaCon(chioscoId: string | null): Promise<boolean> {
     const precedente = snapshot.parlaCon;
     if (precedente === chioscoId) return chioscoId !== null;
 
-    // Spegni verso il precedente
+    // Spegni verso il precedente (il suo microfono resta acceso solo se lo sto ascoltando)
     if (precedente) {
         const r = roomDelChiosco(precedente);
         if (r) {
-            inviaMic(r, precedente, false);
+            if (snapshot.ascoltaCon !== precedente) { inviaMic(r, precedente, false); staccaAudioDi(r, precedente); }
             try { await r.localParticipant.setMicrophoneEnabled(false); } catch { /* ignore */ }
         }
         snapshot = { ...snapshot, parlaCon: null };
@@ -238,8 +255,50 @@ export async function parlaCon(chioscoId: string | null): Promise<boolean> {
     }
     riapplicaPermessi(room); // ora la track mic ha un SID: gli altri restano esclusi
     inviaMic(room, chioscoId, true);
+    attaccaAudioGiaPresente(room, chioscoId);
     listeners.forEach((l) => l());
     return true;
+}
+
+/**
+ * Ascolto nascosto: chiede al chiosco `chioscoId` di accendere il microfono
+ * SENZA pubblicare la voce del receptionist (null = spegni). Un chiosco alla
+ * volta. Sul chiosco non compare nulla: è il "collegamento nascosto" con
+ * l'audio. Con una sessione AI in corso l'ascolto passa dalla stanza della
+ * chiamata (liveKitCall.setAscolto), non da qui.
+ */
+export function ascolta(chioscoId: string | null): boolean {
+    const precedente = snapshot.ascoltaCon;
+    if (precedente === chioscoId) return chioscoId !== null;
+
+    if (precedente) {
+        const r = roomDelChiosco(precedente);
+        // Il microfono del precedente resta acceso solo se ci sto parlando
+        if (r && snapshot.parlaCon !== precedente) { inviaMic(r, precedente, false); staccaAudioDi(r, precedente); }
+        snapshot = { ...snapshot, ascoltaCon: null };
+        listeners.forEach((l) => l());
+    }
+
+    if (!chioscoId) return false;
+
+    const room = roomDelChiosco(chioscoId);
+    if (!room) return false; // chiosco non in stanza presenza (offline)
+
+    snapshot = { ...snapshot, ascoltaCon: chioscoId };
+    inviaMic(room, chioscoId, true);
+    attaccaAudioGiaPresente(room, chioscoId);
+    listeners.forEach((l) => l());
+    return true;
+}
+
+/** Track audio del chiosco già sottoscritte prima che si decidesse di ascoltarlo. */
+function attaccaAudioGiaPresente(room: Room, chioscoId: string): void {
+    room.remoteParticipants.forEach((p) => {
+        if (chioscoIdDa(p.identity) !== chioscoId) return;
+        p.audioTrackPublications.forEach((pub) => {
+            if (pub.track && !audioEls.has(pub.track.sid ?? '')) attaccaAudio(pub.track as RemoteTrack, p);
+        });
+    });
 }
 
 /** Il receptionist può parlare con questo chiosco (è in stanza presenza)? */

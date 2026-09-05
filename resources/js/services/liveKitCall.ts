@@ -30,6 +30,10 @@ interface CallEntry {
     condivisione:     boolean; // schermo condiviso ricevuto (lato chiosco)
     remoteVer:        number;
     inAttesaSent:     boolean; // ultimo stato attesa inviato al chiosco (evita spam dati)
+    /** Track audio remote (ospite + voce AI) — riprodotte solo se `ascolto` o chiamata umana */
+    remoteAudio:      RemoteTrack[];
+    /** Ascolto nascosto di una sessione AI: l'audio della stanza viene riprodotto in portineria */
+    ascolto:          boolean;
 }
 
 // ── Stato modulo ──────────────────────────────────────────────────────────
@@ -59,6 +63,7 @@ export interface PublicCall {
     condivisione: boolean;
     remoteVer:    number;
     attiva:       boolean;
+    ascolto:      boolean;
 }
 export interface Snapshot {
     activeChioscoId:    string | null;
@@ -76,7 +81,7 @@ function rebuild() {
     calls.forEach((e, id) => {
         c[id] = {
             chioscoId: id, stato: e.stato, tipo: e.tipo, gestitaDa: e.gestitaDa, chioscoNome: e.chioscoNome, sessionId: e.sessionId,
-            condivisione: e.condivisione, remoteVer: e.remoteVer, attiva: id === activeChioscoId,
+            condivisione: e.condivisione, remoteVer: e.remoteVer, attiva: id === activeChioscoId, ascolto: e.ascolto,
         };
     });
     snapshot = { activeChioscoId, condivisioneLocale, messaggioAttesa, ver: snapshot.ver + 1, calls: c };
@@ -194,7 +199,7 @@ async function startCallInner(opts: {
         calls.set(opts.chioscoId, {
             room: new Room(), sessionId: opts.sessionId, tipo: opts.tipo, gestitaDa: opts.gestitaDa ?? 'umano', chioscoId: opts.chioscoId,
             chioscoNome: opts.chioscoNome, hotelId: opts.hotelId, stato: 'error', remoteVideoTrack: null, hiddenVideo: null,
-            condivisione: false, remoteVer: 0, inAttesaSent: false,
+            condivisione: false, remoteVer: 0, inAttesaSent: false, remoteAudio: [], ascolto: false,
         });
         rebuild();
         return;
@@ -204,18 +209,23 @@ async function startCallInner(opts: {
     const entry: CallEntry = {
         room, sessionId: opts.sessionId, tipo: opts.tipo, gestitaDa: opts.gestitaDa ?? 'umano', chioscoId: opts.chioscoId,
         chioscoNome: opts.chioscoNome, hotelId: opts.hotelId, stato: 'connecting', remoteVideoTrack: null, hiddenVideo: null,
-        condivisione: false, remoteVer: 0, inAttesaSent: false,
+        condivisione: false, remoteVer: 0, inAttesaSent: false, remoteAudio: [],
+        // L'ascolto scelto sopravvive alla ricreazione della room (sessione AI nuova sullo stesso chiosco)
+        ascolto: existing?.ascolto ?? false,
     };
     calls.set(opts.chioscoId, entry);
     rebuild();
 
     const setRemote = (track: RemoteTrack) => {
         if (track.kind !== Track.Kind.Video) {
-            // Audio SOLO per le chiamate condotte dal receptionist: il self
-            // check-in AI resta muto in portineria (si osserva il video; la
-            // voce si sente solo al chiosco). L'audio arriva col Subentra,
-            // che ricrea la call come parlato umano.
-            if (track.kind === Track.Kind.Audio && entry.gestitaDa !== 'ai') track.attach();
+            // Audio: sempre nelle chiamate condotte dal receptionist; nel self
+            // check-in AI solo se il receptionist ha acceso l'ascolto nascosto
+            // (setAscolto). Ricevere l'audio è una sottoscrizione: non tocca
+            // la conversazione tra ospite e AI.
+            if (track.kind === Track.Kind.Audio) {
+                if (!entry.remoteAudio.includes(track)) entry.remoteAudio.push(track);
+                if (entry.gestitaDa !== 'ai' || entry.ascolto) track.attach();
+            }
             return;
         }
         entry.remoteVideoTrack = track;
@@ -231,6 +241,10 @@ async function startCallInner(opts: {
         .on(RoomEvent.TrackUnsubscribed, (track: RemoteTrack) => {
             if (track.source === Track.Source.ScreenShare) { entry.condivisione = false; rebuild(); }
             if (track === entry.remoteVideoTrack) entry.remoteVideoTrack = null;
+            if (track.kind === Track.Kind.Audio) {
+                entry.remoteAudio = entry.remoteAudio.filter((t) => t !== track);
+                track.detach().forEach((el) => el.remove());
+            }
         })
         .on(RoomEvent.Disconnected, () => {
             if (calls.get(opts.chioscoId) === entry) { calls.delete(opts.chioscoId); if (activeChioscoId === opts.chioscoId) activeChioscoId = null; rebuild(); }
@@ -323,6 +337,24 @@ export async function stopCall(chioscoId: string): Promise<void> {
     try { e.room.disconnect(); } catch { /* ignore */ }
     if (e.hiddenVideo && e.hiddenVideo.parentNode) e.hiddenVideo.parentNode.removeChild(e.hiddenVideo);
     if (calls.size === 0) condivisioneLocale = false;
+    rebuild();
+}
+
+/**
+ * Ascolto nascosto di una sessione AI: riproduce (o silenzia) l'audio della
+ * stanza — voce dell'ospite e dell'assistente — in portineria. Un chiosco
+ * alla volta, per non sovrapporre conversazioni.
+ */
+export function setAscolto(chioscoId: string, on: boolean): void {
+    calls.forEach((e, id) => {
+        const voluto = id === chioscoId ? on : false;
+        if (e.gestitaDa !== 'ai' || e.ascolto === voluto) return;
+        e.ascolto = voluto;
+        e.remoteAudio.forEach((t) => {
+            if (voluto) t.attach();
+            else t.detach().forEach((el) => el.remove());
+        });
+    });
     rebuild();
 }
 

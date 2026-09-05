@@ -13,6 +13,8 @@ interface Props {
     presenzaTrack?: MediaStreamTrack | null;
     /** Il microfono del receptionist è acceso verso questo chiosco */
     micAttivo?: boolean;
+    /** Il receptionist sta ascoltando questo chiosco in nascosto */
+    ascoltoAttivo?: boolean;
 }
 
 /** Anteprima live della webcam del chiosco (stanza presenza). */
@@ -101,7 +103,7 @@ function previewOverlay(stato: StatoChiosco) {
     }
 }
 
-export default function ChioscoCard({ chiosco, isSelezionato, puoInteragire, onClick, callBadge, presenzaTrack, micAttivo }: Props) {
+export default function ChioscoCard({ chiosco, isSelezionato, puoInteragire, onClick, callBadge, presenzaTrack, micAttivo, ascoltoAttivo }: Props) {
     const borderColor = callBadge === 'attiva'
         ? '#3b82f6'
         : callBadge === 'attesa'
@@ -156,6 +158,17 @@ export default function ChioscoCard({ chiosco, isSelezionato, puoInteragire, onC
                             <path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3zM19 10v2a7 7 0 01-14 0v-2M12 19v4" />
                         </svg>
                         MIC
+                    </div>
+                )}
+
+                {/* Ascolto nascosto attivo su questo chiosco */}
+                {ascoltoAttivo && !micAttivo && (
+                    <div className="absolute bottom-1.5 right-1.5 flex items-center gap-1 rounded px-1.5 py-0.5"
+                         style={{ backgroundColor: 'rgba(234,179,8,0.95)', color: '#1a1d2b', fontSize: '9px', fontWeight: 700 }}>
+                        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                            <path d="M3 18v-6a9 9 0 0118 0v6" />
+                        </svg>
+                        ASCOLTO
                     </div>
                 )}
 
