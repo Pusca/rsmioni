@@ -16,7 +16,28 @@ interface Filtri {
     data_al?: string;
     stato_pagamento?: TipoPagamento | '';
     stato_documento?: StatoDocumentoIdentita | '';
+    vista?: string;
+    ordina?: string;
 }
+
+/** Viste rapide: cosa serve vedere durante il turno. */
+const VISTE: { value: string; label: string }[] = [
+    { value: '',              label: 'Tutte' },
+    { value: 'arrivi_oggi',   label: 'Arrivi di oggi' },
+    { value: 'in_casa',       label: 'In casa adesso' },
+    { value: 'partenze_oggi', label: 'Partenze di oggi' },
+    { value: 'prossimi',      label: 'Prossimi arrivi' },
+    { value: 'passate',       label: 'Passate' },
+];
+
+/** Ordinamenti: "" = automatico (dal più vicino nelle viste operative, dal più recente altrimenti). */
+const ORDINI: { value: string; label: string }[] = [
+    { value: '',              label: 'Automatico' },
+    { value: 'check_in_asc',  label: 'Check-in dal più vicino' },
+    { value: 'check_in_desc', label: 'Check-in dal più lontano' },
+    { value: 'recenti',       label: 'Inserite di recente' },
+    { value: 'cognome',       label: 'Cognome A → Z' },
+];
 
 interface Props {
     prenotazioni: Paginated<PrenotazioneRow>;
@@ -67,6 +88,8 @@ export default function Index({ prenotazioni, hotels, profilo, filtri, can }: Pr
     const [dataAl,         setDataAl]        = useState(filtri.data_al ?? '');
     const [statoPagamento, setStatoPagamento]= useState<string>(filtri.stato_pagamento ?? '');
     const [statoDocumento, setStatoDocumento]= useState<string>(filtri.stato_documento ?? '');
+    const [vista,          setVista]         = useState<string>(filtri.vista ?? '');
+    const [ordina,         setOrdina]        = useState<string>(filtri.ordina ?? '');
 
     const searchTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
@@ -78,15 +101,19 @@ export default function Index({ prenotazioni, hotels, profilo, filtri, can }: Pr
         const data_al_v   = o.data_al         !== undefined ? o.data_al         : dataAl;
         const stato_pag_v = o.stato_pagamento !== undefined ? o.stato_pagamento : statoPagamento;
         const stato_doc_v = o.stato_documento !== undefined ? o.stato_documento : statoDocumento;
+        const vista_v     = o.vista           !== undefined ? o.vista           : vista;
+        const ordina_v    = o.ordina          !== undefined ? o.ordina          : ordina;
 
         if (cerca_v)      params.cerca           = cerca_v;
         if (data_dal_v)   params.data_dal        = data_dal_v;
         if (data_al_v)    params.data_al         = data_al_v;
         if (stato_pag_v)  params.stato_pagamento = stato_pag_v;
         if (stato_doc_v)  params.stato_documento = stato_doc_v;
+        if (vista_v)      params.vista           = vista_v;
+        if (ordina_v)     params.ordina          = ordina_v;
 
         router.get('/prenotazioni', params, { preserveState: true, replace: true });
-    }, [cerca, dataDal, dataAl, statoPagamento, statoDocumento]);
+    }, [cerca, dataDal, dataAl, statoPagamento, statoDocumento, vista, ordina]);
 
     const handleCercaChange = (v: string) => {
         setCerca(v);
@@ -103,10 +130,11 @@ export default function Index({ prenotazioni, hotels, profilo, filtri, can }: Pr
     const resetFiltri = () => {
         setCerca(''); setDataDal(''); setDataAl('');
         setStatoPagamento(''); setStatoDocumento('');
+        setVista(''); setOrdina('');
         router.get('/prenotazioni', {}, { preserveState: true, replace: true });
     };
 
-    const hasFiltri = !!(cerca || dataDal || dataAl || statoPagamento || statoDocumento);
+    const hasFiltri = !!(cerca || dataDal || dataAl || statoPagamento || statoDocumento || vista || ordina);
 
     return (
         <Layout>
@@ -173,6 +201,18 @@ export default function Index({ prenotazioni, hotels, profilo, filtri, can }: Pr
                         />
                     </div>
 
+                    {/* Vista rapida */}
+                    <div>
+                        <label className="block text-xs mb-1" style={{ color: 'var(--color-text-muted)' }}>Mostra</label>
+                        <select value={vista}
+                            onChange={e => { setVista(e.target.value); applyFiltri({ vista: e.target.value }); }}
+                            className="rounded px-3 py-1.5 text-xs outline-none"
+                            style={{ backgroundColor: 'var(--color-bg-primary)', border: `1px solid ${vista ? '#3b82f6' : 'var(--color-border)'}`, color: 'var(--color-text-primary)' }}
+                        >
+                            {VISTE.map((v) => <option key={v.value} value={v.value}>{v.label}</option>)}
+                        </select>
+                    </div>
+
                     {/* Data dal */}
                     <div>
                         <label className="block text-xs mb-1" style={{ color: 'var(--color-text-muted)' }}>Check-in dal</label>
@@ -191,6 +231,18 @@ export default function Index({ prenotazioni, hotels, profilo, filtri, can }: Pr
                             className="rounded px-3 py-1.5 text-xs outline-none"
                             style={{ backgroundColor: 'var(--color-bg-primary)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}
                         />
+                    </div>
+
+                    {/* Ordinamento */}
+                    <div>
+                        <label className="block text-xs mb-1" style={{ color: 'var(--color-text-muted)' }}>Ordina</label>
+                        <select value={ordina}
+                            onChange={e => { setOrdina(e.target.value); applyFiltri({ ordina: e.target.value }); }}
+                            className="rounded px-3 py-1.5 text-xs outline-none"
+                            style={{ backgroundColor: 'var(--color-bg-primary)', border: `1px solid ${ordina ? '#3b82f6' : 'var(--color-border)'}`, color: 'var(--color-text-primary)' }}
+                        >
+                            {ORDINI.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                        </select>
                     </div>
 
                     {/* Stato pagamento */}

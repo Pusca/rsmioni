@@ -45,6 +45,7 @@ class PrenotazioniController extends Controller
         $filtri = $request->only([
             'cerca', 'data_dal', 'data_al',
             'stato_pagamento', 'stato_documento',
+            'vista', 'ordina',
         ]);
 
         $paginated = $this->service->query($user, $hotelDaMostrare, $filtri)->paginate(25)->withQueryString();

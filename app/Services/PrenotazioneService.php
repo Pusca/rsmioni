@@ -25,13 +25,20 @@ class PrenotazioneService
      * e fino al limite di giorni_visibilita_calendario configurati sull'hotel.
      * Gestore Hotel: visibilità completa su tutti gli hotel associati.
      */
+    /** Viste rapide dell'elenco (filtro sulle date rispetto a oggi). */
+    public const VISTE = ['tutte', 'arrivi_oggi', 'in_casa', 'partenze_oggi', 'prossimi', 'passate'];
+
+    /** Ordinamenti dell'elenco. */
+    public const ORDINI = ['check_in_asc', 'check_in_desc', 'recenti', 'cognome'];
+
     public function query(User $user, array $hotelIds, array $filtri = []): Builder
     {
         $q = Prenotazione::query()
             ->whereIn('hotel_id', $hotelIds)
-            ->with(['hotel:id,nome'])
-            ->orderByDesc('check_in')
-            ->orderByDesc('created_at');
+            ->with(['hotel:id,nome']);
+
+        $this->applicaVista($q, (string) ($filtri['vista'] ?? 'tutte'));
+        $this->applicaOrdine($q, (string) ($filtri['ordina'] ?? ''), (string) ($filtri['vista'] ?? 'tutte'));
 
         // Receptionist: finestra temporale limitata per hotel
         if ($user->profilo === Profilo::Receptionist) {
@@ -65,6 +72,46 @@ class PrenotazioneService
         }
 
         return $q;
+    }
+
+    /**
+     * Vista rapida: quello che serve in portineria durante il turno.
+     *   arrivi_oggi    → check-in oggi
+     *   in_casa        → soggiorno in corso (arrivati, non ancora partiti)
+     *   partenze_oggi  → check-out oggi
+     *   prossimi       → arrivo da oggi in poi
+     *   passate        → partite prima di oggi
+     */
+    private function applicaVista(Builder $q, string $vista): void
+    {
+        $oggi = now()->toDateString();
+        match ($vista) {
+            'arrivi_oggi'   => $q->whereDate('check_in', $oggi),
+            'in_casa'       => $q->whereDate('check_in', '<=', $oggi)->whereDate('check_out', '>', $oggi),
+            'partenze_oggi' => $q->whereDate('check_out', $oggi),
+            'prossimi'      => $q->whereDate('check_in', '>=', $oggi),
+            'passate'       => $q->whereDate('check_out', '<', $oggi),
+            default         => null,
+        };
+    }
+
+    /**
+     * Ordinamento. Senza scelta esplicita: le viste "operative" (arrivi,
+     * in casa, partenze, prossimi) vanno dal più vicino al più lontano; la
+     * lista completa e le passate dal più recente.
+     */
+    private function applicaOrdine(Builder $q, string $ordina, string $vista): void
+    {
+        if (! in_array($ordina, self::ORDINI, true)) {
+            $ordina = in_array($vista, ['arrivi_oggi', 'in_casa', 'partenze_oggi', 'prossimi'], true)
+                ? 'check_in_asc' : 'check_in_desc';
+        }
+        match ($ordina) {
+            'check_in_asc' => $q->orderBy('check_in')->orderBy('check_out')->orderBy('cognome'),
+            'recenti'      => $q->orderByDesc('created_at'),
+            'cognome'      => $q->orderBy('cognome')->orderBy('nome')->orderBy('check_in'),
+            default        => $q->orderByDesc('check_in')->orderByDesc('created_at'),
+        };
     }
 
     /**
