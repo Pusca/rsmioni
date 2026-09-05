@@ -92,10 +92,6 @@ export default function KioskIndex({ chiosco, stato_iniziale, messaggio_attesa: 
 
     // ── Media: chiaro / nascosto / parlato tutti su LiveKit ─────────────────
     const lk = useLiveKitChiosco();
-    // Il riepilogo post-AI (CompletatoScreen) è dichiarato più sotto; qui un
-    // ref per sapere se è a schermo senza riordinare gli hook.
-    const fineSessioneAttiva = useRef(false);
-
     // Routing delle schermate media: la fonte di verità è la SESSIONE scoperta
     // dal poll del token LiveKit (ogni 2 s), non lo stato Portineria via Reverb.
     // Prima serviva anche `stato === 'in_parlato'`: un evento Reverb perso
@@ -113,12 +109,10 @@ export default function KioskIndex({ chiosco, stato_iniziale, messaggio_attesa: 
         || (lk.sessionTipo !== null && lk.stato !== 'error');
     const presenza = usePresenzaReceptionist(! sessioneMediaAttiva);
 
-    // In attesa il receptionist è grande al centro (AttesoScreen); la miniatura
-    // serve nelle altre schermate (AI, acquisizione, POS…) tranne nei
-    // collegamenti pieni, dove il receptionist è già a schermo.
-    const schermataAttesa = ! pagamento && ! stampa && ! acquisizione && ! inAi && ! inParlato && ! inChiaro
-        && ! ['in_chiamata', 'messaggio_attesa', 'offline'].includes(stato) && ! fineSessioneAttiva.current;
-    const mostraPresenzaBadge = presenza.online && ! inChiaro && ! inParlato && ! schermataAttesa;
+    // Il receptionist sta nel riquadro piccolo in alto a destra in TUTTE le
+    // schermate (attesa, AI, acquisizione, POS…) tranne nei collegamenti
+    // pieni, dove è già grande a schermo.
+    const mostraPresenzaBadge = presenza.online && ! inChiaro && ! inParlato && ! lk.duplicato;
 
     // ── Heartbeat con diagnostica media: il server (e la pagina Diagnostica)
     //    sanno cosa vede il browser del chiosco, anche da remoto ─────────────
@@ -179,7 +173,6 @@ export default function KioskIndex({ chiosco, stato_iniziale, messaggio_attesa: 
     const ultimoAiRef = useRef<{ ui: typeof lk.aiUi; scopo: ScopoAi } | null>(null);
     const [fineSessione, setFineSessione] = useState<{ ui: typeof lk.aiUi; scopo: ScopoAi } | null>(null);
     const eraInAi = useRef(false);
-    fineSessioneAttiva.current = fineSessione !== null;
     useEffect(() => {
         if (inAi) {
             ultimoAiRef.current = { ui: lk.aiUi, scopo: aiScopo };
@@ -207,7 +200,15 @@ export default function KioskIndex({ chiosco, stato_iniziale, messaggio_attesa: 
 
             {/* Miniatura presenza receptionist — nelle schermate in cui non è
                 già grande (attesa) né a schermo pieno (chiaro/parlato) */}
-            {mostraPresenzaBadge && presenza.track && <PresenzaBadge track={presenza.track} />}
+            {mostraPresenzaBadge && presenza.track && (
+                <PresenzaBadge
+                    track={presenza.track}
+                    nome={presenza.nome}
+                    parla={presenza.parla}
+                    microfonoAttivo={presenza.microfonoAttivo}
+                    audioBloccato={presenza.audioBloccato}
+                />
+            )}
 
             {/* Solo presenza duplicata: avviso discreto, il chiosco resta operativo */}
             {presenza.duplicato && ! lk.duplicato && (

@@ -199,13 +199,67 @@ button:focus-visible { outline: 2px solid #3b82f6; outline-offset: 2px; }
 
 .kiosk-title { font-size: clamp(26px, 6vw, 40px); }
 
-/* Tre azioni principali affiancate; su schermi stretti impilate */
+/* ── Schermata di attesa: benvenuto, lingue, tre card ──────────────── */
+.kiosk-welcome { margin-bottom: 1.75rem; }
+.kiosk-hint    { font-size: 17px; margin-top: 0.5rem; }
+
+/* Aloni di sfondo: profondità senza immagini */
+.kiosk-bg-glow { position: absolute; border-radius: 9999px; pointer-events: none; filter: blur(70px); opacity: 0.55; }
+.kiosk-bg-glow-a { width: 46vw; height: 46vw; left: -12vw; top: -10vw; background: radial-gradient(circle, rgba(59,130,246,0.28), rgba(59,130,246,0) 70%); }
+.kiosk-bg-glow-b { width: 40vw; height: 40vw; right: -10vw; bottom: -14vw; background: radial-gradient(circle, rgba(245,158,11,0.16), rgba(245,158,11,0) 70%); }
+
+/* Lingue: pill con bandierina SVG */
+.kiosk-lingue { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.6rem; margin-bottom: 2rem; padding: 0 1rem; }
+.kiosk-lingua {
+    display: inline-flex; align-items: center; gap: 0.6rem;
+    min-height: 48px; padding: 0.55rem 1.1rem 0.55rem 0.8rem;
+    border-radius: 9999px; font-size: 15px; font-weight: 500;
+    color: var(--color-text-secondary);
+    background: rgba(148,163,184,0.07); border: 2px solid rgba(148,163,184,0.22);
+    transition: background .18s ease, border-color .18s ease, color .18s ease, transform .12s ease, box-shadow .18s ease;
+}
+.kiosk-lingua:active { transform: scale(0.96); }
+.kiosk-lingua:disabled { opacity: 0.6; }
+.kiosk-lingua-attiva {
+    color: #eff6ff; font-weight: 600;
+    background: rgba(59,130,246,0.20); border-color: rgba(96,165,250,0.9);
+    box-shadow: 0 0 0 4px rgba(59,130,246,0.14);
+}
+
+/* Tre card affiancate; su schermi stretti impilate */
 .kiosk-actions {
     display: flex; align-items: stretch; justify-content: center;
-    gap: 1.25rem; width: 100%; max-width: 1020px; padding: 0 2rem;
+    gap: 1.25rem; width: 100%; max-width: 1080px; padding: 0 2rem;
 }
-.kiosk-action { flex: 1; padding: 26px 32px; }
-.kiosk-action-label { font-size: 1.25rem; }
+.kiosk-action {
+    --c: 59,130,246;
+    flex: 1; min-height: 168px; padding: 24px 24px 24px 26px;
+    display: flex; align-items: center; gap: 1.1rem; text-align: left;
+    border-radius: 1.5rem; cursor: pointer;
+    color: var(--color-text-primary);
+    background: linear-gradient(160deg, rgba(var(--c),0.20) 0%, rgba(var(--c),0.07) 60%, rgba(var(--c),0.04) 100%);
+    border: 2px solid rgba(var(--c),0.45);
+    box-shadow: 0 14px 40px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.05);
+    transition: transform .14s ease, box-shadow .2s ease, border-color .2s ease;
+}
+.kiosk-action:hover  { border-color: rgba(var(--c),0.75); box-shadow: 0 18px 50px rgba(0,0,0,0.35), 0 0 0 5px rgba(var(--c),0.10); }
+.kiosk-action:active { transform: scale(0.97); }
+.kiosk-action:disabled { cursor: default; }
+.kiosk-action:disabled:not(.kiosk-action-attesa) { opacity: 0.45; }
+.kiosk-action-attesa { border-color: rgba(var(--c),0.9); animation: kiosk-attesa-pulse 1.2s ease-in-out infinite; }
+@keyframes kiosk-attesa-pulse {
+    0%, 100% { box-shadow: 0 14px 40px rgba(0,0,0,0.30), 0 0 0 0 rgba(var(--c),0.25); }
+    50%      { box-shadow: 0 14px 40px rgba(0,0,0,0.30), 0 0 0 10px rgba(var(--c),0.0); }
+}
+.kiosk-action-icon {
+    flex-shrink: 0; width: 64px; height: 64px; border-radius: 9999px;
+    display: inline-flex; align-items: center; justify-content: center;
+    color: rgb(var(--c)); background: rgba(var(--c),0.16); border: 1px solid rgba(var(--c),0.35);
+}
+.kiosk-action-text  { display: flex; flex-direction: column; gap: 0.3rem; min-width: 0; flex: 1; }
+.kiosk-action-label { font-size: 1.35rem; font-weight: 600; line-height: 1.15; }
+.kiosk-action-sub   { font-size: 0.95rem; color: var(--color-text-muted); line-height: 1.3; }
+.kiosk-action-arrow { flex-shrink: 0; color: rgba(var(--c),0.75); }
 
 /* Orb vocale */
 .ai-orb-wrap { width: 180px; height: 180px; margin-bottom: 2rem; }
@@ -218,14 +272,31 @@ button:focus-visible { outline: 2px solid #3b82f6; outline-offset: 2px; }
 .kiosk-selfie  { position: absolute; right: 20px; bottom: 20px; width: 170px; height: 128px; }
 .kiosk-termina { position: absolute; left: 24px; bottom: 24px; font-size: 16px; padding: 1rem 2rem; min-height: 56px; }
 
-/* Miniatura del receptionist (presenza) */
-.presenza-badge { position: fixed; top: 64px; right: 16px; width: 176px; }
+/* Riquadro del receptionist (presenza): piccolo, in alto a destra */
+.presenza-badge { position: fixed; top: 16px; right: 16px; width: 200px; }
+.presenza-badge-frame {
+    aspect-ratio: 4 / 3; border-radius: 0.9rem; background: #060810;
+    border: 2px solid rgba(34,197,94,0.45);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.45);
+    transition: border-color .3s ease, box-shadow .3s ease;
+}
+.presenza-badge-parla .presenza-badge-frame {
+    border-color: rgba(96,165,250,0.95);
+    animation: kiosk-parla-glow 1.6s ease-in-out infinite;
+}
+.presenza-badge-hint { font-size: 12px; }
 
 @media (max-width: 760px) {
+    .kiosk-welcome { margin-bottom: 1rem; }
+    .kiosk-hint    { font-size: 14px; }
+    .kiosk-lingue  { gap: 0.4rem; margin-bottom: 1.1rem; }
+    .kiosk-lingua  { min-height: 40px; font-size: 13px; padding: 0.35rem 0.8rem 0.35rem 0.55rem; }
     .kiosk-actions { flex-direction: column; gap: 0.75rem; padding: 0 1rem; max-width: 480px; }
-    .kiosk-action  { padding: 14px 18px; }
+    .kiosk-action  { min-height: 0; padding: 14px 16px; gap: 0.8rem; border-radius: 1.1rem; }
+    .kiosk-action-icon  { width: 46px; height: 46px; }
+    .kiosk-action-icon svg { width: 22px; height: 22px; }
     .kiosk-action-label { font-size: 1.05rem; }
-    .kiosk-action svg { width: 26px; height: 26px; }
+    .kiosk-action-sub   { font-size: 0.8rem; }
 
     .ai-screen-layout { flex-direction: column; gap: 1.25rem; padding: 3.25rem 1rem 6.5rem; justify-content: flex-start; overflow-y: auto; }
     .ai-orb-wrap   { width: 130px; height: 130px; margin-bottom: 1rem; }
@@ -236,34 +307,12 @@ button:focus-visible { outline: 2px solid #3b82f6; outline-offset: 2px; }
 
     .kiosk-selfie  { width: 104px; height: 78px; right: 12px; bottom: 12px; }
     .kiosk-termina { left: 12px; bottom: 12px; font-size: 14px; padding: 0.7rem 1.1rem; min-height: 48px; }
-    .presenza-badge { width: 112px; top: 44px; right: 10px; }
-}
-/* Receptionist in grande sul chiosco in attesa (presenza) */
-.kiosk-presenza { width: 100%; max-width: 900px; padding: 0 1.5rem; margin-bottom: 1.75rem; }
-.kiosk-presenza-frame {
-    width: 100%; aspect-ratio: 16 / 9; max-height: 52vh;
-    border-radius: 1.25rem; background: #060810;
-    border: 2px solid rgba(34,197,94,0.35);
-    box-shadow: 0 20px 60px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.04) inset;
-    transition: border-color .4s ease, box-shadow .4s ease;
+    .presenza-badge { width: 120px; top: 10px; right: 10px; }
+    .kiosk-atteso { justify-content: flex-start; padding-top: 3.25rem; overflow-y: auto; }
 }
 @keyframes kiosk-parla-glow {
-    0%, 100% { box-shadow: 0 20px 60px rgba(0,0,0,0.45), 0 0 0 4px rgba(96,165,250,0.18); }
-    50%      { box-shadow: 0 20px 60px rgba(0,0,0,0.45), 0 0 0 10px rgba(96,165,250,0.32); }
-}
-.kiosk-presenza-frame.kiosk-presenza-parla {
-    border-color: rgba(96,165,250,0.9);
-    animation: kiosk-parla-glow 1.6s ease-in-out infinite;
-}
-.kiosk-presenza-hint { font-size: 15px; }
-@media (max-width: 760px) {
-    .kiosk-presenza { padding: 0 0.75rem; margin-bottom: 1rem; }
-    .kiosk-presenza-frame { max-height: 38vh; border-radius: 0.9rem; }
-    .kiosk-presenza-hint { font-size: 13px; }
-    .kiosk-atteso { justify-content: flex-start; padding-top: 2.75rem; overflow-y: auto; }
-}
-@media (max-height: 560px) {
-    .kiosk-presenza-frame { max-height: 34vh; }
+    0%, 100% { box-shadow: 0 10px 30px rgba(0,0,0,0.45), 0 0 0 4px rgba(96,165,250,0.18); }
+    50%      { box-shadow: 0 10px 30px rgba(0,0,0,0.45), 0 0 0 9px rgba(96,165,250,0.32); }
 }
 
 /* Telefoni bassi in landscape: l'orb non deve mangiarsi lo schermo */

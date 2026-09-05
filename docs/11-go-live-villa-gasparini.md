@@ -109,6 +109,12 @@ Checklist in §3.
 - **Subentra senza schermo nero**: le track video (receptionist e condivisione) restano in stato e vengono riattaccate quando la schermata cambia (AI → parlato). Prima il video del receptionist dopo il Subentra poteva non comparire perché l'elemento `<video>` era stato rimontato.
 - **Avvio più rapido**: dopo il tocco il chiosco fa subito il poll della sessione (senza aspettare il giro da 2 s) e l'agent saluta 0,6 s dopo l'ingresso del chiosco (era 1 s).
 
+## 2-quater. Interventi del 5 settembre — via il passaggio "in chiaro", chiosco ridisegnato
+
+- **Collegarsi al chiosco = voce e video subito.** In Portineria i bottoni "Collegamento in chiaro", "Rispondi in chiaro", "Passa in chiaro" e "Riprendi in chiaro" sono diventati **"Parla col chiosco"** / **"Rispondi"**: creano direttamente la sessione parlato. `POST /portineria/webrtc/sessione` parte ora da idle, chiamata in arrivo, nascosto e messaggio di attesa (lo stato attraversa `in_chiaro` solo come tappa interna; regole per profilo e limite concorrenti invariati) e chiude l'eventuale sessione nascosto precedente. "Chiudi parlato" riporta il chiosco a disponibile, senza tornare in chiaro. Lo stato `in_chiaro` resta nella state machine (manuale, demo, test) ma non è più un passaggio del flusso.
+- **Receptionist in un riquadro piccolo in alto a destra** su tutte le schermate del chiosco (attesa, AI, documenti, POS), tranne i collegamenti pieni. Quando parla verso il chiosco il riquadro si illumina in blu e compare lo stato del microfono dell'ospite.
+- **Schermata di attesa rifatta**: benvenuto con nome hotel, bandierine **SVG** (le emoji non si vedono su Windows), tre card grandi con icona, titolo e sottotitolo tradotti nella lingua scelta.
+
 ## 3. Checklist giorno di installazione
 
 1. **Rete**: ethernet o Wi-Fi stabile; test velocità; porte non bloccate (LiveKit WSS/UDP, Pusher).

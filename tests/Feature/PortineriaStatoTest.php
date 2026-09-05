@@ -131,6 +131,43 @@ class PortineriaStatoTest extends TestCase
         $this->assertSame('idle', Cache::get("kiosk_state:{$this->chiosco->id}"));
     }
 
+    public function test_parlato_parte_direttamente_da_idle_chiamata_e_nascosto(): void
+    {
+        $sessioni = app(\App\Services\WebRtcSessionService::class);
+
+        foreach ([StatoChiosco::Idle, StatoChiosco::InChiamata, StatoChiosco::InNascosto, StatoChiosco::MessaggioAttesa] as $da) {
+            $this->forzaStato($da);
+            $vecchia = $da === StatoChiosco::InNascosto
+                ? $sessioni->crea($this->receptionist->id, $this->chiosco->id, $this->hotel->id, 'nascosto')
+                : null;
+
+            $r = $this->actingAs($this->receptionist)
+                ->postJson('/portineria/webrtc/sessione', ['chiosco_id' => $this->chiosco->id])
+                ->assertOk();
+
+            $this->assertSame(StatoChiosco::InParlato, app(PortineriaService::class)->statoChiosco($this->chiosco->id), "da {$da->value}");
+            $this->assertSame($r->json('session_id'), $sessioni->sessioneAttivaPerChiosco($this->chiosco->id));
+            $this->assertSame('parlato', $sessioni->trova($r->json('session_id'))['tipo']);
+            if ($vecchia) {
+                $this->assertNull($sessioni->trova($vecchia), 'la sessione nascosto precedente va chiusa');
+            }
+        }
+    }
+
+    public function test_parlato_non_parte_da_offline_ne_per_il_profilo_lite(): void
+    {
+        $this->forzaStato(StatoChiosco::Offline);
+        $this->actingAs($this->receptionist)
+            ->postJson('/portineria/webrtc/sessione', ['chiosco_id' => $this->chiosco->id])
+            ->assertStatus(422);
+
+        $this->forzaStato(StatoChiosco::Idle);
+        $this->actingAs($this->lite)
+            ->postJson('/portineria/webrtc/sessione', ['chiosco_id' => $this->chiosco->id])
+            ->assertStatus(422);
+        $this->assertSame(StatoChiosco::Idle, app(PortineriaService::class)->statoChiosco($this->chiosco->id));
+    }
+
     public function test_transizione_lecita_idle_verso_in_chiaro(): void
     {
         $this->forzaStato(StatoChiosco::Idle);

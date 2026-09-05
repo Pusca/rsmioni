@@ -17,7 +17,7 @@ import CatturaDocumento from './CatturaDocumento';
 import CollegamentoView from './CollegamentoView';
 import ParlatoView from './ParlatoView';
 import AzioneBtn from './AzioneBtn';
-import { EyeIcon, EyeOffIcon, MsgIcon, MicIcon, XIcon, ScreenIcon, DocIcon, ScreenStopIcon } from '@/Components/Icons';
+import { EyeOffIcon, MsgIcon, MicIcon, XIcon, ScreenIcon, DocIcon, ScreenStopIcon } from '@/Components/Icons';
 
 interface Props {
     chiosco: ChioscoConStato | null;
@@ -120,14 +120,6 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
         ? { tipo: 'sconosciuto', messaggio: 'Connessione non riuscita.', suggerimento: 'Chiudi e riprova il collegamento.' }
         : null;
 
-    // ── Helper: chiudi sessione media attiva (chiaro/nascosto) ─────────────
-    const chiudiSessioneMedia = async () => {
-        if (!chiosco || !mediaSessionId) return;
-        await chiudiSessioneCollegamento(mediaSessionId, chiosco.id);
-        setMediaSessionId(null);
-        setMediaSessionTipo(null);
-    };
-
     // ── Helper: avvia sessione media per lo stato target ──────────────────
     const avviaSessioneMedia = async (tipo: TipoCollegamento) => {
         if (!chiosco) return;
@@ -172,28 +164,24 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
         }
     };
 
-    // ── Avvia parlato (chiude sessione chiaro, crea sessione parlato) ─────
+    // ── Parla col chiosco: voce e video subito ────────────────────────────
+    // Parte da idle, chiamata in arrivo, nascosto o messaggio di attesa: il
+    // backend porta il chiosco in parlato e chiude l'eventuale sessione media
+    // precedente (nascosto/chiaro). Il "chiaro" non è più un passaggio.
     const avviaParlato = async () => {
         if (!chiosco || loading) return;
-
-        // Chiudi la sessione chiaro prima di avviare il parlato
-        if (mediaSessionId) {
-            await chiudiSessioneCollegamento(mediaSessionId, chiosco.id);
-            setMediaSessionId(null);
-            setMediaSessionTipo(null);
-        }
 
         setLoading(true);
         setErrore(null);
         const res = await creaSessioneParlato(chiosco.id);
         setLoading(false);
         if (res.ok) {
+            setMediaSessionId(null);
+            setMediaSessionTipo(null);
             setSessionId(res.data.session_id);
             onStatoChanged(chiosco.id, 'in_parlato');
         } else {
             setErrore(res.error);
-            // Ripristina la sessione chiaro se parlato fallisce
-            await avviaSessioneMedia('chiaro');
         }
     };
 
@@ -247,16 +235,13 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
         setLoading(false);
     };
 
-    // ── Chiudi parlato ─────────────────────────────────────────────────────
-    // Il session id viene dal gestore (call.sessionId), perché il sessionId locale
-    // è azzerato quando si cambia chiosco: senza questo, "Chiudi parlato" su una
-    // chiamata in attesa non faceva nulla.
-    //  - chiamata IN GESTIONE → torna in chiaro (continui a vedere il chiosco)
-    //  - chiamata IN ATTESA   → chiusura completa (idle), perché la stai spegnendo
+    // ── Chiudi parlato: chiusura completa, il chiosco torna disponibile ───
+    // Il session id viene dal gestore (call.sessionId), perché il sessionId
+    // locale è azzerato quando si cambia chiosco. Il video del chiosco resta
+    // comunque visibile dalla presenza (canale sempre acceso).
     const chiudiParlato = async () => {
         if (!chiosco || loading) return;
         const sid = call?.sessionId ?? sessionId;
-        const eraAttiva = call?.attiva ?? true;
 
         if (snap.condivisioneLocale) liveKitCall.stopScreenShare();
         setLoading(true);
@@ -264,21 +249,12 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
 
         if (sid) await chiudiSessioneParlato(sid, chiosco.id);
         setSessionId(null);
-
-        if (eraAttiva) {
-            // resta collegato in chiaro
-            onStatoChanged(chiosco.id, 'in_chiaro');
-            setLoading(false);
-            await avviaSessioneMedia('chiaro');
-        } else {
-            // era in attesa → spegni del tutto
-            liveKitCall.stopCall(chiosco.id);
-            await cambiaStato(chiosco.id, 'idle');
-            onStatoChanged(chiosco.id, 'idle');
-            setMediaSessionId(null);
-            setMediaSessionTipo(null);
-            setLoading(false);
-        }
+        liveKitCall.stopCall(chiosco.id);
+        await cambiaStato(chiosco.id, 'idle');
+        onStatoChanged(chiosco.id, 'idle');
+        setMediaSessionId(null);
+        setMediaSessionTipo(null);
+        setLoading(false);
     };
 
     return (
@@ -450,16 +426,16 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
                                 <p className="text-xs mb-3" style={{ color: 'var(--color-text-muted)' }}>
                                     {isRL
                                         ? 'Avvia un monitoraggio nascosto del chiosco.'
-                                        : 'Per parlare usa il microfono in alto. Collegamenti classici:'}
+                                        : 'Per due parole veloci usa il microfono in alto. Collegamento completo (voce e video, documenti, condivisione):'}
                                 </p>
                                 <div className="flex gap-3 justify-center flex-wrap">
                                     {!isRL && chiosco.interattivo && (
                                         <AzioneBtn
-                                            label="Collegamento in chiaro"
-                                            color="#22c55e"
-                                            onClick={() => transizione('in_chiaro')}
+                                            label="Parla col chiosco"
+                                            color="#3b82f6"
+                                            onClick={avviaParlato}
                                             loading={loading}
-                                            icon={<EyeIcon />}
+                                            icon={<MicIcon />}
                                         />
                                     )}
                                     <AzioneBtn
@@ -515,11 +491,11 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
                                     <div className="flex gap-3 justify-center flex-wrap">
                                         {chiosco.interattivo && (
                                             <AzioneBtn
-                                                label="Rispondi in chiaro"
+                                                label="Rispondi"
                                                 color="#22c55e"
-                                                onClick={() => transizione('in_chiaro')}
+                                                onClick={avviaParlato}
                                                 loading={loading}
-                                                icon={<EyeIcon />}
+                                                icon={<MicIcon />}
                                             />
                                         )}
                                         <AzioneBtn
@@ -639,11 +615,11 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
                                 <div className="flex gap-3 flex-wrap justify-center">
                                     {!isRL && chiosco.interattivo && (
                                         <AzioneBtn
-                                            label="Passa in chiaro"
-                                            color="#22c55e"
-                                            onClick={() => transizione('in_chiaro')}
+                                            label="Parla col chiosco"
+                                            color="#3b82f6"
+                                            onClick={avviaParlato}
                                             loading={loading}
-                                            icon={<EyeIcon />}
+                                            icon={<MicIcon />}
                                         />
                                     )}
                                     <AzioneBtn
@@ -784,11 +760,11 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
                                             icon={<MsgIcon />}
                                         />
                                         <AzioneBtn
-                                            label="Riprendi in chiaro"
-                                            color="#22c55e"
-                                            onClick={() => transizione('in_chiaro')}
+                                            label="Parla col chiosco"
+                                            color="#3b82f6"
+                                            onClick={avviaParlato}
                                             loading={loading}
-                                            icon={<EyeIcon />}
+                                            icon={<MicIcon />}
                                         />
                                         <AzioneBtn
                                             label="Chiudi messaggio"

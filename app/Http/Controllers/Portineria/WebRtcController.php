@@ -32,7 +32,14 @@ class WebRtcController extends Controller
 
     /**
      * Crea una sessione WebRTC e porta il chiosco in in_parlato.
-     * Richiede che il chiosco sia attualmente in_chiaro.
+     *
+     * Il receptionist si collega al chiosco direttamente a voce e video: il
+     * "chiaro" (solo video) non è più un passaggio obbligato. Si parte da
+     * idle, chiamata in arrivo, nascosto, messaggio di attesa o chiaro; lo
+     * stato attraversa in_chiaro solo come tappa interna della state machine
+     * (le regole per profilo e il limite di sessioni concorrenti valgono
+     * comunque). Un'eventuale sessione media precedente del chiosco
+     * (nascosto/chiaro) viene chiusa: il chiosco si riaggancia alla nuova.
      */
     public function creaSessione(Request $request): JsonResponse
     {
@@ -46,23 +53,35 @@ class WebRtcController extends Controller
             return response()->json(['error' => 'Accesso non consentito'], 403);
         }
 
-        // Solo da in_chiaro → in_parlato
         $statoAttuale = $this->portineria->statoChiosco($chiosco->id);
-        if ($statoAttuale !== StatoChiosco::InChiaro) {
+        $profilo      = $request->user()->profilo;
+
+        if ($statoAttuale === StatoChiosco::InParlato) {
             return response()->json([
-                'error'   => 'Il parlato è avviabile solo da collegamento in chiaro.',
+                'error'   => 'Il chiosco è già in parlato.',
                 'attuale' => $statoAttuale->value,
             ], 422);
         }
 
-        $ok = $this->portineria->transizione(
-            $chiosco,
-            StatoChiosco::InParlato,
-            $request->user()->profilo,
-        );
+        if ($statoAttuale !== StatoChiosco::InChiaro) {
+            if (! $this->portineria->transizione($chiosco, StatoChiosco::InChiaro, $profilo)) {
+                return response()->json([
+                    'error'   => $this->portineria->ultimoMotivoRifiuto() ?? 'Il parlato non è avviabile da questo stato.',
+                    'attuale' => $statoAttuale->value,
+                ], 422);
+            }
+        }
 
-        if (! $ok) {
+        if (! $this->portineria->transizione($chiosco, StatoChiosco::InParlato, $profilo)) {
             return response()->json(['error' => 'Transizione non consentita.'], 422);
+        }
+
+        // Sessione media precedente (nascosto/chiaro): crea() la sovrascrive
+        // nell'indice per chiosco, ma va chiusa esplicitamente per liberare la
+        // cache e far ricadere il chiosco sulla nuova stanza.
+        $precedente = $this->webRtcSession->sessioneAttivaPerChiosco($chiosco->id);
+        if ($precedente) {
+            $this->webRtcSession->chiudi($precedente);
         }
 
         $sessionId = $this->webRtcSession->crea(
