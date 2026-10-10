@@ -5,7 +5,8 @@ import HotelSelector from '@/Components/HotelSelector';
 
 /**
  * Layout per il Gestore Hotel (Albergatore).
- * Header con navigazione: Prenotazioni, Camere (M5), Regolamento (M5).
+ * Header con navigazione: Prenotazioni, Camere (M5), Regolamento (M5), Configurazioni, Marketing (docs/12).
+ * Usato anche dal profilo Admin (badge diverso).
  * Nessuna portineria né videochat.
  */
 export default function GestoreHotelLayout({ children }: { children: ReactNode }) {
@@ -65,6 +66,11 @@ export default function GestoreHotelLayout({ children }: { children: ReactNode }
                         <SettingsIcon />
                         Configurazioni
                     </NavLink>
+
+                    <NavLink href="/marketing" active={currentUrl.startsWith('/marketing')}>
+                        <ChartIcon />
+                        Marketing
+                    </NavLink>
                 </div>
 
                 {/* Destra: badge profilo + username + logout */}
@@ -81,7 +87,7 @@ export default function GestoreHotelLayout({ children }: { children: ReactNode }
                             border:          '1px solid rgba(59,130,246,0.4)',
                         }}
                     >
-                        Albergatore
+                        {utente?.profilo === 'admin' ? 'Admin' : 'Albergatore'}
                     </span>
 
                     <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
@@ -218,6 +224,15 @@ function KeyIcon() {
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0 }}>
             <circle cx="7.5" cy="15.5" r="4.5" />
             <path d="M10.7 12.3L21 2M16 4l3 3M13 7l3 3" />
+        </svg>
+    );
+}
+
+function ChartIcon() {
+    return (
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" style={{ flexShrink: 0 }}>
+            <path d="M3 3v18h18" />
+            <path d="M7 15l4-5 3 3 5-7" />
         </svg>
     );
 }

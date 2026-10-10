@@ -420,6 +420,14 @@ Laravel 12 + Inertia + React + TypeScript + Tailwind + PostgreSQL + Redis + Lara
 - [ ] Gestore Receptionist: gestione utenze, associazione hotel, IP whitelist
 - [ ] Amministratore: CRUD hotel, contratti, configurazioni piattaforma
 
+### M9 — Marketing: funnel campagne (fuori manuale, docs/12)
+- [x] Tabelle `marketing_*`, import JSON idempotente (`marketing:importa`), KPI/funnel (`MarketingService`)
+- [x] Pagina `/marketing` per Gestore Hotel e Admin: KPI, funnel, campagne, budget per piattaforma, appuntamenti (con spostamenti gestiti da Chip), lead, timeline attività
+- [ ] Caricare i numeri reali (spesa, impression, click, clienti già acquisiti) in `database/data/marketing.json`
+- [ ] Collegamento API Meta Marketing / Google Ads per metriche automatiche
+- [ ] Aggancio automazione WhatsApp di Chip → scrittura diretta di lead/appuntamenti/eventi
+- [ ] Restringere il modulo al solo profilo `admin` quando arriveranno veri hotel clienti
+
 ---
 
 ## Ordine di Esecuzione Suggerito

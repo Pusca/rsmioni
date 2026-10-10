@@ -18,7 +18,8 @@ L'applicativo è in due pezzi con esigenze diverse:
 ```bash
 git pull origin main
 composer install --no-dev --optimize-autoloader
-php artisan migrate --force          # 2026-09-01: links_temporanei.primo_accesso_at, hotels.ai_walkin_abilitato/istruzioni_ai
+php artisan migrate --force          # 10/10/2026: tabelle marketing_* (docs/12); 2026-09-01: links_temporanei.primo_accesso_at, hotels.ai_walkin_abilitato/istruzioni_ai
+
 php artisan config:cache && php artisan route:cache
 ```
 

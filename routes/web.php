@@ -23,6 +23,7 @@ use App\Http\Controllers\Kiosk\KioskChiamataController;
 use App\Http\Controllers\Kiosk\KioskController;
 use App\Http\Controllers\Kiosk\KioskStatoController;
 use App\Http\Controllers\Kiosk\KioskWebRtcController;
+use App\Http\Controllers\Marketing\MarketingController;
 use App\Http\Controllers\Portineria\DemoController;
 use App\Http\Controllers\Portineria\PortineriaController;
 use App\Http\Controllers\Portineria\StatoChioscoController;
@@ -184,6 +185,17 @@ Route::middleware(['auth', 'role:gestore_hotel'])
         Route::post('/chioschi/{chiosco}/diagnostica/reset-pendenti',  [DiagnosticaController::class, 'resetPendenti'])->name('chioschi.diagnostica.reset_pendenti');
         Route::post('/chioschi/{chiosco}/diagnostica/forza-offline',   [DiagnosticaController::class, 'forzaOffline'])->name('chioschi.diagnostica.forza_offline');
         Route::post('/chioschi/{chiosco}/diagnostica/reset-presenza',  [DiagnosticaController::class, 'resetPresenza'])->name('chioschi.diagnostica.reset_presenza');
+    });
+
+/*
+|--------------------------------------------------------------------------
+| Marketing — funnel campagne → lead → appuntamenti (docs/12)
+| Dati a livello piattaforma RS Mioni. Gestore Hotel (account del cliente) + Admin.
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth', 'role:gestore_hotel,admin'])
+    ->group(function () {
+        Route::get('/marketing', [MarketingController::class, 'index'])->name('marketing.index');
     });
 
 /*
@@ -370,6 +382,7 @@ Route::get('/', function () {
     return match (auth()->user()->profilo->value) {
         'receptionist', 'receptionist_lite' => redirect()->route('portineria.index'),
         'gestore_hotel'                      => redirect()->route('prenotazioni.index'),
+        'admin'                              => redirect()->route('marketing.index'),
         'chiosco'                            => redirect()->route('kiosk.index'),
         default                              => redirect()->route('login'),
     };

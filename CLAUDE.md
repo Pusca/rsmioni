@@ -89,3 +89,13 @@ Prima di creare il progetto, genera questi file:
 ## Regola di lavoro
 Non partire in autonomia con refactor concettuali o cambi nome ai moduli del manuale.
 Usa gli stessi nomi funzionali del manuale, salvo necessità tecniche ben motivate.
+
+## Business e presenza online
+Stato commerciale (Google Business Profile, bandi per i clienti) in `docs/11-business-e-marketing.md`.
+Promemoria aperto: il profilo My Business è creato ma mancano grafica e indirizzo dell'ufficio.
+**Appena compare un ufficio RS Mioni / Smartera, ricorda a Stanislav di aggiornare My Business.**
+
+## Modulo Marketing (fuori manuale)
+Funnel campagne → lead → appuntamenti in `/marketing` (Gestore Hotel + Admin), dati da `database/data/marketing.json`
+via `php artisan marketing:importa`. Specifica, formato JSON e assunzioni in `docs/12-marketing-funnel.md`.
+Le metriche di piattaforma non caricate restano `null` e si mostrano come «—», mai come 0.

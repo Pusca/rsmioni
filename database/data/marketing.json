@@ -1,0 +1,125 @@
+{
+  "_commento": "Dati del funnel marketing RS Mioni (piano Media Lancio, 6 settimane dal 23/09/2026). Stessi dati del blocco 'Campagna media' nel portale Smartera. Aggiornare questo file e lanciare `php artisan marketing:importa` (formato in docs/12-marketing-funnel.md). Orari in ora italiana.",
+
+  "campagne": [
+    {
+      "codice": "google-search-reception",
+      "nome": "Google Search — reception remota hotel",
+      "piattaforma": "google",
+      "obiettivo": "Richiesta demo (4 gruppi: portineria remota, self check-in, arrivi tardivi, concorrenti)",
+      "stato": "attiva",
+      "budget": 380,
+      "speso": 194,
+      "impression": 3800,
+      "click": 153,
+      "lead_dichiarati": 8,
+      "contenuti_ai": true,
+      "data_inizio": "2026-09-23",
+      "data_fine": "2026-11-03",
+      "note": "CPC max 2,00 €. Rete display e partner di ricerca spenti."
+    },
+    {
+      "codice": "fb-lead-hotel",
+      "nome": "Facebook — Lead hotel Veneto",
+      "piattaforma": "facebook",
+      "obiettivo": "Generazione contatti (modulo lead), pubblico freddo + retargeting",
+      "stato": "attiva",
+      "budget": 190,
+      "speso": 96,
+      "impression": 15400,
+      "click": 185,
+      "lead_dichiarati": 4,
+      "contenuti_ai": true,
+      "data_inizio": "2026-09-23",
+      "data_fine": "2026-11-03",
+      "note": "Quota Facebook del budget Meta (330 € totali). 5 creatività generate con Chip, dalla fase 2 restano le 3 migliori."
+    },
+    {
+      "codice": "ig-lead-hotel",
+      "nome": "Instagram — Reel reception a distanza",
+      "piattaforma": "instagram",
+      "obiettivo": "Generazione contatti (modulo lead)",
+      "stato": "attiva",
+      "budget": 140,
+      "speso": 70,
+      "impression": 11200,
+      "click": 135,
+      "lead_dichiarati": 2,
+      "contenuti_ai": true,
+      "data_inizio": "2026-09-23",
+      "data_fine": "2026-11-03",
+      "note": "Quota Instagram del budget Meta (330 € totali)."
+    },
+    {
+      "codice": "yt-retargeting-video",
+      "nome": "YouTube — retargeting video presentazione",
+      "piattaforma": "youtube",
+      "obiettivo": "Riaggancio di chi ha visto sito o video (assist, non si misura a lead)",
+      "stato": "attiva",
+      "budget": 110,
+      "speso": 18,
+      "impression": 2300,
+      "click": 0,
+      "lead_dichiarati": 0,
+      "contenuti_ai": true,
+      "data_inizio": "2026-10-07",
+      "data_fine": "2026-11-03",
+      "note": "Partito in fase 2 (07/10). Circa 4 €/giorno."
+    },
+    {
+      "codice": "riserva",
+      "nome": "Riserva — da assegnare in settimana 5",
+      "piattaforma": "altro",
+      "obiettivo": "Va al canale con il costo per lead più basso",
+      "stato": "bozza",
+      "budget": 80,
+      "speso": 0,
+      "impression": null,
+      "click": null,
+      "lead_dichiarati": null,
+      "contenuti_ai": false,
+      "data_inizio": null,
+      "data_fine": null,
+      "note": "Si assegna in settimana 5 (dal 21/10), non prima."
+    }
+  ],
+
+  "lead": [
+    { "codice": "lead-001", "campagna": "fb-lead-hotel", "struttura": "Agriturismo Le Vigne", "referente": "Chiara Dal Bianco", "citta": "Valdobbiadene (TV)", "fonte": "facebook", "stato": "qualificato", "gestito_da": "umano", "ricevuto_at": "2026-09-29 17:10", "note": "Demo fatta il 6/10, preventivo inviato il 7/10." },
+    { "codice": "lead-002", "campagna": "google-search-reception", "struttura": "Hotel Belvedere", "referente": "Andrea Pasini", "citta": "Sirmione (BS)", "fonte": "google", "stato": "qualificato", "gestito_da": "chip", "ricevuto_at": "2026-10-01 09:45", "note": "Demo fatta il 7/10, chiede due referenze." },
+    { "codice": "lead-003", "campagna": "google-search-reception", "struttura": "Hotel Corona", "referente": "Giulia Ferraro", "citta": "Lignano Sabbiadoro (UD)", "fonte": "google", "stato": "appuntamento", "gestito_da": "chip", "ricevuto_at": "2026-10-05 11:20", "note": null },
+    { "codice": "lead-004", "campagna": "fb-lead-hotel", "struttura": "Albergo Al Ponte", "referente": "Marco Zanetti", "citta": "Bassano del Grappa (VI)", "fonte": "facebook", "stato": "appuntamento", "gestito_da": "chip", "ricevuto_at": "2026-10-08 18:40", "note": "Demo fissata per domenica 11/10 e spostata a martedì 13/10 alle 16:00 su richiesta del cliente: gestito in automatico da Chip via WhatsApp." },
+    { "codice": "lead-005", "campagna": "google-search-reception", "struttura": "Residence Lago Blu", "referente": "Sara Benetton", "citta": "Peschiera del Garda (VR)", "fonte": "google", "stato": "appuntamento", "gestito_da": "chip", "ricevuto_at": "2026-10-06 15:05", "note": null },
+    { "codice": "lead-006", "campagna": "ig-lead-hotel", "struttura": "Hotel Villa Serena", "referente": "Luca Moretti", "citta": "Jesolo (VE)", "fonte": "instagram", "stato": "appuntamento", "gestito_da": "chip", "ricevuto_at": "2026-10-07 20:15", "note": "In attesa della conferma della demo del 15/10." },
+    { "codice": "lead-007", "campagna": "google-search-reception", "struttura": "Hotel Dolomiti Park", "referente": "Elena Da Rin", "citta": "Cortina d'Ampezzo (BL)", "fonte": "google", "stato": "appuntamento", "gestito_da": "umano", "ricevuto_at": "2026-10-08 10:30", "note": null },
+    { "codice": "lead-008", "campagna": "google-search-reception", "struttura": "Hotel Garden", "referente": "Paolo Rigoni", "citta": "Asiago (VI)", "fonte": "google", "stato": "contattato", "gestito_da": "chip", "ricevuto_at": "2026-10-09 08:50", "note": "Chip ha proposto tre orari per la demo, attesa risposta." },
+    { "codice": "lead-009", "campagna": "fb-lead-hotel", "struttura": "B&B Corte Antica", "referente": "Martina Sartori", "citta": "Verona", "fonte": "facebook", "stato": "contattato", "gestito_da": "chip", "ricevuto_at": "2026-10-09 13:25", "note": null },
+    { "codice": "lead-010", "campagna": "google-search-reception", "struttura": "Hotel Riviera", "referente": "Davide Conte", "citta": "Lido di Venezia (VE)", "fonte": "google", "stato": "contattato", "gestito_da": "chip", "ricevuto_at": "2026-10-09 16:40", "note": null },
+    { "codice": "lead-011", "campagna": "fb-lead-hotel", "struttura": "Residence Aurora", "referente": "Francesca Rizzo", "citta": "Caorle (VE)", "fonte": "facebook", "stato": "nuovo", "gestito_da": "chip", "ricevuto_at": "2026-10-10 09:05", "note": "Chip ha inviato il messaggio di benvenuto." },
+    { "codice": "lead-012", "campagna": "google-search-reception", "struttura": "Albergo Stella Alpina", "referente": "Giorgio Benvenuti", "citta": "Falcade (BL)", "fonte": "google", "stato": "nuovo", "gestito_da": "chip", "ricevuto_at": "2026-10-10 10:20", "note": null },
+    { "codice": "lead-013", "campagna": "ig-lead-hotel", "struttura": "Hotel Mare Blu", "referente": "Alessia Furlan", "citta": "Bibione (VE)", "fonte": "instagram", "stato": "perso", "gestito_da": "chip", "ricevuto_at": "2026-10-02 12:00", "note": "Non ha risposto a tre messaggi." },
+    { "codice": "lead-014", "campagna": "google-search-reception", "struttura": "Locanda Al Castello", "referente": "Roberto Marin", "citta": "Soave (VR)", "fonte": "google", "stato": "perso", "gestito_da": "chip", "ricevuto_at": "2026-10-03 18:30", "note": "Struttura troppo piccola, non interessato." }
+  ],
+
+  "appuntamenti": [
+    { "codice": "app-001", "lead": "lead-001", "inizio": "2026-10-06 15:00", "durata_minuti": 30, "tipo": "demo_online", "stato": "completato", "gestito_da": "umano", "note": "Demo su Meet fatta. Preventivo inviato il 7/10." },
+    { "codice": "app-002", "lead": "lead-002", "inizio": "2026-10-07 15:00", "durata_minuti": 30, "tipo": "demo_online", "stato": "completato", "gestito_da": "chip_whatsapp", "note": "Demo su Meet fatta. Chiede due referenze." },
+    { "codice": "app-003", "lead": "lead-003", "inizio": "2026-10-12 11:00", "durata_minuti": 30, "tipo": "demo_online", "stato": "confermato", "gestito_da": "chip_whatsapp", "note": "Demo su Meet." },
+    { "codice": "app-004", "lead": "lead-004", "inizio": "2026-10-13 16:00", "inizio_originale": "2026-10-11 10:30", "durata_minuti": 30, "tipo": "demo_online", "stato": "confermato", "gestito_da": "chip_whatsapp", "note": "Il cliente ha chiesto su WhatsApp di spostare la demo di domenica mattina: Chip ha riprogrammato e confermato in automatico." },
+    { "codice": "app-005", "lead": "lead-005", "inizio": "2026-10-14 15:30", "durata_minuti": 30, "tipo": "demo_online", "stato": "confermato", "gestito_da": "chip_whatsapp", "note": "Demo su Meet." },
+    { "codice": "app-006", "lead": "lead-006", "inizio": "2026-10-15 10:00", "durata_minuti": 30, "tipo": "demo_online", "stato": "programmato", "gestito_da": "chip_whatsapp", "note": "Chip ha inviato il promemoria, in attesa della conferma." },
+    { "codice": "app-007", "lead": "lead-007", "inizio": "2026-10-16 11:30", "durata_minuti": 30, "tipo": "demo_online", "stato": "confermato", "gestito_da": "umano", "note": "Demo su Meet." }
+  ],
+
+  "eventi": [
+    { "codice": "ev-001", "lead": "lead-004", "tipo": "lead_ricevuto", "attore": "chip", "descrizione": "Nuovo lead dalla campagna Facebook. Chip ha inviato il primo messaggio WhatsApp e proposto tre orari per la demo.", "avvenuto_at": "2026-10-08 18:41" },
+    { "codice": "ev-002", "lead": "lead-004", "appuntamento": "app-004", "tipo": "appuntamento_fissato", "attore": "chip", "descrizione": "Demo su Meet fissata per domenica 11/10 alle 10:30, invito inviato.", "avvenuto_at": "2026-10-09 09:15" },
+    { "codice": "ev-003", "lead": "lead-004", "appuntamento": "app-004", "tipo": "richiesta_spostamento", "attore": "cliente", "descrizione": "Albergo Al Ponte ha scritto su WhatsApp chiedendo di spostare la demo di domenica mattina.", "avvenuto_at": "2026-10-10 11:20" },
+    { "codice": "ev-004", "lead": "lead-004", "appuntamento": "app-004", "tipo": "appuntamento_spostato", "attore": "chip", "descrizione": "Chip ha riprogrammato in automatico la demo a martedì 13/10 alle 16:00 e ha inviato la conferma e il nuovo invito Meet.", "avvenuto_at": "2026-10-10 11:22" },
+    { "codice": "ev-005", "lead": "lead-006", "appuntamento": "app-006", "tipo": "promemoria_inviato", "attore": "chip", "descrizione": "Promemoria WhatsApp per la demo del 15/10 inviato a Hotel Villa Serena, in attesa di conferma.", "avvenuto_at": "2026-10-10 09:00" },
+    { "codice": "ev-006", "lead": "lead-011", "tipo": "lead_ricevuto", "attore": "chip", "descrizione": "Nuovo lead Facebook (Residence Aurora): messaggio di benvenuto inviato.", "avvenuto_at": "2026-10-10 09:06" },
+    { "codice": "ev-007", "lead": "lead-012", "tipo": "lead_ricevuto", "attore": "chip", "descrizione": "Nuovo lead Google Search (Albergo Stella Alpina): messaggio di benvenuto inviato.", "avvenuto_at": "2026-10-10 10:21" },
+    { "codice": "ev-008", "tipo": "fase_campagna", "attore": "umano", "descrizione": "Fase 2 Lettura: spente le 2 creatività Meta peggiori, partiti retargeting Meta e YouTube.", "avvenuto_at": "2026-10-07 09:30" },
+    { "codice": "ev-009", "lead": "lead-002", "appuntamento": "app-002", "tipo": "demo_completata", "attore": "umano", "descrizione": "Demo con Hotel Belvedere completata: interessato al self check-in notturno, chiede referenze.", "avvenuto_at": "2026-10-07 15:35" }
+  ]
+}
