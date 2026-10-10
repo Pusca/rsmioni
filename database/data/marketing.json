@@ -234,10 +234,10 @@
       "referente": "Alessia Furlan",
       "citta": "Bibione (VE)",
       "fonte": "instagram",
-      "stato": "perso",
+      "stato": "contattato",
       "gestito_da": "chip",
       "ricevuto_at": "2026-10-02 12:00",
-      "note": "Non ha risposto a tre messaggi."
+      "note": "Ha disdetto la demo del 14/10, Chip ha proposto nuove date."
     },
     {
       "codice": "lead-014",
@@ -286,6 +286,16 @@
       "note": "Il cliente ha chiesto su WhatsApp di spostare la demo di domenica mattina: Chip ha riprogrammato e confermato in automatico."
     },
     {
+      "codice": "app-013",
+      "lead": "lead-013",
+      "inizio": "2026-10-14 11:00",
+      "durata_minuti": 30,
+      "tipo": "demo_online",
+      "stato": "annullato",
+      "gestito_da": "chip_whatsapp",
+      "note": "Il cliente ha disdetto su WhatsApp sabato 10/10. Chip ha proposto tre nuove date, in attesa di risposta."
+    },
+    {
       "codice": "app-005",
       "lead": "lead-005",
       "inizio": "2026-10-14 15:30",
@@ -314,6 +324,16 @@
       "stato": "confermato",
       "gestito_da": "umano",
       "note": "Demo su Meet."
+    },
+    {
+      "codice": "app-014",
+      "lead": "lead-014",
+      "inizio": "2026-10-16 15:00",
+      "durata_minuti": 30,
+      "tipo": "demo_online",
+      "stato": "annullato",
+      "gestito_da": "chip_whatsapp",
+      "note": "Annullata dal cliente: struttura troppo piccola, non interessato."
     },
     {
       "codice": "app-009",
