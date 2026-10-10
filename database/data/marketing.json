@@ -129,7 +129,7 @@
       "stato": "appuntamento",
       "gestito_da": "chip",
       "ricevuto_at": "2026-10-08 18:40",
-      "note": "Demo fissata per domenica 11/10 e spostata a martedì 13/10 alle 16:00 su richiesta del cliente: gestito in automatico da Chip via WhatsApp."
+      "note": "Demo fissata per sabato 10/10 e spostata a martedì 13/10 alle 16:00 su richiesta del cliente: gestito in automatico da Chip via WhatsApp."
     },
     {
       "codice": "lead-005",
@@ -201,7 +201,7 @@
       "stato": "contattato",
       "gestito_da": "chip",
       "ricevuto_at": "2026-10-09 16:40",
-      "note": null
+      "note": "Ha annullato la demo di domenica 11/10, Chip ha proposto nuove date."
     },
     {
       "codice": "lead-011",
@@ -254,6 +254,16 @@
   ],
   "appuntamenti": [
     {
+      "codice": "app-010",
+      "lead": "lead-010",
+      "inizio": "2026-10-11 10:00",
+      "durata_minuti": 30,
+      "tipo": "demo_online",
+      "stato": "annullato",
+      "gestito_da": "chip_whatsapp",
+      "note": "Il cliente ha annullato la demo di domenica. Chip ha proposto tre nuove date, in attesa di risposta."
+    },
+    {
       "codice": "app-003",
       "lead": "lead-003",
       "inizio": "2026-10-12 11:00",
@@ -278,12 +288,12 @@
       "codice": "app-004",
       "lead": "lead-004",
       "inizio": "2026-10-13 16:00",
-      "inizio_originale": "2026-10-11 10:30",
+      "inizio_originale": "2026-10-10 10:30",
       "durata_minuti": 30,
       "tipo": "demo_online",
       "stato": "confermato",
       "gestito_da": "chip_whatsapp",
-      "note": "Il cliente ha chiesto su WhatsApp di spostare la demo di domenica mattina: Chip ha riprogrammato e confermato in automatico."
+      "note": "Il cliente ha chiesto su WhatsApp di spostare la demo di sabato mattina: Chip ha riprogrammato e confermato in automatico."
     },
     {
       "codice": "app-013",
@@ -381,7 +391,7 @@
       "appuntamento": "app-004",
       "tipo": "appuntamento_fissato",
       "attore": "chip",
-      "descrizione": "Demo su Meet fissata per domenica 11/10 alle 10:30, invito inviato.",
+      "descrizione": "Demo su Meet fissata per sabato 10/10 alle 10:30, invito inviato.",
       "avvenuto_at": "2026-10-09 09:15"
     },
     {
@@ -390,8 +400,8 @@
       "appuntamento": "app-004",
       "tipo": "richiesta_spostamento",
       "attore": "cliente",
-      "descrizione": "Albergo Al Ponte ha scritto su WhatsApp chiedendo di spostare la demo di domenica mattina.",
-      "avvenuto_at": "2026-10-10 11:20"
+      "descrizione": "Albergo Al Ponte ha scritto su WhatsApp chiedendo di spostare la demo di sabato mattina.",
+      "avvenuto_at": "2026-10-10 08:50"
     },
     {
       "codice": "ev-004",
@@ -400,7 +410,7 @@
       "tipo": "appuntamento_spostato",
       "attore": "chip",
       "descrizione": "Chip ha riprogrammato in automatico la demo a martedì 13/10 alle 16:00 e ha inviato la conferma e il nuovo invito Meet.",
-      "avvenuto_at": "2026-10-10 11:22"
+      "avvenuto_at": "2026-10-10 08:52"
     },
     {
       "codice": "ev-005",
@@ -433,6 +443,15 @@
       "attore": "umano",
       "descrizione": "Fase 2 Lettura: spente le 2 creatività Meta peggiori, partiti retargeting Meta e YouTube.",
       "avvenuto_at": "2026-10-07 09:30"
+    },
+    {
+      "codice": "ev-010",
+      "lead": "lead-010",
+      "appuntamento": "app-010",
+      "tipo": "appuntamento_annullato",
+      "attore": "cliente",
+      "descrizione": "Hotel Riviera ha annullato la demo di domenica 11/10 alle 10:00; Chip ha proposto tre nuove date.",
+      "avvenuto_at": "2026-10-10 18:30"
     }
   ]
 }
