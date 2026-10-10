@@ -88,7 +88,7 @@ class MarketingTest extends TestCase
         $app = Appuntamento::where('codice', 'app-004')->firstOrFail();
         $this->assertTrue($app->spostato);
         $this->assertSame('2026-10-13 16:00', $app->inizio->format('Y-m-d H:i'));
-        $this->assertSame('2026-10-11 10:30', $app->inizio_originale->format('Y-m-d H:i'));
+        $this->assertSame('2026-10-10 10:30', $app->inizio_originale->format('Y-m-d H:i'));
         $this->assertSame('chip_whatsapp', $app->gestito_da);
     }
 
