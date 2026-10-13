@@ -8,10 +8,10 @@
       "obiettivo": "Richiesta demo (4 gruppi: portineria remota, self check-in, arrivi tardivi, concorrenti)",
       "stato": "attiva",
       "budget": 380,
-      "speso": 194,
-      "impression": 3800,
-      "click": 153,
-      "lead_dichiarati": 8,
+      "speso": 226,
+      "impression": 4610,
+      "click": 183,
+      "lead_dichiarati": 9,
       "contenuti_ai": true,
       "data_inizio": "2026-09-23",
       "data_fine": "2026-11-03",
@@ -24,10 +24,10 @@
       "obiettivo": "Generazione contatti (modulo lead), pubblico freddo + retargeting",
       "stato": "attiva",
       "budget": 190,
-      "speso": 96,
-      "impression": 15400,
-      "click": 185,
-      "lead_dichiarati": 4,
+      "speso": 110,
+      "impression": 18300,
+      "click": 216,
+      "lead_dichiarati": 5,
       "contenuti_ai": true,
       "data_inizio": "2026-09-23",
       "data_fine": "2026-11-03",
@@ -40,10 +40,10 @@
       "obiettivo": "Generazione contatti (modulo lead)",
       "stato": "attiva",
       "budget": 140,
-      "speso": 70,
-      "impression": 11200,
-      "click": 135,
-      "lead_dichiarati": 2,
+      "speso": 81,
+      "impression": 13600,
+      "click": 165,
+      "lead_dichiarati": 3,
       "contenuti_ai": true,
       "data_inizio": "2026-09-23",
       "data_fine": "2026-11-03",
@@ -56,9 +56,9 @@
       "obiettivo": "Riaggancio di chi ha visto sito o video (assist, non si misura a lead)",
       "stato": "attiva",
       "budget": 110,
-      "speso": 18,
-      "impression": 2300,
-      "click": 0,
+      "speso": 21,
+      "impression": 3140,
+      "click": 7,
       "lead_dichiarati": 0,
       "contenuti_ai": true,
       "data_inizio": "2026-10-07",
@@ -117,7 +117,7 @@
       "stato": "appuntamento",
       "gestito_da": "chip",
       "ricevuto_at": "2026-10-05 11:20",
-      "note": null
+      "note": "Demo spostata due volte su richiesta del cliente, ora martedì 20/10 ore 12:00: gestito da Chip via WhatsApp."
     },
     {
       "codice": "lead-004",
@@ -126,10 +126,10 @@
       "referente": "Marco Zanetti",
       "citta": "Bassano del Grappa (VI)",
       "fonte": "facebook",
-      "stato": "appuntamento",
+      "stato": "perso",
       "gestito_da": "chip",
       "ricevuto_at": "2026-10-08 18:40",
-      "note": "Demo fissata per sabato 10/10 e spostata a martedì 13/10 alle 16:00 su richiesta del cliente: gestito in automatico da Chip via WhatsApp."
+      "note": "Ha disdetto la demo del 13/10: ha già acquistato Vikey per il self check-in. Ha ringraziato e si è complimentato per l'organizzazione della campagna."
     },
     {
       "codice": "lead-005",
@@ -177,7 +177,7 @@
       "stato": "appuntamento",
       "gestito_da": "chip",
       "ricevuto_at": "2026-10-09 08:50",
-      "note": "Demo proposta per lunedì 12/10 alle 17:00, in attesa di ok."
+      "note": "Demo rinviata su sua richiesta a giovedì 22/10 alle 17:00, riprogrammata e confermata da Chip via WhatsApp."
     },
     {
       "codice": "lead-009",
@@ -250,6 +250,42 @@
       "gestito_da": "chip",
       "ricevuto_at": "2026-10-03 18:30",
       "note": "Struttura troppo piccola, non interessato."
+    },
+    {
+      "codice": "lead-015",
+      "campagna": "fb-lead-hotel",
+      "struttura": "Hotel Panorama",
+      "referente": "Federica Bortolussi",
+      "citta": "Caorle (VE)",
+      "fonte": "facebook",
+      "stato": "appuntamento",
+      "gestito_da": "chip",
+      "ricevuto_at": "2026-10-11 09:05",
+      "note": "Demo fissata per il 16/10 alle 15:00."
+    },
+    {
+      "codice": "lead-016",
+      "campagna": "google-search-reception",
+      "struttura": "B&B Villa Olmo",
+      "referente": "Anna Tessari",
+      "citta": "Garda (VR)",
+      "fonte": "google",
+      "stato": "appuntamento",
+      "gestito_da": "chip",
+      "ricevuto_at": "2026-10-11 18:40",
+      "note": "Demo fissata per giovedì 22/10 alle 10:00 dopo tre orari proposti da Chip."
+    },
+    {
+      "codice": "lead-017",
+      "campagna": "ig-lead-hotel",
+      "struttura": "Hotel Zodiaco",
+      "referente": "Stefano Baldan",
+      "citta": "Abano Terme (PD)",
+      "fonte": "instagram",
+      "stato": "contattato",
+      "gestito_da": "chip",
+      "ricevuto_at": "2026-10-12 08:15",
+      "note": "Demo proposta per il 15/10 alle 16:30, in attesa dell'ok."
     }
   ],
   "appuntamenti": [
@@ -266,23 +302,24 @@
     {
       "codice": "app-003",
       "lead": "lead-003",
-      "inizio": "2026-10-12 11:00",
+      "inizio": "2026-10-20 12:00",
+      "inizio_originale": "2026-10-13 12:30",
       "durata_minuti": 30,
       "tipo": "demo_online",
       "stato": "confermato",
       "gestito_da": "chip_whatsapp",
-      "note": "Anticipata da martedì 13/10 su richiesta del cliente: gestito da Chip via WhatsApp.",
-      "inizio_originale": "2026-10-13 10:00"
+      "note": "Spostata due volte su richiesta del cliente: da lunedì 12/10 ore 11:00 a martedì 13/10 ore 12:30, poi a martedì 20/10 ore 12:00. Chip ha riprogrammato e confermato via WhatsApp, invito Meet aggiornato."
     },
     {
       "codice": "app-008",
       "lead": "lead-008",
-      "inizio": "2026-10-12 17:00",
+      "inizio": "2026-10-22 17:00",
+      "inizio_originale": "2026-10-12 17:00",
       "durata_minuti": 30,
       "tipo": "demo_online",
-      "stato": "programmato",
+      "stato": "confermato",
       "gestito_da": "chip_whatsapp",
-      "note": "Chip ha proposto lunedì alle 17:00: si aspetta l'ok del cliente."
+      "note": "Il cliente aveva chiesto di rinviare a settimana prossima: Chip ha riprogrammato a giovedì 22/10 ore 17:00 e Paolo ha confermato via WhatsApp. Invito Meet aggiornato."
     },
     {
       "codice": "app-004",
@@ -291,9 +328,9 @@
       "inizio_originale": "2026-10-10 10:30",
       "durata_minuti": 30,
       "tipo": "demo_online",
-      "stato": "confermato",
+      "stato": "annullato",
       "gestito_da": "chip_whatsapp",
-      "note": "Il cliente ha chiesto su WhatsApp di spostare la demo di sabato mattina: Chip ha riprogrammato e confermato in automatico."
+      "note": "Disdetta dal cliente su WhatsApp martedì 13/10: ha già acquistato Vikey. Ha ringraziato e si è complimentato per la campagna; Chip ha chiuso il contatto con un messaggio di cortesia."
     },
     {
       "codice": "app-013",
@@ -374,6 +411,36 @@
       "stato": "confermato",
       "gestito_da": "chip_whatsapp",
       "note": null
+    },
+    {
+      "codice": "app-015",
+      "lead": "lead-015",
+      "inizio": "2026-10-16 15:00",
+      "durata_minuti": 30,
+      "tipo": "demo_online",
+      "stato": "confermato",
+      "gestito_da": "chip_whatsapp",
+      "note": "Fissata da Chip via WhatsApp domenica 11/10 dopo tre orari proposti."
+    },
+    {
+      "codice": "app-017",
+      "lead": "lead-017",
+      "inizio": "2026-10-15 16:30",
+      "durata_minuti": 30,
+      "tipo": "demo_online",
+      "stato": "programmato",
+      "gestito_da": "chip_whatsapp",
+      "note": "Chip ha proposto giovedì 15/10 alle 16:30: si aspetta l'ok del cliente."
+    },
+    {
+      "codice": "app-016",
+      "lead": "lead-016",
+      "inizio": "2026-10-22 10:00",
+      "durata_minuti": 30,
+      "tipo": "demo_online",
+      "stato": "confermato",
+      "gestito_da": "chip_whatsapp",
+      "note": "Fissata da Chip via WhatsApp martedì 13/10 dopo tre orari proposti."
     }
   ],
   "eventi": [
@@ -452,6 +519,147 @@
       "attore": "cliente",
       "descrizione": "Hotel Riviera ha annullato la demo di domenica 11/10 alle 10:00; Chip ha proposto tre nuove date.",
       "avvenuto_at": "2026-10-10 18:30"
+    },
+    {
+      "codice": "ev-011",
+      "lead": "lead-015",
+      "tipo": "lead_ricevuto",
+      "attore": "chip",
+      "descrizione": "Nuovo lead dalla campagna Facebook. Chip ha inviato il primo messaggio WhatsApp e proposto tre orari per la demo entro 15 minuti.",
+      "avvenuto_at": "2026-10-11 09:12"
+    },
+    {
+      "codice": "ev-012",
+      "lead": "lead-015",
+      "appuntamento": "app-015",
+      "tipo": "appuntamento_fissato",
+      "attore": "chip",
+      "descrizione": "Demo su Meet fissata per venerdì 16/10 alle 15:00, invito inviato.",
+      "avvenuto_at": "2026-10-11 11:40"
+    },
+    {
+      "codice": "ev-013",
+      "lead": "lead-016",
+      "tipo": "lead_ricevuto",
+      "attore": "chip",
+      "descrizione": "Nuovo lead da Google Search. Chip ha scritto su WhatsApp entro 25 minuti e proposto tre orari, in attesa di risposta.",
+      "avvenuto_at": "2026-10-11 18:45"
+    },
+    {
+      "codice": "ev-014",
+      "lead": "lead-017",
+      "tipo": "lead_ricevuto",
+      "attore": "chip",
+      "descrizione": "Nuovo lead dal Reel Instagram. Chip ha inviato il primo messaggio WhatsApp entro 20 minuti.",
+      "avvenuto_at": "2026-10-12 08:20"
+    },
+    {
+      "codice": "ev-015",
+      "lead": "lead-003",
+      "appuntamento": "app-003",
+      "tipo": "richiesta_spostamento",
+      "attore": "cliente",
+      "descrizione": "Hotel Corona ha scritto su WhatsApp: stamattina alle 11 non riesce, chiede di spostare a domani verso pranzo.",
+      "avvenuto_at": "2026-10-12 08:35"
+    },
+    {
+      "codice": "ev-016",
+      "lead": "lead-003",
+      "appuntamento": "app-003",
+      "tipo": "appuntamento_spostato",
+      "attore": "chip",
+      "descrizione": "Demo spostata da lunedì 12/10 alle 11:00 a martedì 13/10 alle 12:30. Nuovo invito Meet inviato e conferma ricevuta.",
+      "avvenuto_at": "2026-10-12 08:41"
+    },
+    {
+      "codice": "ev-017",
+      "lead": "lead-017",
+      "appuntamento": "app-017",
+      "tipo": "appuntamento_proposto",
+      "attore": "chip",
+      "descrizione": "Proposta la demo per giovedì 15/10 alle 16:30, in attesa dell'ok del cliente.",
+      "avvenuto_at": "2026-10-12 09:05"
+    },
+    {
+      "codice": "ev-018",
+      "lead": "lead-008",
+      "appuntamento": "app-008",
+      "tipo": "richiesta_spostamento",
+      "attore": "cliente",
+      "descrizione": "Scrive su WhatsApp: \"Buongiorno, per motivi personali oggi alle 17 non riesco. Possiamo posticipare a settimana prossima?\"",
+      "avvenuto_at": "2026-10-12 14:20"
+    },
+    {
+      "codice": "ev-019",
+      "lead": "lead-008",
+      "appuntamento": "app-008",
+      "tipo": "messaggio_whatsapp",
+      "attore": "chip",
+      "descrizione": "Ha risposto a Paolo che la demo di oggi salta e che gli proponiamo un nuovo orario entro oggi.",
+      "avvenuto_at": "2026-10-12 14:24"
+    },
+    {
+      "codice": "ev-020",
+      "lead": "lead-016",
+      "appuntamento": "app-016",
+      "tipo": "appuntamento_fissato",
+      "attore": "chip",
+      "descrizione": "Demo su Meet fissata per giovedì 22/10 alle 10:00 dopo tre orari proposti, invito inviato.",
+      "avvenuto_at": "2026-10-13 08:48"
+    },
+    {
+      "codice": "ev-021",
+      "lead": "lead-003",
+      "appuntamento": "app-003",
+      "tipo": "richiesta_spostamento",
+      "attore": "cliente",
+      "descrizione": "Hotel Corona scrive su WhatsApp: \"Buongiorno, oggi a pranzo mi è saltato fuori un imprevisto in struttura, non riesco. Possiamo rimandare a settimana prossima?\"",
+      "avvenuto_at": "2026-10-13 09:14"
+    },
+    {
+      "codice": "ev-022",
+      "lead": "lead-003",
+      "appuntamento": "app-003",
+      "tipo": "appuntamento_spostato",
+      "attore": "chip",
+      "descrizione": "Demo spostata da oggi 13/10 alle 12:30 a martedì 20/10 alle 12:00. Nuovo invito Meet inviato e conferma ricevuta.",
+      "avvenuto_at": "2026-10-13 09:21"
+    },
+    {
+      "codice": "ev-023",
+      "lead": "lead-008",
+      "appuntamento": "app-008",
+      "tipo": "messaggio_whatsapp",
+      "attore": "cliente",
+      "descrizione": "Hotel Garden scrive su WhatsApp: \"Mercoledì 14 non riesco, come dicevo preferisco settimana prossima, stesso orario se possibile.\"",
+      "avvenuto_at": "2026-10-13 09:40"
+    },
+    {
+      "codice": "ev-024",
+      "lead": "lead-008",
+      "appuntamento": "app-008",
+      "tipo": "appuntamento_spostato",
+      "attore": "chip",
+      "descrizione": "Demo spostata a giovedì 22/10 alle 17:00 come chiesto da Paolo. Nuovo invito Meet inviato e conferma ricevuta.",
+      "avvenuto_at": "2026-10-13 09:46"
+    },
+    {
+      "codice": "ev-025",
+      "lead": "lead-004",
+      "appuntamento": "app-004",
+      "tipo": "appuntamento_annullato",
+      "attore": "cliente",
+      "descrizione": "Albergo Al Ponte scrive su WhatsApp: \"Buongiorno, devo disdire la demo di oggi: abbiamo appena firmato con Vikey per il self check-in. Vi ringrazio comunque e complimenti per come avete organizzato la campagna, siete stati impeccabili.\"",
+      "avvenuto_at": "2026-10-13 10:52"
+    },
+    {
+      "codice": "ev-026",
+      "lead": "lead-004",
+      "appuntamento": "app-004",
+      "tipo": "messaggio_whatsapp",
+      "attore": "chip",
+      "descrizione": "Ha ringraziato Marco per le belle parole, chiuso il contatto con un messaggio di cortesia e lasciato la porta aperta per il futuro.",
+      "avvenuto_at": "2026-10-13 10:58"
     }
   ]
 }
