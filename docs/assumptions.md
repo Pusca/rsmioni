@@ -307,6 +307,16 @@ Per il **Restart PC**: il chiosco riceve un comando Socket.IO e lancia `shutdown
 
 ---
 
+## A30 — Marketing: costo di un receptionist usato come claim nelle inserzioni Meta
+
+**Contesto**: la sponsorizzata «Demo gratuita 20 min» (doc 13) è centrata sul risparmio. Serve un numero in euro, difendibile, senza listino pubblico di RS Mioni.
+
+**Assunzione adottata**: costo azienda di un receptionist a tempo pieno ≈ 31.000 €/anno (CCNL Turismo liv. 4, ≈ 1.700 € lordi × 14 mensilità + ≈ 30 % di contributi e TFR); presidio notturno 7/7 ≈ 1,7 FTE ≈ 50.000 €/anno. Nelle inserzioni si usa solo la versione conservativa «un receptionist di notte costa più di 30.000 € l'anno» e mai un risparmio in euro: la stima la fa Edoardo in demo. Niente prezzi RS Mioni e niente POS (A22) negli annunci.
+
+**Impatto**: testi in `marketing/meta/campagna-demo-risparmio.json`; da validare con Edoardo prima di attivare la campagna.
+
+---
+
 ## Da Validare Prima dell'Implementazione
 
 | ID | Assunzione | Urgenza |
@@ -325,3 +335,4 @@ Per il **Restart PC**: il chiosco riceve un comando Socket.IO e lancia `shutdown
 | A23 | Attivazione AI-first con fallback umano | Media |
 | A24 | Voce multilingua automatica | Media |
 | A25 | Privacy/retention audio-video sessione AI | Alta |
+| A30 | Claim «receptionist di notte > 30.000 €/anno» nelle inserzioni Meta | Alta (prima di attivare la campagna) |

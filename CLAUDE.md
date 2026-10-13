@@ -99,3 +99,5 @@ Promemoria aperto: il profilo My Business è creato ma mancano grafica e indiriz
 Funnel campagne → lead → appuntamenti in `/marketing` (Gestore Hotel + Admin), dati da `database/data/marketing.json`
 via `php artisan marketing:importa`. Specifica, formato JSON e assunzioni in `docs/12-marketing-funnel.md`.
 Le metriche di piattaforma non caricate restano `null` e si mostrano come «—», mai come 0.
+Sponsorizzata Meta «Demo gratuita 20 min» (angolo risparmio): testi, funnel e sequenza WhatsApp in `docs/13-meta-sponsorizzata-demo-risparmio.md`;
+specifica, creatività e script headless (Marketing API, tutto in pausa) in `marketing/meta/`. Credenziali Meta solo da variabili d'ambiente.

@@ -1,0 +1,171 @@
+{
+  "_commento": "Specifica della sponsorizzata Meta «Demo gratuita 20 min — risparmio con la receptionist virtuale (AI + persona vera)». Usata da genera_creativita.py (immagini) e crea_campagna.py (Marketing API, headless). Testi e ragionamento in docs/13-meta-sponsorizzata-demo-risparmio.md.",
+
+  "campagna": {
+    "nome": "RS Mioni — Demo 20 min — Risparmio reception (AI + persona vera)",
+    "codice_marketing": "meta-demo-risparmio",
+    "obiettivo": "OUTCOME_LEADS",
+    "buying_type": "AUCTION",
+    "special_ad_categories": [],
+    "stato_iniziale": "PAUSED"
+  },
+
+  "pagina": {
+    "nome": "RS Mioni",
+    "sito": "https://rsmioni.it",
+    "whatsapp": "+39 327 331 3323",
+    "whatsapp_link": "https://wa.me/393273313323?text=Ciao%2C%20ho%20richiesto%20la%20demo%20gratuita%20di%20RS%20Mioni",
+    "privacy_url": "https://rsmioni.it/privacy",
+    "_nota_privacy": "La pagina non esiste ancora: va pubblicata PRIMA di attivare il modulo (bozza in docs/13, sezione 7)."
+  },
+
+  "modulo_lead": {
+    "nome": "Demo gratuita 20 min — RS Mioni",
+    "locale": "it_IT",
+    "tipo": "higher_intent",
+    "scheda_intro": {
+      "titolo": "Demo gratuita di 20 minuti",
+      "testo": [
+        "Vedi il totem e il receptionist AI in funzione, sul caso della tua struttura",
+        "Su Meet o al telefono, nel giorno e nell'ora che scegli tu",
+        "Ti lasciamo una stima chiara di costi e risparmio",
+        "Se rientri nel bando CCIAA, ti aiutiamo con la domanda"
+      ],
+      "bottone": "Prenota la demo"
+    },
+    "domande": [
+      { "tipo": "FULL_NAME", "etichetta": "Nome e cognome" },
+      { "tipo": "PHONE", "etichetta": "Telefono (WhatsApp)" },
+      { "tipo": "EMAIL", "etichetta": "Email" },
+      { "tipo": "CUSTOM", "chiave": "struttura", "etichetta": "Nome della struttura" },
+      {
+        "tipo": "CUSTOM", "chiave": "camere", "etichetta": "Quante camere ha la struttura?",
+        "opzioni": ["Fino a 10", "Da 11 a 30", "Da 31 a 60", "Più di 60", "Più strutture"]
+      },
+      {
+        "tipo": "CUSTOM", "chiave": "momento", "etichetta": "Quando ti pesa di più tenere qualcuno al banco?",
+        "opzioni": ["Di notte", "In bassa stagione", "Pomeriggi e weekend", "Sempre, costa troppo"]
+      }
+    ],
+    "privacy_testo_link": "Informativa privacy di RS Mioni",
+    "ringraziamento": {
+      "titolo": "Grazie! Ti scriviamo su WhatsApp entro 2 ore",
+      "testo": "In orario di lavoro ti proponiamo tre orari per la demo di 20 minuti su Meet o al telefono. Se preferisci, scrivici subito tu.",
+      "bottone": "Scrivici su WhatsApp",
+      "bottone_tipo": "VIEW_WEBSITE",
+      "bottone_url": "https://wa.me/393273313323?text=Ciao%2C%20ho%20richiesto%20la%20demo%20gratuita%20di%20RS%20Mioni"
+    }
+  },
+
+  "gruppi_inserzioni": [
+    {
+      "codice": "freddo",
+      "nome": "Freddo — Strutture ricettive Veneto e dintorni",
+      "budget_giornaliero_eur": 6,
+      "inizio": "2026-10-15 07:00",
+      "fine": "2026-11-03 23:59",
+      "targeting": {
+        "paese": "IT",
+        "regioni": ["Veneto", "Friuli-Venezia Giulia", "Trentino-Alto Adige"],
+        "citta_raggio_km": [ { "nome": "Brescia", "raggio_km": 40 }, { "nome": "Verona", "raggio_km": 40 } ],
+        "eta_min": 28,
+        "eta_max": 65,
+        "interessi": ["Hotel", "Bed and breakfast", "Hospitality management", "Hospitality industry", "Booking.com", "Agriturismo"],
+        "advantage_audience": true
+      },
+      "inserzioni": ["A", "B", "C"]
+    },
+    {
+      "codice": "bando",
+      "nome": "Bando CCIAA — Treviso e Belluno (fino al 22/10)",
+      "budget_giornaliero_eur": 2,
+      "inizio": "2026-10-15 07:00",
+      "fine": "2026-10-22 23:59",
+      "targeting": {
+        "paese": "IT",
+        "citta_raggio_km": [ { "nome": "Treviso", "raggio_km": 35 }, { "nome": "Belluno", "raggio_km": 40 } ],
+        "eta_min": 28,
+        "eta_max": 65,
+        "interessi": ["Hotel", "Bed and breakfast", "Hospitality management", "Agriturismo"],
+        "advantage_audience": false
+      },
+      "inserzioni": ["D"]
+    },
+    {
+      "codice": "retargeting",
+      "nome": "Retargeting — ha aperto il modulo o interagito (90 gg)",
+      "budget_giornaliero_eur": 1.5,
+      "inizio": "2026-10-17 07:00",
+      "fine": "2026-11-03 23:59",
+      "targeting": {
+        "paese": "IT",
+        "regioni": ["Veneto", "Friuli-Venezia Giulia", "Trentino-Alto Adige", "Lombardia"],
+        "eta_min": 25,
+        "eta_max": 65,
+        "pubblico_personalizzato_env": "META_RETARGETING_AUDIENCE_ID",
+        "advantage_audience": false
+      },
+      "inserzioni": ["A", "D"],
+      "_nota": "Creato solo se META_RETARGETING_AUDIENCE_ID è impostata (pubblico «Modulo aperto ma non inviato + interazione pagina/IG, 90 giorni», creato una volta in Gestione inserzioni)."
+    }
+  ],
+
+  "inserzioni": {
+    "A": {
+      "nome": "A — Il conto della notte",
+      "cta": "BOOK_NOW",
+      "titolo": "Reception 24h: AI + una persona vera",
+      "descrizione": "Demo gratuita di 20 minuti, senza impegno",
+      "testo": "Quanto ti costa tenere qualcuno al banco nelle ore in cui non arriva nessuno?\n\nUn receptionist di notte costa a un hotel più di 30.000 € l'anno. E d'inverno, o nei pomeriggi vuoti, il banco va presidiato lo stesso.\n\nCon RS Mioni la reception risponde 24 ore su 24, a una frazione di quel costo:\n✅ il receptionist AI fa il check-in da solo, in 5 lingue, a qualsiasi ora\n✅ una persona vera ascolta e interviene in videochiamata quando serve\n✅ le chiavi le consegna il totem nella hall\n\nPrenota una demo gratuita di 20 minuti: vedi il sistema in funzione sul caso della tua struttura e ti lasciamo una stima chiara di quanto risparmi. Se non ha senso per te, te lo diciamo noi per primi.",
+      "immagine": {
+        "file": "A-conto-della-notte",
+        "totem": "totem-ai.png",
+        "headline": "Un receptionist di notte costa più di 30.000 € l'anno.",
+        "sub": "RS Mioni risponde 24 ore su 24.\nReceptionist AI + una persona vera.",
+        "pill": "Demo gratuita · 20 minuti"
+      }
+    },
+    "B": {
+      "nome": "B — Due strutture, una reception",
+      "cta": "BOOK_NOW",
+      "titolo": "Un receptionist per più strutture",
+      "descrizione": "Demo gratuita di 20 minuti",
+      "testo": "Due strutture, due banchi, due stipendi?\n\nCon RS Mioni un solo receptionist, da remoto, segue più strutture insieme. Il totem nella hall collega l'ospite in videochiamata con una persona vera; quando il receptionist è occupato, o è notte, il check-in lo fa il receptionist AI, in 5 lingue.\n\nMeno ore pagate al banco. Nessun ospite davanti a una porta chiusa.\n\nDemo gratuita di 20 minuti, su Meet o al telefono: ti mostriamo come funzionerebbe nelle tue strutture e quanto risparmi.",
+      "immagine": {
+        "file": "B-due-strutture",
+        "totem": "totem-chiamata.png",
+        "headline": "Un solo receptionist per due o tre strutture.",
+        "sub": "Il resto lo fa il receptionist AI,\nin 5 lingue, a qualsiasi ora.",
+        "pill": "Demo gratuita · 20 minuti"
+      }
+    },
+    "C": {
+      "nome": "C — Paga il banco solo quando serve",
+      "cta": "BOOK_NOW",
+      "titolo": "Paga il banco solo quando serve",
+      "descrizione": "Check-in 24h con AI + persona vera",
+      "testo": "Arrivo alle 23, check-in alle 6 del mattino, bassa stagione con tre camere occupate: quante ore di banco paghi per gestire pochi arrivi?\n\nRS Mioni mette un totem nella hall: l'ospite fa il check-in con il receptionist AI, in 5 lingue, oppure parla in videochiamata con un receptionist vero che lavora da remoto. Documenti letti dalla telecamera e chiavi consegnate dal totem, senza nessuno al banco.\n\nTu paghi il presidio solo per le ore che servono davvero.\n\nPrenota la demo gratuita di 20 minuti: la facciamo sul caso della tua struttura.",
+      "immagine": {
+        "file": "C-solo-quando-serve",
+        "totem": "totem-ai.png",
+        "headline": "Paga il banco solo quando serve.",
+        "sub": "Arrivi tardivi e bassa stagione\nli gestisce RS Mioni, 24 ore su 24.",
+        "pill": "Demo gratuita · 20 minuti"
+      }
+    },
+    "D": {
+      "nome": "D — Bando CCIAA Treviso-Belluno",
+      "cta": "BOOK_NOW",
+      "titolo": "Bando CCIAA: 50% a fondo perduto",
+      "descrizione": "Sportello aperto fino al 23/10",
+      "testo": "Fino al 23 ottobre il bando «Doppia transizione» della Camera di Commercio di Treviso-Belluno copre il 50% dell'investimento in intelligenza artificiale, totem compreso.\n\nRS Mioni è una reception a distanza: il receptionist AI fa il check-in in autonomia, in 5 lingue, e una persona vera interviene in videochiamata quando serve. Meno ore di presidio al banco, ospiti accolti a qualsiasi ora.\n\nPrenota una demo gratuita di 20 minuti: ti mostriamo il sistema sul caso della tua struttura e ti aiutiamo con la domanda per il bando.",
+      "immagine": {
+        "file": "D-bando-cciaa",
+        "totem": "totem-chiamata.png",
+        "headline": "Reception a distanza: il bando copre il 50%.",
+        "sub": "CCIAA Treviso-Belluno, sportello fino al 23/10.\nTotem compreso.",
+        "pill": "Demo gratuita · 20 minuti"
+      }
+    }
+  }
+}
