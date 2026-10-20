@@ -141,7 +141,7 @@
       "stato": "appuntamento",
       "gestito_da": "chip",
       "ricevuto_at": "2026-10-06 15:05",
-      "note": null
+      "note": "Demo spostata dal 14/10 a giovedì 22/10 alle 15:30 dopo la richiesta di Chip; Sara ha confermato."
     },
     {
       "codice": "lead-006",
@@ -345,12 +345,13 @@
     {
       "codice": "app-005",
       "lead": "lead-005",
-      "inizio": "2026-10-14 15:30",
+      "inizio": "2026-10-22 15:30",
+      "inizio_originale": "2026-10-14 15:30",
       "durata_minuti": 30,
       "tipo": "demo_online",
       "stato": "confermato",
       "gestito_da": "chip_whatsapp",
-      "note": "Demo su Meet."
+      "note": "Demo su Meet. Spostata dal 14/10 su richiesta di Chip: Sara ha scelto giovedì 22/10 alle 15:30, invito Meet aggiornato."
     },
     {
       "codice": "app-006",
@@ -660,6 +661,33 @@
       "attore": "chip",
       "descrizione": "Ha ringraziato Marco per le belle parole, chiuso il contatto con un messaggio di cortesia e lasciato la porta aperta per il futuro.",
       "avvenuto_at": "2026-10-13 10:58"
+    },
+    {
+      "codice": "ev-027",
+      "lead": "lead-005",
+      "appuntamento": "app-005",
+      "tipo": "richiesta_spostamento",
+      "attore": "chip",
+      "descrizione": "Ha scritto a Sara su WhatsApp chiedendo di posticipare la demo di domani 14/10 alle 15:30 e ha proposto nuovi orari. In attesa della risposta.",
+      "avvenuto_at": "2026-10-13 18:35"
+    },
+    {
+      "codice": "ev-028",
+      "lead": "lead-005",
+      "appuntamento": "app-005",
+      "tipo": "messaggio_whatsapp",
+      "attore": "cliente",
+      "descrizione": "Residence Lago Blu risponde su WhatsApp: \"Va bene spostare, per me giovedì 22 alle 15:30 è perfetto.\"",
+      "avvenuto_at": "2026-10-14 09:25"
+    },
+    {
+      "codice": "ev-029",
+      "lead": "lead-005",
+      "appuntamento": "app-005",
+      "tipo": "appuntamento_spostato",
+      "attore": "chip",
+      "descrizione": "Demo spostata da oggi 14/10 alle 15:30 a giovedì 22/10 alle 15:30 come scelto da Sara. Nuovo invito Meet inviato e conferma ricevuta.",
+      "avvenuto_at": "2026-10-14 09:32"
     }
   ]
 }
