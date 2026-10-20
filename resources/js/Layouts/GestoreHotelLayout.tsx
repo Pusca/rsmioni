@@ -5,7 +5,7 @@ import HotelSelector from '@/Components/HotelSelector';
 
 /**
  * Layout per il Gestore Hotel (Albergatore).
- * Header con navigazione: Prenotazioni, Camere (M5), Regolamento (M5), Configurazioni, Marketing (docs/12).
+ * Header con navigazione: Prenotazioni, Camere (M5), Regolamento (M5), Configurazioni, Marketing (docs/12), Scheda demo.
  * Usato anche dal profilo Admin (badge diverso).
  * Nessuna portineria né videochat.
  */
@@ -71,6 +71,13 @@ export default function GestoreHotelLayout({ children }: { children: ReactNode }
                         <ChartIcon />
                         Marketing
                     </NavLink>
+
+                    {page.props.demo_disponibile && (
+                        <NavLink href="/demo" active={currentUrl.startsWith('/demo')}>
+                            <ClipboardIcon />
+                            Demo
+                        </NavLink>
+                    )}
                 </div>
 
                 {/* Destra: badge profilo + username + logout */}
@@ -224,6 +231,17 @@ function KeyIcon() {
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0 }}>
             <circle cx="7.5" cy="15.5" r="4.5" />
             <path d="M10.7 12.3L21 2M16 4l3 3M13 7l3 3" />
+        </svg>
+    );
+}
+
+function ClipboardIcon() {
+    return (
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" style={{ flexShrink: 0 }}>
+            <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" />
+            <rect x="9" y="3" width="6" height="4" rx="1" />
+            <line x1="9" y1="12" x2="15" y2="12" />
+            <line x1="9" y1="16" x2="13" y2="16" />
         </svg>
     );
 }

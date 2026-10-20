@@ -14,6 +14,7 @@ class Hotel extends Model
 
     protected $fillable = [
         'nome',
+        'demo',
         'indirizzo',
         'data_inizio_contratto',
         'data_fine_contratto',
@@ -34,6 +35,7 @@ class Hotel extends Model
         'campi_pax_obbligatori',
         'ai_walkin_abilitato',
         'istruzioni_ai',
+        'scheda_demo',
     ];
 
     protected function casts(): array
@@ -53,6 +55,8 @@ class Hotel extends Model
             'volume_suoneria'                 => 'integer',
             'numero_massimo_pax'              => 'integer',
             'ai_walkin_abilitato'             => 'boolean',
+            'scheda_demo'                     => 'array',
+            'demo'                            => 'boolean',
         ];
     }
 

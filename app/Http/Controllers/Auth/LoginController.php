@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Enums\Profilo;
 use App\Http\Controllers\Controller;
 use App\Models\Chiosco;
+use App\Services\SchedaDemoService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -42,6 +43,12 @@ class LoginController extends Controller
         }
 
         $request->session()->regenerate();
+
+        // L'hotel demo, se non è stato personalizzato, ha già le info generiche
+        // prima che qualcuno apra la scheda.
+        foreach ($utente->hotels()->where('hotels.demo', true)->get() as $hotel) {
+            app(SchedaDemoService::class)->assicurata($hotel);
+        }
 
         return match ($utente->profilo) {
             Profilo::Receptionist, Profilo::ReceptionistLite => redirect()->intended(route('portineria.index')),

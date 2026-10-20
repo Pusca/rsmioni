@@ -49,12 +49,12 @@ class HandleInertiaRequests extends Middleware
 
         // Determina hotel corrente: da sessione o primo disponibile
         $hotelCorrente = null;
-        $hotels = [];
+        $hotels = collect();
         if ($user) {
             $hotelIds = $user->hotelIds();
             $hotels = Hotel::whereIn('id', $hotelIds)
                 ->orderBy('nome')
-                ->get(['id', 'nome']);
+                ->get(['id', 'nome', 'demo']);
 
             $sessionHotelId = $request->session()->get('hotel_corrente_id');
             if ($sessionHotelId && in_array($sessionHotelId, $hotelIds, true)) {
@@ -78,7 +78,10 @@ class HandleInertiaRequests extends Middleware
                     'hotel_ids' => $user->hotelIds(),
                 ] : null,
             ],
-            'hotels'        => $hotels,
+            'hotels'        => $hotels->map(fn (Hotel $h) => ['id' => $h->id, 'nome' => $h->nome])->values(),
+            // Scheda demo (docs/assumptions A31): la voce di menu compare solo a chi ha un hotel demo.
+            'demo_disponibile' => $hotels->contains(fn (Hotel $h) => (bool) $h->demo),
+            'demo_ritorno'     => $request->session()->has('demo_impersonator_id'),
             'hotel_corrente' => $hotelCorrente ? [
                 'id'   => $hotelCorrente->id,
                 'nome' => $hotelCorrente->nome,

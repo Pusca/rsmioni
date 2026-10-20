@@ -6,6 +6,7 @@ use App\Enums\StatoChiosco;
 use App\Http\Controllers\Controller;
 use App\Models\Chiosco;
 use App\Services\LiveKitDispatchService;
+use App\Services\SchedaDemoService;
 use App\Services\PortineriaService;
 use App\Services\WebRtcSessionService;
 use Illuminate\Http\JsonResponse;
@@ -85,6 +86,10 @@ class KioskAiController extends Controller
             gestitaDa:      'ai',
         );
 
+        $hotel = $chiosco->hotel
+            ? app(SchedaDemoService::class)->assicurata($chiosco->hotel)
+            : null;
+
         try {
             $this->dispatch->dispatch($sessionId, [
                 'scopo'        => $request->scopo,
@@ -92,12 +97,12 @@ class KioskAiController extends Controller
                 'chiosco_id'   => $chiosco->id,
                 'chiosco_nome' => $chiosco->nome,
                 'hotel_id'     => $chiosco->hotel_id,
-                'hotel_nome'   => $chiosco->hotel?->nome,
+                'hotel_nome'   => $hotel?->nome,
                 'lingua'       => $lingua,
-                'checkout_ora' => $chiosco->hotel?->checkout_ora,
+                'checkout_ora' => $hotel?->checkout_ora,
                 // docs/11: senza walk-in l'AI lavora solo su prenotazioni esistenti
-                'walkin'           => (bool) ($chiosco->hotel?->ai_walkin_abilitato ?? true),
-                'istruzioni_hotel' => $chiosco->hotel?->istruzioni_ai,
+                'walkin'           => (bool) ($hotel?->ai_walkin_abilitato ?? true),
+                'istruzioni_hotel' => $hotel?->istruzioni_ai,
             ]);
         } catch (\Throwable $e) {
             // Niente agent → niente sessione fantasma: pulizia e errore onesto

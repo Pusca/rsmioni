@@ -134,6 +134,8 @@ Pagine di servizio: `/kiosk/collaudo` (test webcam/mic/audio/POS/stampante → e
 
 **Regolamento** `/regolamento` — regole predefinite in 4 categorie (generale, turistica, supporto, sicurezza); il gestore **valorizza** testo per lingua (lingue = quelle abilitate sull'hotel) e allega documenti condivisi fra le lingue; il receptionist legge e invia.
 
+**Scheda demo** `/demo` (fuori manuale, A31/A32) — compare solo a chi ha un hotel con `demo = true`. Briefing da compilare prima di una demo cliente: nome, camere, check-in/out, colazione, autobus, taxi, ristoranti, luoghi. Al salvataggio il testo finisce in «Informazioni per l'assistente vocale» (Alice non dice altro), il nome diventa quello dell'hotel, l'orario di check-out si aggiorna se c'è un numero, le camere mancanti vengono aggiunte (mai tolte). Se nessuno la personalizza, al primo login si scrive un hotel generico già completo (15 camere, locali inventati). «Recupera informazioni» cerca un hotel vero su OpenStreetMap e, se il sito lo scrive, gli orari; niente viene salvato finché non si preme Salva. «Prova portineria» / «Prova chiosco» entrano negli account di prova dell'hotel demo senza password e un pulsante riporta alla scheda; per una demo su **due dispositivi** si imposta dalla scheda una password comune ai due account (quelli creati in automatico nascono con password casuale). «Ripristina hotel generico» torna ai dati di partenza.
+
 ---
 
 ## 6. Configurazioni → Hotel (`/configurazioni/hotel`)

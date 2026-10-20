@@ -18,7 +18,8 @@ L'applicativo è in due pezzi con esigenze diverse:
 ```bash
 git pull origin main
 composer install --no-dev --optimize-autoloader
-php artisan migrate --force          # 10/10/2026: tabelle marketing_* (docs/12); 2026-09-01: links_temporanei.primo_accesso_at, hotels.ai_walkin_abilitato/istruzioni_ai
+php artisan migrate --force          # 19/10/2026: hotels.demo + hotels.scheda_demo (scheda demo, A31); 10/10/2026: tabelle marketing_* (docs/12); 2026-09-01: links_temporanei.primo_accesso_at, hotels.ai_walkin_abilitato/istruzioni_ai
+php artisan marketing:importa        # se è cambiato database/data/marketing.json
 
 php artisan config:cache && php artisan route:cache
 ```
@@ -46,6 +47,21 @@ php artisan prenotazioni:importa-slope /percorso/export.csv --hotel="Hotel Villa
 ```
 
 Da lì in avanti l'import lo fa il gestore dal bottone **Importa da Slope** in Prenotazioni.
+
+### Hotel demo per le presentazioni ai clienti (scheda `/demo`, A31)
+
+La scheda demo lavora solo su un hotel con `demo = true`. Se `rsmioni:rimuovi-demo` è già stato
+eseguito, sul server non c'è più nessun hotel demo: ricrearlo UNA volta e cambiare subito le
+password di comodo del seeder (sono `password`):
+
+```bash
+php artisan db:seed --class=DemoSeeder --force            # Hotel Demo Mioni + account receptionist/gestore/chiosco_demo
+php artisan rsmioni:crea-utente gestore gestore_hotel --reset-password   # stampa la nuova password del gestore
+```
+
+Le password di `receptionist` e `chiosco_demo` si impostano dalla scheda `/demo` (campo «Account di prova»);
+senza impostarle si entra comunque con «Prova portineria» / «Prova chiosco». Chi deve fare le demo va
+collegato all'hotel demo (`hotel_user`), non serve un account a parte.
 Il regolamento e le "Informazioni per l'assistente vocale" (Configurazioni → Hotel → Receptionist AI)
 vanno compilati dal gestore con i dati veri della struttura.
 

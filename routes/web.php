@@ -23,6 +23,7 @@ use App\Http\Controllers\Kiosk\KioskChiamataController;
 use App\Http\Controllers\Kiosk\KioskController;
 use App\Http\Controllers\Kiosk\KioskStatoController;
 use App\Http\Controllers\Kiosk\KioskWebRtcController;
+use App\Http\Controllers\Demo\SchedaDemoController;
 use App\Http\Controllers\Marketing\MarketingController;
 use App\Http\Controllers\Portineria\DemoController;
 use App\Http\Controllers\Portineria\PortineriaController;
@@ -197,6 +198,25 @@ Route::middleware(['auth', 'role:gestore_hotel,admin'])
     ->group(function () {
         Route::get('/marketing', [MarketingController::class, 'index'])->name('marketing.index');
     });
+
+/*
+|--------------------------------------------------------------------------
+| Scheda demo — briefing da compilare prima di una demo cliente.
+| Stessi profili del marketing. I dati restano sull'hotel corrente.
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth', 'role:gestore_hotel,admin'])
+    ->group(function () {
+        Route::get('/demo', [SchedaDemoController::class, 'index'])->name('demo.index');
+        Route::put('/demo', [SchedaDemoController::class, 'update'])->name('demo.update');
+        Route::post('/demo/cerca', [SchedaDemoController::class, 'cerca'])->name('demo.cerca');
+        Route::post('/demo/ripristina', [SchedaDemoController::class, 'ripristina'])->name('demo.ripristina');
+        Route::post('/demo/prova', [SchedaDemoController::class, 'prova'])->name('demo.prova');
+    });
+
+Route::post('/demo/torna', [SchedaDemoController::class, 'torna'])
+    ->middleware('auth')
+    ->name('demo.torna');
 
 /*
 |--------------------------------------------------------------------------

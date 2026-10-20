@@ -317,6 +317,24 @@ Per il **Restart PC**: il chiosco riceve un comando Socket.IO e lancia `shutdown
 
 ---
 
+## A31 — Scheda demo: briefing prima della presentazione, fuori manuale
+
+**Contesto**: prima di una demo con un cliente, Edoardo deve poter inserire i fatti dell'hotel di scena (nome, numero camere, check-in, check-out, colazione, autobus, taxi, ristoranti, luoghi). Il manuale non ha questa schermata.
+
+**Assunzione adottata**: la pagina `/demo` vale solo per gli hotel con `demo=true` (oggi «Hotel Demo Mioni» / «Hotel Demo»). Se la scheda non è mai stata personalizzata, al primo accesso (login, scheda o avvio dell'assistente) si scrive un hotel generico già completo: nome Hotel Demo, 15 camere (si aggiungono quelle mancanti, non si cancellano), check-in fino alle 15, check-out alle 10, colazione 7–10, autobus davanti, taxi lì vicino, tre ristoranti e tre luoghi inventati per la scena. Quei locali non sono indirizzi reali. Salvare dalla scheda marca la scheda come personalizzata e allinea le camere verso l'alto fino al numero indicato. Dalla stessa pagina si entra negli account receptionist e chiosco di quell'hotel (`POST /demo/prova`) e si torna con `POST /demo/torna`. Un hotel reale (`demo=false`) non viene rinominato né riempito.
+
+**Impatto**: migration `scheda_demo` e `demo`, `SchedaDemoService`, pagina Demo (voce di menu solo per chi ha un hotel `demo=true`). Una modifica manuale di «Informazioni per l'assistente vocale» in Configurazioni viene riscritta al salvataggio successivo della scheda. Gli account receptionist/chiosco creati in automatico nascono con password casuale (nessuna credenziale di comodo in produzione): si entra con «Prova…», e per una demo su due dispositivi la scheda permette di impostare una password comune ai due account. `rsmioni:rimuovi-demo` riconosce gli hotel demo anche dal flag, non solo dal nome.
+
+## A32 — Scheda demo: orari e dintorni letti da fonti pubbliche
+
+**Contesto**: se Edoardo scrive il nome di un hotel vero, la scheda non deve restare sui testi generici. Il manuale non prevede una ricerca.
+
+**Assunzione adottata**: «Recupera informazioni» interroga OpenStreetMap (Nominatim per l'hotel, Overpass per ristoranti, luoghi, fermata e taxi nel raggio). Il numero di camere si usa solo se la scheda OSM ha il tag `rooms`. Check-in, check-out e colazione si leggono solo dal sito indicato su OSM, se la pagina li scrive in chiaro. I campi non trovati restano vuoti e la pagina elenca cosa manca. Niente viene salvato finché non si preme Salva. L'hotel generico resta il punto di partenza quando non si fa una ricerca.
+
+**Impatto**: `RicercaHotelDemo`, `POST /demo/cerca`. Dipende dalla rete e dai limiti di Nominatim/Overpass; un sito solo JavaScript può non mostrare gli orari.
+
+---
+
 ## Da Validare Prima dell'Implementazione
 
 | ID | Assunzione | Urgenza |

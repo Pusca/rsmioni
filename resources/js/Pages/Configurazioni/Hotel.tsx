@@ -248,6 +248,7 @@ function HotelForm({ hotel, lingue_disponibili }: { hotel: HotelData; lingue_dis
                         style={{ backgroundColor: 'rgba(0,0,0,0.04)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)', resize: 'vertical' }} />
                     <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
                         L'AI le usa per rispondere agli ospiti e non inventa nulla oltre a queste. Scrivile in italiano: le traduce da sola.
+                        Salvare la Scheda demo riscrive questo testo con orari, servizi e liste inserite lì.
                     </p>
                 </Field>
             </Section>

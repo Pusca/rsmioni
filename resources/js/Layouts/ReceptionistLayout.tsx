@@ -136,6 +136,17 @@ export default function ReceptionistLayout({ children }: { children: ReactNode }
                 </div>
             </header>
 
+            {page.props.demo_ritorno && (
+                <button
+                    type="button"
+                    onClick={() => router.post('/demo/torna')}
+                    className="shrink-0 px-4 py-1.5 text-xs text-left"
+                    style={{ backgroundColor: 'rgba(59,130,246,0.12)', color: '#60a5fa', borderBottom: '1px solid rgba(59,130,246,0.35)' }}
+                >
+                    Stai provando l'hotel demo come receptionist. Torna alla scheda.
+                </button>
+            )}
+
             {/* ── Flash banner ── */}
             {flashMsg && (
                 <div

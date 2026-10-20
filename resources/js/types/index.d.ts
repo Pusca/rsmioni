@@ -232,6 +232,10 @@ export interface SharedProps extends Record<string, unknown> {
     };
     hotels: HotelMinimo[];
     hotel_corrente: HotelMinimo | null;
+    /** Vero se tra gli hotel dell'utente ce n'è uno con demo=true: mostra la voce Demo. */
+    demo_disponibile?: boolean;
+    /** Vero mentre si prova l'hotel demo con l'account receptionist o chiosco. */
+    demo_ritorno?: boolean;
     flash: {
         success?: string;
         error?: string;

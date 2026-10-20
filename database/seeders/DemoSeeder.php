@@ -22,6 +22,7 @@ class DemoSeeder extends Seeder
         $hotel = Hotel::create([
             'id'                          => Str::uuid()->toString(),
             'nome'                        => 'Hotel Demo Mioni',
+            'demo'                        => true,
             'indirizzo'                   => 'Via Roma 1, 35036 Montegrotto Terme (PD)',
             'chioschi_concorrenti_max'    => 3,
             'checkout_libero'             => false,

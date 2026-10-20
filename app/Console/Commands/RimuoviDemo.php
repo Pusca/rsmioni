@@ -32,10 +32,19 @@ class RimuoviDemo extends Command
 
     public function handle(DocumentoService $documenti): int
     {
-        $hotels = Hotel::whereIn('nome', self::HOTEL_DEMO)->get();
+        // Per nome (seeder storici) o per flag `demo` (la scheda demo può
+        // aver rinominato l'hotel, docs/assumptions A31).
+        $hotels = Hotel::where('demo', true)->orWhereIn('nome', self::HOTEL_DEMO)->get();
+        $hotelIds = $hotels->pluck('id');
         $utenti = $this->option('tieni-utenti')
             ? collect()
-            : User::whereIn('username', self::UTENTI_DEMO)->get();
+            : User::query()
+                ->whereIn('username', self::UTENTI_DEMO)
+                // Account creati dalla scheda demo: legati solo a hotel demo
+                ->orWhere(fn ($q) => $q
+                    ->whereHas('hotels', fn ($h) => $h->whereIn('hotels.id', $hotelIds))
+                    ->whereDoesntHave('hotels', fn ($h) => $h->whereNotIn('hotels.id', $hotelIds)))
+                ->get();
 
         if ($hotels->isEmpty() && $utenti->isEmpty()) {
             $this->info('Nessun dato demo presente.');
