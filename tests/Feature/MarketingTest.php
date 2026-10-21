@@ -84,12 +84,21 @@ class MarketingTest extends TestCase
         // Budget totale del file = 900 €
         $this->assertEquals(900.0, (float) Campagna::sum('budget'));
 
-        // L'appuntamento spostato da Chip conserva l'orario originale
-        $app = Appuntamento::where('codice', 'app-004')->firstOrFail();
-        $this->assertTrue($app->spostato);
-        $this->assertSame('2026-10-13 16:00', $app->inizio->format('Y-m-d H:i'));
-        $this->assertSame('2026-10-10 10:30', $app->inizio_originale->format('Y-m-d H:i'));
-        $this->assertSame('chip_whatsapp', $app->gestito_da);
+        // Nel file non ci sono demo fissate: l'agenda parte vuota e si riempie dalle demo vere
+        $this->assertSame(0, Appuntamento::count());
+    }
+
+    public function test_appuntamento_spostato_conserva_orario_originale(): void
+    {
+        $c = Campagna::create(['codice' => 'c', 'nome' => 'C', 'piattaforma' => 'facebook', 'budget' => 10]);
+        $l = Lead::create(['codice' => 'l', 'campagna_id' => $c->id, 'struttura' => 'Hotel Uno', 'stato' => 'appuntamento', 'ricevuto_at' => '2026-10-01 10:00']);
+        $app = Appuntamento::create([
+            'codice' => 'app', 'lead_id' => $l->id, 'inizio' => '2026-10-13 16:00', 'inizio_originale' => '2026-10-10 10:30',
+            'durata_minuti' => 30, 'tipo' => 'demo_online', 'stato' => 'confermato', 'gestito_da' => 'chip_whatsapp',
+        ]);
+
+        $this->assertTrue($app->fresh()->spostato);
+        $this->assertSame('2026-10-10 10:30', $app->fresh()->inizio_originale->format('Y-m-d H:i'));
     }
 
     public function test_kpi_distinguono_dato_mancante_da_zero(): void

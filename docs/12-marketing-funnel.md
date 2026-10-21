@@ -90,15 +90,16 @@ direttamente (`meta.fonte_dati` passerà da `import_manuale` ad `api`).
 
 Gli orari sono **ora italiana e vengono salvati così come sono** (l'app ha `timezone=UTC`, nessuna conversione).
 
-## 3. Stato dei dati al 10/10/2026
+## 3. Stato dei dati al 21/10/2026
 
 Dati allineati al blocco "Campagna media" del portale Smartera per il cliente RS Mioni.
 
 - Piano Media Lancio: **900 €** in 6 settimane dal 23/09 al 03/11/2026 (Google Search 380, Meta 330 diviso
   Facebook 190 + Instagram 140, YouTube retargeting 110, riserva 80 da assegnare in settimana 5).
-- Speso 378 € (42%), 473 clic, 14 lead, 7 demo su Meet (2 fatte, 4 confermate, 1 da confermare), 2 lead persi.
-- La demo di Albergo Al Ponte, fissata per sabato 10/10 10:30, e' stata **spostata a martedi' 13/10 16:00 su
-  richiesta del cliente, gestita in automatico da Chip via WhatsApp**.
+- Speso 438 € (49%), 571 clic, 17 lead, 2 lead persi.
+- **Agenda demo vuota per scelta (21/10/2026):** le demo che c'erano nel file erano di esempio, inventate, e sono
+  state tolte. Qui vanno solo demo vere, man mano che si fissano: aggiungere l'appuntamento in `appuntamenti`
+  (e il relativo evento) e rilanciare l'import. I lead che avevano una demo di esempio sono tornati a `contattato`.
 - Aggiornamenti successivi: modificare `marketing.json` e rilanciare l'import; nel portale Smartera si aggiornano
   dalla pagina del progetto.
 
