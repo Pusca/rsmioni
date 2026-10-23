@@ -412,6 +412,30 @@ class AgentApiTest extends TestCase
             ->assertJsonPath('stato', 'pendente');
     }
 
+    public function test_acquisizione_annullata_chiude_la_schermata_foto(): void
+    {
+        $this->agentPost('/agent/form', [
+            'nome' => 'Mario', 'cognome' => 'Rossi',
+            'check_in'  => now()->toDateString(),
+            'check_out' => now()->addDay()->toDateString(),
+        ]);
+        $this->agentPost('/agent/prenotazione')->assertOk();
+        $this->agentPost('/agent/acquisizione')->assertOk();
+
+        // L'ospite non ha il documento: l'agent annulla → il chiosco non vede più nulla
+        $this->agentPost('/agent/acquisizione/annulla')
+            ->assertOk()
+            ->assertJsonPath('era_pendente', true);
+        $this->agentPost('/agent/acquisizione/stato')
+            ->assertOk()
+            ->assertJsonPath('stato', 'nessuna');
+
+        // Idempotente: un secondo annulla non è un errore
+        $this->agentPost('/agent/acquisizione/annulla')
+            ->assertOk()
+            ->assertJsonPath('era_pendente', false);
+    }
+
     // ── Chiusura sessione ──────────────────────────────────────────────────
 
     public function test_termina_chiude_la_sessione(): void

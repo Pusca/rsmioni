@@ -53,6 +53,9 @@ class ReceptionistAgent(Agent):
         # Anti chiusura prematura: il primo termina con passi pendenti viene
         # respinto con l'istruzione correttiva; il secondo chiude davvero.
         self._termina_avvisato = False
+        # Attesa foto documento in background: l'agent resta in ascolto e
+        # viene svegliato dal watcher quando la foto arriva (o viene annullata).
+        self._acquisizione_task: asyncio.Task | None = None
 
     # ── Helpers di processo ─────────────────────────────────────────────
 
@@ -234,10 +237,11 @@ class ReceptionistAgent(Agent):
 
     @function_tool
     async def acquisisci_documento(self, context: RunContext) -> str:
-        """Avvia la foto del documento d'identità sul chiosco: appare un
+        """Apre la foto del documento d'identità sul chiosco: appare un
         riquadro guida e l'ospite scatta fronte e retro toccando lo schermo.
-        Chiamalo DOPO aver spiegato all'ospite cosa fare. Attende gli scatti
-        (fino a 2 minuti) e riferisce l'esito."""
+        Chiamalo DOPO aver spiegato all'ospite cosa fare. Torna SUBITO: tu
+        resti in ascolto e vieni avvisata quando la foto è fatta. Se l'ospite
+        dice che non ha il documento, chiama senza_documento."""
         try:
             self.stato.richiedi_almeno(
                 Fase.SALVATA, "Prima salva la prenotazione: il documento va agganciato a una prenotazione esistente.")
@@ -248,19 +252,91 @@ class ReceptionistAgent(Agent):
         if not esito.ok:
             return self._fallimento(f"Avvio acquisizione non riuscito: {esito.errore}")
 
-        for _ in range(60):  # poll ogni 2s, max 2 minuti
-            await asyncio.sleep(2)
-            stato = await self._backend.stato_acquisizione()
-            if stato.get("stato") == "completata":
-                return await self._successo(
-                    Fase.DOCUMENTO,
-                    "Documento acquisito (fronte e retro). Se ci sono altri adulti con documenti "
-                    "da acquisire, ripeti acquisisci_documento; altrimenti chiama leggi_documento "
-                    "per leggere il nome ufficiale e mostrare il riepilogo.")
-            if stato.get("stato") == "nessuna":
-                return self._fallimento(
-                    "L'ospite ha annullato l'acquisizione. Chiedi se vuole riprovare o farlo alla reception.")
-        return self._fallimento("Tempo scaduto: documento non acquisito. Rassicura: potrà farlo alla reception.")
+        # NON bloccante: il vecchio tool aspettava fino a 2 minuti dentro la
+        # chiamata e nel frattempo l'ospite non veniva ascoltato ("non ce
+        # l'ho", "come funziona?" finivano scartati). Ora un watcher in
+        # background segue la foto e sveglia l'agent con l'esito.
+        self._ferma_watcher()
+        self._acquisizione_task = asyncio.create_task(self._attendi_foto())
+        return await self._successo(
+            None,
+            "Schermata foto aperta sul chiosco. Resta in ascolto: ti avviso io quando la foto è "
+            "fatta. Se l'ospite dice che NON ha il documento (o non vuole farlo), chiama SUBITO "
+            "senza_documento. Se chiede come si fa, spiegaglielo: documento nel riquadro, tocca "
+            "lo schermo per scattare, fronte poi retro.")
+
+    def _ferma_watcher(self) -> None:
+        if self._acquisizione_task and not self._acquisizione_task.done():
+            self._acquisizione_task.cancel()
+        self._acquisizione_task = None
+
+    async def _attendi_foto(self) -> None:
+        """Watcher in background: segue lo stato dell'acquisizione e, a esito
+        noto, fa parlare l'agent con l'istruzione giusta (generate_reply)."""
+        try:
+            for _ in range(60):  # poll ogni 2s, max 2 minuti
+                await asyncio.sleep(2)
+                stato = (await self._backend.stato_acquisizione()).get("stato")
+                if stato == "completata":
+                    self.stato.avanza_a(Fase.DOCUMENTO)
+                    await self._schermo.fase(self.stato.fase)
+                    logger.info("fase=%s esito=ok: documento acquisito (watcher)", self.stato.fase.value)
+                    await self._sveglia(
+                        "La foto del documento è stata fatta (fronte e retro). Se ci sono altri "
+                        "adulti con documenti da acquisire, chiedi e ripeti acquisisci_documento; "
+                        "altrimenti chiama leggi_documento per leggere il nome ufficiale e mostrare "
+                        "il riepilogo.")
+                    return
+                if stato == "nessuna":
+                    logger.info("fase=%s: acquisizione annullata dal chiosco (watcher)", self.stato.fase.value)
+                    await self._sveglia(
+                        "L'ospite ha annullato la foto dallo schermo. Chiedi con calma se vuole "
+                        "riprovare (acquisisci_documento) o se non ha il documento con sé "
+                        "(senza_documento).")
+                    return
+            logger.info("fase=%s: acquisizione scaduta senza foto (watcher)", self.stato.fase.value)
+            await self._sveglia(
+                "Sono passati due minuti senza foto. Chiedi se ha bisogno di aiuto con la foto "
+                "(acquisisci_documento per riaprirla) o se non ha il documento (senza_documento).")
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:  # mai far cadere la sessione per il watcher
+            logger.warning("watcher acquisizione: %s", e)
+
+    async def _sveglia(self, istruzione: str) -> None:
+        """Fa generare all'agent un nuovo turno spontaneo (evento esterno)."""
+        try:
+            self.session.generate_reply(instructions=istruzione)
+        except Exception as e:
+            logger.warning("generate_reply dal watcher fallita: %s", e)
+
+    @function_tool
+    async def senza_documento(self, context: RunContext, motivo: str | None = None) -> str:
+        """L'ospite NON ha il documento d'identità con sé (o non vuole
+        fotografarlo). Chiude la schermata foto sul chiosco e passa la
+        chiamata al receptionist (campanella in portineria), che completa
+        la registrazione di persona. Chiamalo appena l'ospite lo dice: non
+        insistere con la foto.
+
+        Args:
+            motivo: In poche parole cosa ha detto l'ospite (lo legge il receptionist).
+        """
+        self._ferma_watcher()
+        await self._backend.annulla_acquisizione()  # best-effort: chiude la schermata foto
+        self.stato.documento_rinunciato = True
+
+        testo = motivo or "non ha il documento con sé"
+        esito = await self._backend.richiedi_receptionist(
+            f"Ospite senza documento d'identità ({testo}): serve il receptionist per completare il check-in.")
+        logger.info("fase=%s: ospite senza documento, passaggio al receptionist", self.stato.fase.value)
+        if not esito.ok:
+            return ("Schermata foto chiusa, ma non sono riuscita ad avvisare il receptionist "
+                    f"({esito.errore}). Di' all'ospite di rivolgersi alla reception per il documento "
+                    "e resta a disposizione.")
+        return ("Schermata foto chiusa e receptionist avvisato (campanella in portineria). Di' "
+                "all'ospite, in UNA frase, che non c'è problema: un receptionist prende in carico "
+                "la chiamata e completa il check-in con lui. Resta in linea e a disposizione finché "
+                "non subentra; NON chiudere la sessione e NON riproporre la foto.")
 
     @function_tool
     async def leggi_documento(self, context: RunContext) -> str:
@@ -542,7 +618,7 @@ class ReceptionistAgent(Agent):
         # restano passi essenziali, il primo termina viene convertito in
         # un'istruzione correttiva. Il secondo chiude comunque (l'ospite può
         # essersene andato o aver rifiutato).
-        if self.stato.scopo == "checkin" and not self._termina_avvisato:
+        if self.stato.scopo == "checkin" and not self._termina_avvisato and not self.stato.documento_rinunciato:
             if self.stato.fase in (Fase.SALVATA, Fase.CAMERA):
                 self._termina_avvisato = True
                 return ("NON chiudere ancora: manca il documento d'identità. Proponi "
@@ -554,6 +630,7 @@ class ReceptionistAgent(Agent):
                         "Chiama leggi_documento per registrare l'intestatario ufficiale "
                         "e mostrare il riepilogo. Se l'ospite se n'è andato, richiama "
                         "termina_conversazione.")
+        self._ferma_watcher()
         self.stato.avanza_a(Fase.CONGEDO)
         # Non troncare il saluto: aspetta la fine dell'audio + margine
         try:

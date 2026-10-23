@@ -530,6 +530,27 @@ class AgentCheckinController extends Controller
     }
 
     /**
+     * Annulla l'acquisizione in corso: la schermata foto sul chiosco si
+     * chiude (il kiosk smette di vederla al prossimo poll). Usata dall'agent
+     * quando l'ospite dice di non avere il documento con sé.
+     */
+    public function annullaAcquisizione(Request $request): JsonResponse
+    {
+        $sessione = $this->sessione($request);
+        if (! $sessione) {
+            return response()->json(['error' => 'Sessione AI non trovata o scaduta.'], 404);
+        }
+
+        $chioscoId = $sessione['chiosco_id'];
+        $eraPendente = (bool) Cache::get("acquisizione_pendente:chiosco_{$chioscoId}");
+        Cache::forget("acquisizione_pendente:chiosco_{$chioscoId}");
+        Cache::forget("acquisizione_completata:chiosco_{$chioscoId}");
+        $this->audit('acquisizione.annulla', $request, $sessione, true, ['era_pendente' => $eraPendente]);
+
+        return response()->json(['ok' => true, 'era_pendente' => $eraPendente]);
+    }
+
+    /**
      * Restituisce (base64) l'immagine FRONTE dell'ultimo documento acquisito
      * per la prenotazione della sessione: il worker la passa alla vision AI
      * per leggere il nome ufficiale dell'intestatario.

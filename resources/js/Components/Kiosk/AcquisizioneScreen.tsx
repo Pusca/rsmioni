@@ -86,6 +86,15 @@ export default function AcquisizioneScreen({ chiosco, titolo, fronteRetro, onCom
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    // Rilascia la webcam SOLO se è stata aperta qui: la track presa in prestito
+    // dalla sessione video (AI / parlato / chiaro) deve restare viva, altrimenti
+    // chiusa la schermata foto il chiosco resta senza camera (PiP nero, e il
+    // receptionist non vede più l'ospite).
+    const rilasciaStream = useCallback(() => {
+        if (borrowedRef.current) return;
+        streamRef.current?.getTracks().forEach(t => t.stop());
+    }, []);
+
     // Cattura frame dalla webcam
     const handleCattura = useCallback(() => {
         const video  = videoRef.current;
@@ -120,7 +129,7 @@ export default function AcquisizioneScreen({ chiosco, titolo, fronteRetro, onCom
             if (result.ok) {
                 if (isLastStep) {
                     setFase('completata');
-                    streamRef.current?.getTracks().forEach(t => t.stop());
+                    rilasciaStream();
                     setTimeout(() => { if (mountedRef.current) onCompletata(); }, 2_000);
                 } else {
                     // Fronte inviato, passa al retro
@@ -133,7 +142,7 @@ export default function AcquisizioneScreen({ chiosco, titolo, fronteRetro, onCom
                 setErrore(result.errore ?? 'Errore upload');
             }
         }, 'image/jpeg', 0.92);
-    }, [onCompletata, fronteRetro, lato]);
+    }, [onCompletata, fronteRetro, lato, rilasciaStream]);
 
     const handleRiprendi = () => {
         setSnapshot(null);
@@ -142,7 +151,7 @@ export default function AcquisizioneScreen({ chiosco, titolo, fronteRetro, onCom
     };
 
     const handleAnnullaGuest = async () => {
-        streamRef.current?.getTracks().forEach(t => t.stop());
+        rilasciaStream();
         await onAnnulla();
     };
 

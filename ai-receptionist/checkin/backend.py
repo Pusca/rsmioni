@@ -78,6 +78,9 @@ class BackendRsmioni:
     async def avvia_acquisizione(self, lingua: str = "it") -> EsitoApi:
         return await self._post("/agent/acquisizione", {"lingua": lingua})
 
+    async def annulla_acquisizione(self) -> EsitoApi:
+        return await self._post("/agent/acquisizione/annulla")
+
     async def stato_acquisizione(self) -> EsitoApi:
         return await self._post("/agent/acquisizione/stato")
 

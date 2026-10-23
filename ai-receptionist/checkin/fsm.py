@@ -69,6 +69,7 @@ class StatoConversazione:
     codice: str | None = None
     camera: dict | None = None
     documento_letto: bool = False                # leggi_documento eseguita (o fallback tecnico)
+    documento_rinunciato: bool = False           # ospite senza documento: passato al receptionist
 
     def __post_init__(self) -> None:
         if self.scopo == "checkout":

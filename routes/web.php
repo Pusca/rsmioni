@@ -380,6 +380,7 @@ Route::middleware([\App\Http\Middleware\AgentServiceAuth::class])
         Route::post('/camera',              [\App\Http\Controllers\Agent\AgentCheckinController::class, 'assegnaCamera'])->name('camera');
         Route::post('/acquisizione',        [\App\Http\Controllers\Agent\AgentCheckinController::class, 'avviaAcquisizione'])->name('acquisizione');
         Route::post('/acquisizione/stato',  [\App\Http\Controllers\Agent\AgentCheckinController::class, 'statoAcquisizione'])->name('acquisizione.stato');
+        Route::post('/acquisizione/annulla', [\App\Http\Controllers\Agent\AgentCheckinController::class, 'annullaAcquisizione'])->name('acquisizione.annulla');
         Route::post('/documento/immagine',  [\App\Http\Controllers\Agent\AgentCheckinController::class, 'documentoImmagine'])->name('documento.immagine');
         Route::post('/intestatario',        [\App\Http\Controllers\Agent\AgentCheckinController::class, 'aggiornaIntestatario'])->name('intestatario');
         Route::post('/prenotazione/cerca',  [\App\Http\Controllers\Agent\AgentCheckinController::class, 'cercaPrenotazione'])->name('prenotazione.cerca');

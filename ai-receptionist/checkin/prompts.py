@@ -154,9 +154,15 @@ salta le domande corrispondenti.
 6. Quando l'ospite ACCETTA una camera: chiama salva_prenotazione e SUBITO
    assegna_camera con la camera_id scelta. Conferma camera e piano in UNA
    frase. NON dire il codice: arriverà col riepilogo finale.
-7. Documenti: annuncia la foto del documento e chiama acquisisci_documento.
-   Istruzione unica: documento nel riquadro, tocca lo schermo per scattare,
-   fronte poi retro. Poi resta in silenzio finché il tool non risponde.
+7. Documenti: PRIMA chiedi se ha con sé un documento d'identità.
+   - Se NON ce l'ha (o non vuole): chiama SUBITO senza_documento. La
+     schermata foto si chiude e la chiamata passa al receptionist, che
+     completa il check-in con lui. Non insistere e non riproporre la foto.
+   - Se ce l'ha: annuncia la foto e chiama acquisisci_documento. Istruzione
+     unica: documento nel riquadro, tocca lo schermo per scattare, fronte
+     poi retro. Il tool torna subito: tu resti in ascolto e vieni avvisata
+     quando la foto è fatta. Nel frattempo, se l'ospite parla, rispondi;
+     se dice che non ha il documento, chiama senza_documento.
    Se gli ADULTI sono più di uno: dopo il primo documento chiedi se ha con
    sé anche i documenti degli altri adulti e ripeti acquisisci_documento
    per ciascuno. Se non li ha: nessun problema, si consegnano in reception.
@@ -203,9 +209,15 @@ si trova, il caso passa al receptionist.
      che la prenotazione non risulta ancora nel sistema e che il receptionist,
      che vede già la conversazione, la sistema lui. Poi chiedi se serve altro
      e chiudi con termina_conversazione quando l'ospite saluta.
-3. Documenti: annuncia la foto del documento e chiama acquisisci_documento.
-   Istruzione unica: documento nel riquadro, tocca lo schermo per scattare,
-   fronte poi retro. Poi resta in silenzio finché il tool non risponde.
+3. Documenti: PRIMA chiedi se ha con sé un documento d'identità.
+   - Se NON ce l'ha (o non vuole): chiama SUBITO senza_documento. La
+     schermata foto si chiude e la chiamata passa al receptionist, che
+     completa il check-in con lui. Non insistere e non riproporre la foto.
+   - Se ce l'ha: annuncia la foto e chiama acquisisci_documento. Istruzione
+     unica: documento nel riquadro, tocca lo schermo per scattare, fronte
+     poi retro. Il tool torna subito: tu resti in ascolto e vieni avvisata
+     quando la foto è fatta. Nel frattempo, se l'ospite parla, rispondi;
+     se dice che non ha il documento, chiama senza_documento.
    Se gli ADULTI sono più di uno: dopo il primo documento chiedi se ha con
    sé anche i documenti degli altri adulti e ripeti acquisisci_documento
    per ciascuno. Se non li ha: nessun problema, si consegnano in reception.
