@@ -103,7 +103,11 @@ ANTHROPIC_MODEL                                      # opz., default claude-sonn
 VISION_MODEL                                         # opz., default anthropic/claude-sonnet-4.6 — lettura documenti,
                                                      #   SOLO via OpenRouter: senza OPENROUTER_API_KEY viene saltata
 LLM_MAX_TOKENS                                       # opz., default 600
-DEEPGRAM_API_KEY                                     # voce → testo
+DEEPGRAM_API_KEY                                     # voce → testo (e testo → voce con Aura-2)
+TTS_PROVIDER                                         # opz., default auto = ElevenLabs se c'è la chiave, poi Deepgram
+                                                     #   di riserva; "deepgram" = solo Deepgram (23/10/2026: in prod
+                                                     #   finché l'abbonamento ElevenLabs resta sospeso per pagamento)
+DEEPGRAM_TTS_VOICES                                  # opz., voci Aura-2 per lingua: it=aura-2-cinzia-it,en=...
 ELEVENLABS_API_KEY / ELEVENLABS_VOICE_ID             # testo → voce (voice id opz., ha default)
 ELEVENLABS_MODEL                                     # opz., default eleven_flash_v2_5
 RSMIONI_API_BASE_URL=https://rsmioni.it              # ← non più localhost!

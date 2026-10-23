@@ -21,7 +21,7 @@ from datetime import date
 
 from dotenv import load_dotenv
 from livekit import agents
-from livekit.agents import AgentSession, RoomInputOptions
+from livekit.agents import AgentSession, RoomInputOptions, tts
 from livekit.plugins import anthropic, deepgram, elevenlabs, openai, silero
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
@@ -59,6 +59,39 @@ def crea_llm():
             max_completion_tokens=CONFIG.llm_max_tokens,
         )
     return anthropic.LLM(model=CONFIG.anthropic_model)
+
+
+def crea_tts(lingua: str):
+    """Voce dell'agent secondo CONFIG.tts_providers (vedi TTS_PROVIDER in .env).
+
+    Con più provider la voce è un FallbackAdapter: se il primo non produce
+    audio (es. ElevenLabs con pagamento sospeso → 401) la frase passa al
+    successivo invece di lasciare l'ospite davanti a un assistente muto.
+    """
+    motori = []
+    for provider in CONFIG.tts_providers:
+        if provider == "elevenlabs":
+            motori.append(elevenlabs.TTS(
+                api_key=CONFIG.elevenlabs_api_key,
+                voice_id=CONFIG.elevenlabs_voice_id,
+                model=CONFIG.elevenlabs_model,
+                # Carattere della voce da .env (TTS_STABILITY/SIMILARITY/STYLE/SPEED):
+                # stability ~0.5 = spigliata ed espressiva senza cambiare voce tra
+                # una battuta e l'altra; speed>1: parlato un filo più svelto.
+                voice_settings=elevenlabs.VoiceSettings(
+                    stability=CONFIG.tts_stability, similarity_boost=CONFIG.tts_similarity,
+                    style=CONFIG.tts_style, speed=CONFIG.tts_speed, use_speaker_boost=False,
+                ),
+            ))
+        elif provider == "deepgram":
+            # Aura-2 ha una voce per lingua: quella della lingua scelta sul
+            # chiosco, inglese se la lingua non è coperta.
+            voce = CONFIG.deepgram_tts_voci.get(lingua) or CONFIG.deepgram_tts_voci["en"]
+            motori.append(deepgram.TTS(model=voce))
+    if not motori:
+        raise RuntimeError("Nessun provider TTS configurato (TTS_PROVIDER / chiavi API).")
+    logger.info("TTS: %s", " → ".join(CONFIG.tts_providers))
+    return motori[0] if len(motori) == 1 else tts.FallbackAdapter(motori)
 
 
 async def entrypoint(ctx: agents.JobContext) -> None:
@@ -102,19 +135,8 @@ async def entrypoint(ctx: agents.JobContext) -> None:
         stt=deepgram.STT(model="nova-3", language="multi"),
         # Cervello: Claude (tool calling + ragionamento).
         llm=crea_llm(),
-        # TTS naturale multilingua a bassa latenza.
-        tts=elevenlabs.TTS(
-            api_key=CONFIG.elevenlabs_api_key,
-            voice_id=CONFIG.elevenlabs_voice_id,
-            model=CONFIG.elevenlabs_model,
-            # Carattere della voce da .env (TTS_STABILITY/SIMILARITY/STYLE/SPEED):
-            # stability ~0.5 = spigliata ed espressiva senza cambiare voce tra
-            # una battuta e l'altra; speed>1: parlato un filo più svelto.
-            voice_settings=elevenlabs.VoiceSettings(
-                stability=CONFIG.tts_stability, similarity_boost=CONFIG.tts_similarity,
-                style=CONFIG.tts_style, speed=CONFIG.tts_speed, use_speaker_boost=False,
-            ),
-        ),
+        # Voce: ElevenLabs e/o Deepgram Aura-2 secondo TTS_PROVIDER.
+        tts=crea_tts(lingua),
         # Rilevamento attività vocale → barge-in (interruzione).
         vad=silero.VAD.load(),
         # Fine turno "semantico" multilingua: meno interruzioni e pause.
