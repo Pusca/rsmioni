@@ -18,6 +18,7 @@ import asyncio
 import json
 import logging
 
+import anthropic as anthropic_sdk
 import httpx
 from livekit.agents import Agent, RunContext, function_tool
 
@@ -326,8 +327,8 @@ class ReceptionistAgent(Agent):
     async def _vision_estrai(self, immagine_b64: str, mime: str) -> dict | None:
         """Analizza l'immagine acquisita: valida che sia un documento vero e
         ne estrae nome/cognome. None solo su errore tecnico (rete/servizio)."""
-        if not self._config.openrouter_api_key:
-            logger.warning("vision: OPENROUTER_API_KEY assente, estrazione saltata")
+        if not self._config.llm_providers:
+            logger.warning("vision: nessun provider LLM, estrazione saltata")
             return None
         prompt = (
             "Sei il controllo documenti di un hotel. Analizza l'immagine e rispondi SOLO "
@@ -339,32 +340,52 @@ class ReceptionistAgent(Agent):
             '- "nome"/"cognome": del titolare, con la sola iniziale maiuscola, SOLO se '
             "chiaramente leggibili sul documento; altrimenti null. Non inventare mai."
         )
-        try:
-            async with httpx.AsyncClient(timeout=30.0) as http:
-                r = await http.post(
-                    "https://openrouter.ai/api/v1/chat/completions",
-                    headers={"Authorization": f"Bearer {self._config.openrouter_api_key}"},
-                    json={
-                        "model": self._config.vision_model,
-                        "max_tokens": 300,
-                        "messages": [{"role": "user", "content": [
-                            {"type": "image_url",
-                             "image_url": {"url": f"data:{mime};base64,{immagine_b64}"}},
-                            {"type": "text", "text": prompt},
-                        ]}],
-                    },
-                )
-                r.raise_for_status()
-                testo = r.json()["choices"][0]["message"]["content"].strip()
-            testo = testo.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
-            dati = json.loads(testo)
-            logger.info("vision: documento=%s descrizione=%s nomi=%s",
-                        dati.get("documento"), dati.get("descrizione"),
-                        bool(dati.get("nome") and dati.get("cognome")))
-            return dati
-        except Exception as e:
-            logger.warning("vision estrazione fallita: %s", e)
+        # Stessa cascata del cervello: il primo provider che risponde vince.
+        for provider in self._config.llm_providers:
+            try:
+                if provider == "anthropic":
+                    testo = await self._vision_anthropic(immagine_b64, mime, prompt)
+                else:
+                    testo = await self._vision_openrouter(immagine_b64, mime, prompt)
+                testo = testo.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+                dati = json.loads(testo)
+                logger.info("vision (%s): documento=%s descrizione=%s nomi=%s", provider,
+                            dati.get("documento"), dati.get("descrizione"),
+                            bool(dati.get("nome") and dati.get("cognome")))
+                return dati
+            except Exception as e:
+                logger.warning("vision (%s) fallita: %s", provider, e)
         return None
+
+    async def _vision_anthropic(self, immagine_b64: str, mime: str, prompt: str) -> str:
+        client = anthropic_sdk.AsyncAnthropic(api_key=self._config.anthropic_api_key, timeout=30.0)
+        msg = await client.messages.create(
+            model=self._config.anthropic_vision_model,
+            max_tokens=300,
+            messages=[{"role": "user", "content": [
+                {"type": "image", "source": {"type": "base64", "media_type": mime, "data": immagine_b64}},
+                {"type": "text", "text": prompt},
+            ]}],
+        )
+        return "".join(b.text for b in msg.content if b.type == "text")
+
+    async def _vision_openrouter(self, immagine_b64: str, mime: str, prompt: str) -> str:
+        async with httpx.AsyncClient(timeout=30.0) as http:
+            r = await http.post(
+                "https://openrouter.ai/api/v1/chat/completions",
+                headers={"Authorization": f"Bearer {self._config.openrouter_api_key}"},
+                json={
+                    "model": self._config.vision_model,
+                    "max_tokens": 300,
+                    "messages": [{"role": "user", "content": [
+                        {"type": "image_url",
+                         "image_url": {"url": f"data:{mime};base64,{immagine_b64}"}},
+                        {"type": "text", "text": prompt},
+                    ]}],
+                },
+            )
+            r.raise_for_status()
+            return r.json()["choices"][0]["message"]["content"]
 
     # ── Tool: check-out ─────────────────────────────────────────────────
 

@@ -97,11 +97,12 @@ Il worker si configura SOLO via variabili d'ambiente (vedi
 
 ```
 LIVEKIT_URL / LIVEKIT_API_KEY / LIVEKIT_API_SECRET   # stessi del .env Laravel
-OPENROUTER_API_KEY (o ANTHROPIC_API_KEY)             # cervello — se presente OpenRouter vince su Anthropic
-OPENROUTER_MODEL                                     # opz., default anthropic/claude-sonnet-4.6
-ANTHROPIC_MODEL                                      # opz., default claude-sonnet-4-6 (solo senza OpenRouter)
-VISION_MODEL                                         # opz., default anthropic/claude-sonnet-4.6 — lettura documenti,
-                                                     #   SOLO via OpenRouter: senza OPENROUTER_API_KEY viene saltata
+LLM_PROVIDER                                         # opz., default auto = API Anthropic diretta se c'è la chiave,
+                                                     #   poi OpenRouter di riserva (cascata automatica, 23/10/2026)
+ANTHROPIC_API_KEY                                    # cervello principale (diretto: meno latenza, prompt caching)
+ANTHROPIC_MODEL / ANTHROPIC_VISION_MODEL             # opz., default claude-sonnet-5-5 (conversazione / lettura documenti)
+LLM_EFFORT                                           # opz., default low (velocità in voce); medium|high
+OPENROUTER_API_KEY / OPENROUTER_MODEL / VISION_MODEL # opz., riserva via OpenRouter (default anthropic/claude-sonnet-4.6)
 LLM_MAX_TOKENS                                       # opz., default 600
 DEEPGRAM_API_KEY                                     # voce → testo (e testo → voce con Aura-2)
 TTS_PROVIDER                                         # opz., default auto = ElevenLabs se c'è la chiave, poi Deepgram

@@ -16,13 +16,21 @@ class Impostazioni:
     api_base_url: str
     api_token: str
 
-    # Cervello — OpenRouter (se presente) vince sull'API Anthropic nativa
+    # Cervello — provider in ordine di preferenza ("anthropic", "openrouter").
+    # Più di uno = cascata automatica (FallbackAdapter): credito finito o API
+    # giù sul primo → il turno passa al successivo, la sessione non muore.
+    llm_providers: tuple[str, ...]
+    anthropic_api_key: str | None
+    anthropic_model: str
+    # Profondità di ragionamento (output_config.effort): "low" per la voce —
+    # risposte immediate, il processo è già nei tool e nella FSM.
+    llm_effort: str
     openrouter_api_key: str | None
     openrouter_model: str
-    anthropic_model: str
     # Vision per la lettura documenti (nome ufficiale dal fronte): un modello
     # robusto, separato dal cervello conversazionale — è una chiamata one-shot
-    # dove conta l'accuratezza, non la latenza.
+    # dove conta l'accuratezza, non la latenza. Un modello per provider.
+    anthropic_vision_model: str
     vision_model: str
 
     # Voce — provider TTS in ordine di preferenza ("elevenlabs", "deepgram").
@@ -58,8 +66,13 @@ class Impostazioni:
         if not api_token:
             problemi.append("RSMIONI_AGENT_HMAC_SECRET mancante: le tool call verso Laravel verranno rifiutate (401).")
 
-        if not (os.environ.get("OPENROUTER_API_KEY") or os.environ.get("ANTHROPIC_API_KEY")):
-            problemi.append("Nessuna chiave LLM (OPENROUTER_API_KEY o ANTHROPIC_API_KEY): l'agent non può ragionare.")
+        anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "")
+        openrouter_key = os.environ.get("OPENROUTER_API_KEY", "")
+        llm_providers = _llm_providers(os.environ.get("LLM_PROVIDER", ""), anthropic_key, openrouter_key, problemi)
+        llm_effort = os.environ.get("LLM_EFFORT", "low").strip().lower() or "low"
+        if llm_effort not in LLM_EFFORT_VALIDI:
+            problemi.append(f"LLM_EFFORT '{llm_effort}' non valido (validi: {', '.join(LLM_EFFORT_VALIDI)}): uso 'low'.")
+            llm_effort = "low"
         if not deepgram_key:
             problemi.append("DEEPGRAM_API_KEY mancante: niente riconoscimento vocale.")
         if el_key and not el_key.startswith("sk_"):
@@ -72,9 +85,13 @@ class Impostazioni:
             deepgram_tts_voci=_deepgram_voci(os.environ.get("DEEPGRAM_TTS_VOICES", ""), problemi),
             api_base_url=os.environ.get("RSMIONI_API_BASE_URL", "http://localhost:8000"),
             api_token=api_token,
-            openrouter_api_key=os.environ.get("OPENROUTER_API_KEY") or None,
+            llm_providers=llm_providers,
+            anthropic_api_key=anthropic_key or None,
+            anthropic_model=os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-5-5"),
+            llm_effort=llm_effort,
+            openrouter_api_key=openrouter_key or None,
             openrouter_model=os.environ.get("OPENROUTER_MODEL", "anthropic/claude-sonnet-4.6"),
-            anthropic_model=os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-6"),
+            anthropic_vision_model=os.environ.get("ANTHROPIC_VISION_MODEL", "claude-sonnet-5-5"),
             vision_model=os.environ.get("VISION_MODEL", "anthropic/claude-sonnet-4.6"),
             elevenlabs_api_key=os.environ.get("ELEVENLABS_API_KEY") or None,
             elevenlabs_voice_id=os.environ.get("ELEVENLABS_VOICE_ID", "Xb7hH8MSUJpSbSDYk0k2"),
@@ -90,6 +107,41 @@ class Impostazioni:
 
 
 TTS_PROVIDER_NOTI = ("elevenlabs", "deepgram")
+LLM_PROVIDER_NOTI = ("anthropic", "openrouter")
+LLM_EFFORT_VALIDI = ("low", "medium", "high")
+
+
+def _llm_providers(raw: str, anthropic_key: str, openrouter_key: str, problemi: list[str]) -> tuple[str, ...]:
+    """Ordine dei provider del cervello da LLM_PROVIDER.
+
+    "" / "auto": API Anthropic diretta (se c'è la chiave) e poi OpenRouter
+    come riserva. Altrimenti lista esplicita separata da virgole, es.
+    "anthropic" o "openrouter,anthropic". Ogni provider scelto deve avere
+    la sua chiave.
+    """
+    chiavi = {"anthropic": anthropic_key, "openrouter": openrouter_key}
+    raw = raw.strip().lower()
+    if raw in ("", "auto"):
+        providers = tuple(p for p in LLM_PROVIDER_NOTI if chiavi[p])
+        if not providers:
+            problemi.append("Nessuna chiave LLM (ANTHROPIC_API_KEY o OPENROUTER_API_KEY): l'agent non può ragionare.")
+        return providers
+
+    scelti: list[str] = []
+    for p in (x.strip() for x in raw.split(",")):
+        if not p:
+            continue
+        if p not in LLM_PROVIDER_NOTI:
+            problemi.append(f"LLM_PROVIDER '{p}' sconosciuto (validi: {', '.join(LLM_PROVIDER_NOTI)}): ignorato.")
+        elif p not in scelti:
+            scelti.append(p)
+    for p in list(scelti):
+        if not chiavi[p]:
+            problemi.append(f"LLM_PROVIDER include {p} ma la sua chiave API manca: {p} escluso.")
+            scelti.remove(p)
+    if not scelti:
+        problemi.append("Nessun provider LLM utilizzabile: l'agent non può ragionare.")
+    return tuple(scelti)
 
 # Voci Deepgram Aura-2 di default per lingua: femminili, tono accogliente
 # (https://developers.deepgram.com/docs/tts-models). Sovrascrivibili con

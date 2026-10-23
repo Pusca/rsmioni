@@ -21,7 +21,7 @@ from datetime import date
 
 from dotenv import load_dotenv
 from livekit import agents
-from livekit.agents import AgentSession, RoomInputOptions, tts
+from livekit.agents import AgentSession, RoomInputOptions, llm, tts
 from livekit.plugins import anthropic, deepgram, elevenlabs, openai, silero
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
@@ -45,20 +45,55 @@ for problema in CONFIG.problemi:
     logger.warning("CONFIG: %s", problema)
 
 
+class ClaudeLLM(anthropic.LLM):
+    """Claude via API Anthropic diretta, tarato per la voce.
+
+    - `effort` fisso (output_config) a ogni turno: "low" = risposta immediata,
+      il processo è già garantito da FSM e tool, non serve ragionare a lungo.
+    - prompt caching (`caching="ephemeral"`): istruzioni e tool sono identici a
+      ogni turno, la parte ripetuta costa ~1/10 e il primo token arriva prima.
+    """
+
+    def __init__(self, *, effort: str, **kw) -> None:
+        super().__init__(**kw)
+        self._effort = effort
+
+    def chat(self, *, extra_kwargs=None, **kw):
+        extra = dict(extra_kwargs) if isinstance(extra_kwargs, dict) else {}
+        extra.setdefault("output_config", {"effort": self._effort})
+        return super().chat(extra_kwargs=extra, **kw)
+
+
 def crea_llm():
-    """Cervello dell'agent: Claude — via OpenRouter se configurato, altrimenti
-    API Anthropic nativa."""
-    if CONFIG.openrouter_api_key:
-        return openai.LLM(
-            model=CONFIG.openrouter_model,
-            base_url="https://openrouter.ai/api/v1",
-            api_key=CONFIG.openrouter_api_key,
-            # Tetto per risposta: le battute vocali sono brevi; senza questo
-            # OpenRouter pre-autorizza il massimo del modello e rifiuta la
-            # richiesta se il saldo non copre il caso peggiore.
-            max_completion_tokens=CONFIG.llm_max_tokens,
-        )
-    return anthropic.LLM(model=CONFIG.anthropic_model)
+    """Cervello dell'agent secondo CONFIG.llm_providers (vedi LLM_PROVIDER in .env).
+
+    Con più provider è un FallbackAdapter: se il primo non risponde (credito
+    finito → 402, API giù) il turno passa al successivo e la sessione continua.
+    """
+    motori = []
+    for provider in CONFIG.llm_providers:
+        if provider == "anthropic":
+            motori.append(ClaudeLLM(
+                effort=CONFIG.llm_effort,
+                model=CONFIG.anthropic_model,
+                api_key=CONFIG.anthropic_api_key,
+                max_tokens=CONFIG.llm_max_tokens,
+                caching="ephemeral",
+            ))
+        elif provider == "openrouter":
+            motori.append(openai.LLM(
+                model=CONFIG.openrouter_model,
+                base_url="https://openrouter.ai/api/v1",
+                api_key=CONFIG.openrouter_api_key,
+                # Tetto per risposta: le battute vocali sono brevi; senza questo
+                # OpenRouter pre-autorizza il massimo del modello e rifiuta la
+                # richiesta se il saldo non copre il caso peggiore.
+                max_completion_tokens=CONFIG.llm_max_tokens,
+            ))
+    if not motori:
+        raise RuntimeError("Nessun provider LLM configurato (LLM_PROVIDER / chiavi API).")
+    logger.info("LLM: %s (effort=%s)", " → ".join(CONFIG.llm_providers), CONFIG.llm_effort)
+    return motori[0] if len(motori) == 1 else llm.FallbackAdapter(motori)
 
 
 def crea_tts(lingua: str):

@@ -91,14 +91,17 @@ la fonte di verità è `checkin/config.py`.
 | Variabile | Obbligatoria | Note |
 |-----------|--------------|------|
 | `LIVEKIT_URL` / `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET` | sì | Stessi valori del `.env` Laravel (stesso progetto LiveKit) |
-| `OPENROUTER_API_KEY` | una tra le due chiavi LLM | Se presente **vince** su Anthropic nativo; **necessaria per la vision documenti** (senza, l'estrazione dati dal documento viene saltata) |
-| `OPENROUTER_MODEL` | no | Modello conversazione via OpenRouter (default `anthropic/claude-sonnet-4.6`) |
-| `VISION_MODEL` | no | Modello OpenRouter per la lettura documento (default `anthropic/claude-sonnet-4.6`) |
-| `ANTHROPIC_API_KEY` | una tra le due chiavi LLM | Usata solo se `OPENROUTER_API_KEY` è assente; non abilita la vision |
-| `ANTHROPIC_MODEL` | no | Default `claude-sonnet-4-6` |
+| `LLM_PROVIDER` | no | Ordine dei cervelli: `auto` (default: Anthropic diretta se c'è la chiave, poi OpenRouter di riserva), `anthropic`, `openrouter` o lista. Con più provider la cascata è automatica (credito finito → passa al successivo). Stesso ordine per la lettura documenti |
+| `ANTHROPIC_API_KEY` | una tra le due chiavi LLM | Consigliata: diretta, prompt caching nativo, modelli a listino |
+| `ANTHROPIC_MODEL` / `ANTHROPIC_VISION_MODEL` | no | Default `claude-sonnet-5-5` (conversazione / lettura documenti) |
+| `LLM_EFFORT` | no | `low` (default, velocità in voce), `medium`, `high` |
+| `OPENROUTER_API_KEY` | una tra le due chiavi LLM | Riserva o alternativa via OpenRouter |
+| `OPENROUTER_MODEL` / `VISION_MODEL` | no | Modelli via OpenRouter (default `anthropic/claude-sonnet-4.6`) |
 | `LLM_MAX_TOKENS` | no | Token max per risposta (default `600`) |
-| `DEEPGRAM_API_KEY` | sì | STT — senza, niente riconoscimento vocale |
-| `ELEVENLABS_API_KEY` | sì | TTS — senza, niente sintesi vocale |
+| `DEEPGRAM_API_KEY` | sì | STT — e TTS Aura-2 quando `TTS_PROVIDER` lo include |
+| `TTS_PROVIDER` | no | `auto` (default: ElevenLabs se c'è la chiave, poi Deepgram di riserva), `deepgram`, `elevenlabs` o lista |
+| `DEEPGRAM_TTS_VOICES` | no | Voci Aura-2 per lingua, es. `it=aura-2-cinzia-it,en=aura-2-helena-en` |
+| `ELEVENLABS_API_KEY` | no | TTS ElevenLabs, serve solo se il provider la include |
 | `ELEVENLABS_VOICE_ID` | no | Default `Xb7hH8MSUJpSbSDYk0k2` |
 | `ELEVENLABS_MODEL` | no | Default `eleven_flash_v2_5` |
 | `RSMIONI_API_BASE_URL` | no | Base URL Laravel (default `http://localhost:8000`) |
