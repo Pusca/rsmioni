@@ -171,16 +171,9 @@ class SchedaDemoController extends Controller
 
     private function hotelDemo(Request $request): Hotel
     {
-        $ids = $request->user()->hotelIds();
-        abort_if($ids === [], 403, 'Nessun hotel associato a questo account.');
+        abort_if($request->user()->hotelIds() === [], 403, 'Nessun hotel associato a questo account.');
 
-        $demo = Hotel::withCount('camere')->whereIn('id', $ids)->where('demo', true);
-        $sessionId = $request->session()->get('hotel_corrente_id');
-        $hotel = is_string($sessionId)
-            ? (clone $demo)->where('id', $sessionId)->first()
-            : null;
-        $hotel ??= $demo->orderBy('nome')->first();
-
+        $hotel = $this->schede->hotelDemoPer($request->user(), $request->session()->get('hotel_corrente_id'));
         abort_if($hotel === null, 403, 'Nessun hotel demo associato a questo account.');
 
         return $this->schede->assicurata($hotel);

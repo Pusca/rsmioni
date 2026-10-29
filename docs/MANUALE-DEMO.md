@@ -47,6 +47,8 @@ Questo ricrea il database con tutti i dati di esempio.
 | Gestore Hotel | `gestore` | gestore@demo.rsmioni.it | `password` | Gestore Hotel | `/prenotazioni` |
 | Chiosco | `chiosco_demo` | chiosco@demo.rsmioni.it | `password` | Chiosco | `/kiosk` |
 
+Queste sono le password del seeder locale. Online le password vengono cambiate dopo ogni demo dalla pagina **Account demo** (`/demo/account`, gestore): generate e mostrate una sola volta.
+
 ---
 
 ## 3. Dati Demo Precaricati

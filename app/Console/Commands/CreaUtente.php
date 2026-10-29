@@ -5,10 +5,10 @@ namespace App\Console\Commands;
 use App\Enums\Profilo;
 use App\Models\Hotel;
 use App\Models\User;
+use App\Support\PasswordCasuale;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
-use Illuminate\Support\Str;
 
 /**
  * Crea un utente reale (non esiste ancora una UI per gli account).
@@ -46,7 +46,7 @@ class CreaUtente extends Command
             return self::FAILURE;
         }
 
-        $password = $this->generaPassword();
+        $password = PasswordCasuale::genera(16);
         $esiste   = User::where('username', $username)->first();
 
         if ($esiste && ! $this->option('reset-password')) {
@@ -76,15 +76,5 @@ class CreaUtente extends Command
         $this->warn('Consegna la password su un canale sicuro e chiedi di cambiarla al primo accesso (icona chiave in alto a destra).');
 
         return self::SUCCESS;
-    }
-
-    /** 16 caratteri, sempre con maiuscole, minuscole e cifre (regole del cambio password). */
-    private function generaPassword(): string
-    {
-        do {
-            $p = Str::password(16, symbols: false);
-        } while (! preg_match('/[a-z]/', $p) || ! preg_match('/[A-Z]/', $p) || ! preg_match('/\d/', $p));
-
-        return $p;
     }
 }

@@ -319,6 +319,8 @@ export default function Index({ hotel, scheda, generica, account }: Props) {
                                 Con «Prova portineria» e «Prova chiosco» entri da qui senza password.
                                 Per una demo su due dispositivi (totem da una parte, portineria dall'altra) imposta una password:
                                 vale per {account.receptionist ? <code>{account.receptionist}</code> : 'il receptionist'} e {account.chiosco ? <code>{account.chiosco}</code> : 'il chiosco'}.
+                                Per tutti gli account (gestore compreso), password generate o nuovi utenti:{' '}
+                                <Link href="/demo/account" className="underline">Account demo</Link>.
                             </p>
                             <Field label="Nuova password per i due account (lascia vuoto per non cambiarla)" error={form.errors.password_prova}>
                                 <input

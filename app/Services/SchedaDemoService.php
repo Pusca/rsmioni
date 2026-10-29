@@ -7,6 +7,7 @@ use App\Models\Camera;
 use App\Models\Chiosco;
 use App\Models\Hotel;
 use App\Models\User;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
 /**
@@ -181,6 +182,50 @@ class SchedaDemoService
         foreach ([Profilo::Receptionist, Profilo::Chiosco] as $profilo) {
             $this->account($hotel, $profilo)?->update(['password' => $password]);
         }
+    }
+
+    /**
+     * Hotel demo su cui lavora un gestore: quello corrente in sessione se è
+     * demo, altrimenti il primo demo tra i suoi. Null se non ne ha.
+     */
+    public function hotelDemoPer(User $utente, ?string $hotelCorrenteId): ?Hotel
+    {
+        $ids = $utente->hotelIds();
+        if ($ids === []) {
+            return null;
+        }
+
+        $demo = Hotel::withCount('camere')->whereIn('id', $ids)->where('demo', true);
+        $hotel = is_string($hotelCorrenteId)
+            ? (clone $demo)->where('id', $hotelCorrenteId)->first()
+            : null;
+
+        return $hotel ?? $demo->orderBy('nome')->first();
+    }
+
+    /** Tutti gli account collegati all'hotel demo: prima il gestore, poi receptionist, lite, chiosco. */
+    public function accounts(Hotel $hotel): Collection
+    {
+        return User::query()
+            ->whereHas('hotels', fn ($q) => $q->where('hotels.id', $hotel->id))
+            ->get()
+            ->sortBy([
+                fn (User $a, User $b) => $this->ordineProfilo($a->profilo) <=> $this->ordineProfilo($b->profilo),
+                fn (User $a, User $b) => strcmp($a->username, $b->username),
+            ])
+            ->values();
+    }
+
+    private function ordineProfilo(Profilo $profilo): int
+    {
+        return match ($profilo) {
+            Profilo::GestoreHotel        => 0,
+            Profilo::Receptionist        => 1,
+            Profilo::ReceptionistLite    => 2,
+            Profilo::Chiosco             => 3,
+            Profilo::GestoreReceptionist => 4,
+            Profilo::Admin               => 5,
+        };
     }
 
     public function account(Hotel $hotel, Profilo $profilo): ?User

@@ -58,8 +58,12 @@ php artisan db:seed --class=DemoSeeder --force            # Hotel Demo Mioni + a
 php artisan rsmioni:crea-utente gestore gestore_hotel --reset-password   # stampa la nuova password del gestore
 ```
 
-Le password di `receptionist` e `chiosco_demo` si impostano dalla scheda `/demo` (campo «Account di prova»);
-senza impostarle si entra comunque con «Prova portineria» / «Prova chiosco». Chi deve fare le demo va
+Da lì in poi tutte le password demo si gestiscono dall'app, pagina **Account demo** (`/demo/account`,
+link dalla scheda `/demo`, dal 29/10/2026): «Nuove password per tutti» dopo ogni demo, password generata
+o scelta a mano per un singolo account, nuovi account, disattivazione e cancellazione. Le password generate
+compaiono UNA sola volta (riquadro giallo con «Copia tutte»): non sono rileggibili dal database.
+La scheda `/demo` tiene ancora il campo «Account di prova» (stessa password per `receptionist` e `chiosco_demo`);
+senza impostarla si entra comunque con «Prova portineria» / «Prova chiosco». Chi deve fare le demo va
 collegato all'hotel demo (`hotel_user`), non serve un account a parte.
 Il regolamento e le "Informazioni per l'assistente vocale" (Configurazioni → Hotel → Receptionist AI)
 vanno compilati dal gestore con i dati veri della struttura.

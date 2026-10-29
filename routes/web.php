@@ -23,6 +23,7 @@ use App\Http\Controllers\Kiosk\KioskChiamataController;
 use App\Http\Controllers\Kiosk\KioskController;
 use App\Http\Controllers\Kiosk\KioskStatoController;
 use App\Http\Controllers\Kiosk\KioskWebRtcController;
+use App\Http\Controllers\Demo\AccountDemoController;
 use App\Http\Controllers\Demo\SchedaDemoController;
 use App\Http\Controllers\Portineria\DemoController;
 use App\Http\Controllers\Portineria\PortineriaController;
@@ -202,6 +203,15 @@ Route::middleware(['auth', 'role:gestore_hotel,admin'])
         Route::post('/demo/cerca', [SchedaDemoController::class, 'cerca'])->name('demo.cerca');
         Route::post('/demo/ripristina', [SchedaDemoController::class, 'ripristina'])->name('demo.ripristina');
         Route::post('/demo/prova', [SchedaDemoController::class, 'prova'])->name('demo.prova');
+
+        // Account demo: password generate e mostrate una sola volta
+        Route::get('/demo/account', [AccountDemoController::class, 'index'])->name('demo.account.index');
+        Route::post('/demo/account', [AccountDemoController::class, 'store'])->name('demo.account.store');
+        Route::post('/demo/account/rigenera-tutte', [AccountDemoController::class, 'rigeneraTutte'])->name('demo.account.rigenera_tutte');
+        Route::post('/demo/account/{utente}/rigenera', [AccountDemoController::class, 'rigenera'])->name('demo.account.rigenera');
+        Route::put('/demo/account/{utente}/password', [AccountDemoController::class, 'imposta'])->name('demo.account.imposta');
+        Route::put('/demo/account/{utente}/attivo', [AccountDemoController::class, 'attivo'])->name('demo.account.attivo');
+        Route::delete('/demo/account/{utente}', [AccountDemoController::class, 'destroy'])->name('demo.account.destroy');
     });
 
 Route::post('/demo/torna', [SchedaDemoController::class, 'torna'])
