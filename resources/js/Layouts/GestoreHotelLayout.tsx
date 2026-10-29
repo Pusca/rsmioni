@@ -5,7 +5,7 @@ import HotelSelector from '@/Components/HotelSelector';
 
 /**
  * Layout per il Gestore Hotel (Albergatore).
- * Header con navigazione: Prenotazioni, Camere (M5), Regolamento (M5), Configurazioni, Marketing (docs/12), Scheda demo.
+ * Header con navigazione: Prenotazioni, Camere (M5), Regolamento (M5), Configurazioni, Scheda demo.
  * Usato anche dal profilo Admin (badge diverso).
  * Nessuna portineria né videochat.
  */
@@ -65,11 +65,6 @@ export default function GestoreHotelLayout({ children }: { children: ReactNode }
                     <NavLink href="/configurazioni/hotel" active={currentUrl.startsWith('/configurazioni')}>
                         <SettingsIcon />
                         Configurazioni
-                    </NavLink>
-
-                    <NavLink href="/marketing" active={currentUrl.startsWith('/marketing')}>
-                        <ChartIcon />
-                        Marketing
                     </NavLink>
 
                     {page.props.demo_disponibile && (
@@ -246,14 +241,6 @@ function ClipboardIcon() {
     );
 }
 
-function ChartIcon() {
-    return (
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" style={{ flexShrink: 0 }}>
-            <path d="M3 3v18h18" />
-            <path d="M7 15l4-5 3 3 5-7" />
-        </svg>
-    );
-}
 
 function PowerIcon() {
     return (

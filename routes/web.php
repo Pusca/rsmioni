@@ -24,7 +24,6 @@ use App\Http\Controllers\Kiosk\KioskController;
 use App\Http\Controllers\Kiosk\KioskStatoController;
 use App\Http\Controllers\Kiosk\KioskWebRtcController;
 use App\Http\Controllers\Demo\SchedaDemoController;
-use App\Http\Controllers\Marketing\MarketingController;
 use App\Http\Controllers\Portineria\DemoController;
 use App\Http\Controllers\Portineria\PortineriaController;
 use App\Http\Controllers\Portineria\StatoChioscoController;
@@ -190,19 +189,10 @@ Route::middleware(['auth', 'role:gestore_hotel'])
 
 /*
 |--------------------------------------------------------------------------
-| Marketing — funnel campagne → lead → appuntamenti (docs/12)
-| Dati a livello piattaforma RS Mioni. Gestore Hotel (account del cliente) + Admin.
-|--------------------------------------------------------------------------
-*/
-Route::middleware(['auth', 'role:gestore_hotel,admin'])
-    ->group(function () {
-        Route::get('/marketing', [MarketingController::class, 'index'])->name('marketing.index');
-    });
-
-/*
-|--------------------------------------------------------------------------
 | Scheda demo — briefing da compilare prima di una demo cliente.
-| Stessi profili del marketing. I dati restano sull'hotel corrente.
+| Gestore Hotel + Admin. I dati restano sull'hotel corrente.
+| (Il modulo Marketing /marketing è stato rimosso il 29/10/2026: i lead
+| non devono comparire nell'app dei clienti.)
 |--------------------------------------------------------------------------
 */
 Route::middleware(['auth', 'role:gestore_hotel,admin'])
@@ -403,7 +393,7 @@ Route::get('/', function () {
     return match (auth()->user()->profilo->value) {
         'receptionist', 'receptionist_lite' => redirect()->route('portineria.index'),
         'gestore_hotel'                      => redirect()->route('prenotazioni.index'),
-        'admin'                              => redirect()->route('marketing.index'),
+        'admin'                              => redirect()->route('demo.index'),
         'chiosco'                            => redirect()->route('kiosk.index'),
         default                              => redirect()->route('login'),
     };

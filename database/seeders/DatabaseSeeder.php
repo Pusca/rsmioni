@@ -14,7 +14,6 @@ class DatabaseSeeder extends Seeder
             PrenotazioniSeeder::class,
             CamereSeeder::class,
             ValorizzazioniSeeder::class,
-            MarketingSeeder::class,
         ]);
     }
 }

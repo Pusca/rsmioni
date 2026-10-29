@@ -95,9 +95,8 @@ Stato commerciale (Google Business Profile, bandi per i clienti) in `docs/11-bus
 Promemoria aperto: il profilo My Business è creato ma mancano grafica e indirizzo dell'ufficio.
 **Appena compare un ufficio RS Mioni / Smartera, ricorda a Stanislav di aggiornare My Business.**
 
-## Modulo Marketing (fuori manuale)
-Funnel campagne → lead → appuntamenti in `/marketing` (Gestore Hotel + Admin), dati da `database/data/marketing.json`
-via `php artisan marketing:importa`. Specifica, formato JSON e assunzioni in `docs/12-marketing-funnel.md`.
-Le metriche di piattaforma non caricate restano `null` e si mostrano come «—», mai come 0.
+## Marketing (fuori manuale)
+Il funnel campagne → lead → appuntamenti (`/marketing`) è stato **rimosso il 29/10/2026**: i lead non devono
+comparire nell'app dei clienti. Non reintrodurlo nell'app; la specifica resta in `docs/12-marketing-funnel.md`.
 Sponsorizzata Meta «Demo gratuita 20 min» (angolo risparmio): testi, funnel e sequenza WhatsApp in `docs/13-meta-sponsorizzata-demo-risparmio.md`;
 specifica, creatività e script headless (Marketing API, tutto in pausa) in `marketing/meta/`. Credenziali Meta solo da variabili d'ambiente.

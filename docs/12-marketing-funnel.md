@@ -1,5 +1,11 @@
 # 12 — Marketing: funnel campagne → lead → appuntamenti
 
+> **RIMOSSO il 29/10/2026** su richiesta di Stanislav: i lead di RS Mioni non devono comparire
+> nell'app usata dai clienti. Via pagina `/marketing`, modelli, servizio, comando `marketing:importa`,
+> `database/data/marketing.json` e tabelle `marketing_*` (migrazione di drop). Resta questo documento
+> come specifica, nel caso il funnel torni in uno strumento interno separato. La sponsorizzata Meta
+> (docs/13, `marketing/meta/`) non c'entra con l'app e resta.
+>
 > Modulo aggiunto il **10/10/2026**. Non deriva dal manuale RH24: serve a RS Mioni (il cliente) per
 > seguire l'andamento delle campagne di acquisizione hotel e cosa fa Chip in automatico.
 

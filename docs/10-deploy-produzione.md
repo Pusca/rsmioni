@@ -18,8 +18,7 @@ L'applicativo è in due pezzi con esigenze diverse:
 ```bash
 git pull origin main
 composer install --no-dev --optimize-autoloader
-php artisan migrate --force          # 19/10/2026: hotels.demo + hotels.scheda_demo (scheda demo, A31); 10/10/2026: tabelle marketing_* (docs/12); 2026-09-01: links_temporanei.primo_accesso_at, hotels.ai_walkin_abilitato/istruzioni_ai
-php artisan marketing:importa        # se è cambiato database/data/marketing.json
+php artisan migrate --force          # 29/10/2026: drop tabelle marketing_* (modulo rimosso); 19/10/2026: hotels.demo + hotels.scheda_demo (scheda demo, A31); 2026-09-01: links_temporanei.primo_accesso_at, hotels.ai_walkin_abilitato/istruzioni_ai
 
 php artisan config:cache && php artisan route:cache
 ```
