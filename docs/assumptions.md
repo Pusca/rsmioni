@@ -333,6 +333,14 @@ Per il **Restart PC**: il chiosco riceve un comando Socket.IO e lancia `shutdown
 
 **Impatto**: `RicercaHotelDemo`, `POST /demo/cerca`. Dipende dalla rete e dai limiti di Nominatim/Overpass; un sito solo JavaScript può non mostrare gli orari.
 
+## A33 — Assistente vocale: conosce anche il Regolamento dell'hotel
+
+**Contesto**: in demo (29/10/2026) Alice non sapeva nulla della regola sugli animali scritta nel menu Regolamento: all'agent arrivava solo il testo composto dalla scheda demo (`istruzioni_ai`). Il manuale descrive il regolamento come documento da stampare/inviare, non come conoscenza dell'assistente.
+
+**Assunzione adottata**: ogni regola valorizzata per l'hotel (`valorizzazioni_regola`) viene passata all'agent nel metadata del dispatch (`regolamento_hotel`, `RegolamentoAiService`), una voce per regola con l'etichetta leggibile del codice («Politica Animali: …»). Per ogni regola si usa la lingua della conversazione, poi la lingua di default dell'hotel, poi l'italiano; il modello traduce. Testo oltre 12.000 caratteri troncato con avviso. Le regole vuote non compaiono. In parallelo la scheda demo ha un campo libero «Altre informazioni per Alice» (`note`) che finisce in coda a `istruzioni_ai`, per chi preferisce scrivere tutto in un posto.
+
+**Impatto**: il prompt dell'agent cresce con il regolamento (coperto dal prompt caching: identico a ogni turno). Chi scrive prezzi nel regolamento li espone a voce: Alice li ripete così come sono scritti.
+
 ---
 
 ## Da Validare Prima dell'Implementazione

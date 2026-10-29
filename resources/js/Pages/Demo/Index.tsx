@@ -22,6 +22,7 @@ interface Scheda {
     trasporto: string;
     ristoranti: Voce[];
     luoghi: Voce[];
+    note: string;
 }
 
 interface Props {
@@ -295,6 +296,24 @@ export default function Index({ hotel, scheda, generica, account }: Props) {
                             onRemove={i => togliVoce('luoghi', i)}
                         />
 
+                        <Section title="Altre informazioni per Alice">
+                            <Field label="Regole e informazioni senza un campo dedicato" error={form.errors.note}>
+                                <textarea
+                                    value={form.data.note}
+                                    onChange={e => set('note', e.target.value)}
+                                    rows={4}
+                                    placeholder={"Es. Animali ammessi di piccola taglia, 15 euro a notte.\nParcheggio gratuito dietro l'hotel.\nWi-Fi: rete HotelDemo, password sul comodino."}
+                                    className="w-full rounded-lg px-3 py-2 text-sm"
+                                    style={{ ...inputStyle, resize: 'vertical' }}
+                                />
+                                <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
+                                    Una riga per argomento. Alice legge anche le regole valorizzate nel{' '}
+                                    <Link href="/regolamento" className="underline">Regolamento</Link> dell'hotel
+                                    (animali, parcheggio, wifi…): scrivile lì oppure qui, le dice allo stesso modo.
+                                </p>
+                            </Field>
+                        </Section>
+
                         <Section title="Account di prova">
                             <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
                                 Con «Prova portineria» e «Prova chiosco» entri da qui senza password.
@@ -355,9 +374,11 @@ function prepara(scheda: Scheda | null): Scheda {
         trasporto: '',
         ristoranti: [],
         luoghi: [],
+        note: '',
     };
     return {
         ...base,
+        note: base.note ?? '',
         ristoranti: base.ristoranti.length > 0 ? base.ristoranti.map(v => ({ ...v })) : [{ nome: '', nota: '' }],
         luoghi: base.luoghi.length > 0 ? base.luoghi.map(v => ({ ...v })) : [{ nome: '', nota: '' }],
     };
@@ -380,6 +401,7 @@ function componi(scheda: Scheda): string {
     riga('Trasporto e taxi', scheda.trasporto);
     linee.push(elenco('Ristoranti consigliati', scheda.ristoranti));
     linee.push(elenco('Luoghi da visitare', scheda.luoghi));
+    if (scheda.note.trim() !== '') linee.push(`Altre informazioni:\n${scheda.note.trim()}`);
     return linee.join('\n');
 }
 

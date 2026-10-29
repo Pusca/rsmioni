@@ -243,9 +243,20 @@ Apri presentandoti e chiedendo il cognome della prenotazione.
 
 ISTRUZIONI_HOTEL = """
 
-INFORMAZIONI SULL'HOTEL (fornite dal gestore — sono le UNICHE che puoi dare;
-traducile nella lingua della conversazione, non aggiungere altro):
+INFORMAZIONI SULL'HOTEL (fornite dal gestore — insieme al regolamento qui
+sotto sono le UNICHE che puoi dare; traducile nella lingua della
+conversazione, non aggiungere altro):
 {istruzioni}
+"""
+
+REGOLAMENTO_HOTEL = """
+
+REGOLAMENTO DELL'HOTEL (scritto dal gestore, una voce per argomento: animali,
+parcheggio, wifi, orari, sicurezza…). Vale come le informazioni sopra: se
+l'ospite chiede di un argomento presente, rispondi con quello che c'è scritto,
+in UNA o due frasi, nella lingua della conversazione. Non aggiungere nulla; per
+ciò che non è scritto, rimanda al receptionist.
+{regolamento}
 """
 
 CHECKOUT_SCRIPT = """\
@@ -298,6 +309,11 @@ def componi(scopo: str, meta: dict, oggi: str, lingua_default: str) -> tuple[str
     # Conoscenza dell'hotel scritta dal gestore (Configurazioni → Receptionist AI)
     istruzioni = (meta.get("istruzioni_hotel") or "").strip()
     coda = ISTRUZIONI_HOTEL.format(istruzioni=istruzioni) if istruzioni else ""
+    # Regolamento valorizzato dal gestore (menu Regolamento): stessa dignità
+    # della scheda — senza, Alice non sa nulla di animali, parcheggio, wifi.
+    regolamento = (meta.get("regolamento_hotel") or "").strip()
+    if regolamento:
+        coda += REGOLAMENTO_HOTEL.format(regolamento=regolamento)
 
     # L'apertura è l'unico turno senza input dell'ospite: la lingua va detta
     # esplicitamente, altrimenti il modello tende a salutare in italiano.

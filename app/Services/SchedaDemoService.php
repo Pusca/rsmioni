@@ -29,6 +29,9 @@ class SchedaDemoService
             'trasporto'     => '',
             'ristoranti'    => [],
             'luoghi'        => [],
+            // Testo libero: regole e informazioni che non hanno un campo
+            // (animali, parcheggio, wifi, piscina…). Finisce in istruzioni_ai.
+            'note'          => '',
         ];
     }
 
@@ -96,9 +99,12 @@ class SchedaDemoService
     public function perForm(?array $scheda): array
     {
         $scheda = array_replace(self::vuota(), $scheda ?? []);
-        foreach (['nome', 'checkin', 'checkout', 'colazione', 'autobus', 'trasporto'] as $campo) {
+        foreach (['nome', 'checkin', 'checkout', 'colazione', 'autobus', 'trasporto', 'note'] as $campo) {
             $scheda[$campo] = trim((string) ($scheda[$campo] ?? ''));
         }
+        // Le note arrivano da una textarea: a capo uniformi, così il testo
+        // salvato e quello letto dall'assistente coincidono su ogni sistema.
+        $scheda['note'] = preg_replace("/\r\n?/", "\n", $scheda['note']);
         $numero = $scheda['numero_camere'];
         $scheda['numero_camere'] = ($numero === null || $numero === '') ? null : (int) $numero;
         $scheda['ristoranti'] = $this->voci($scheda['ristoranti'] ?? []);
@@ -127,6 +133,9 @@ class SchedaDemoService
         $this->riga($linee, 'Trasporto e taxi', $scheda['trasporto']);
         $linee[] = $this->elenco('Ristoranti consigliati', $scheda['ristoranti']);
         $linee[] = $this->elenco('Luoghi da visitare', $scheda['luoghi']);
+        if ($scheda['note'] !== '') {
+            $linee[] = "Altre informazioni:\n".$scheda['note'];
+        }
 
         return implode("\n", $linee);
     }

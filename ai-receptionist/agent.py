@@ -15,6 +15,7 @@ Avvio (produzione): python agent.py start
 """
 
 import asyncio
+import inspect
 import json
 import logging
 from datetime import date
@@ -115,14 +116,25 @@ def crea_tts(lingua: str):
                 # una battuta e l'altra; speed>1: parlato un filo più svelto.
                 voice_settings=elevenlabs.VoiceSettings(
                     stability=CONFIG.tts_stability, similarity_boost=CONFIG.tts_similarity,
-                    style=CONFIG.tts_style, speed=CONFIG.tts_speed, use_speaker_boost=False,
+                    style=CONFIG.tts_style, speed=min(CONFIG.tts_speed, 1.2),  # ElevenLabs: 0.7–1.2
+                    use_speaker_boost=False,
                 ),
             ))
         elif provider == "deepgram":
             # Aura-2 ha una voce per lingua: quella della lingua scelta sul
             # chiosco, inglese se la lingua non è coperta.
             voce = CONFIG.deepgram_tts_voci.get(lingua) or CONFIG.deepgram_tts_voci["en"]
-            motori.append(deepgram.TTS(model=voce))
+            # Stessa TTS_SPEED di ElevenLabs (Aura-2 accetta 0.7–1.5): senza,
+            # Aura-2 parla a 1.0 e in demo risultava troppo lenta. Il parametro
+            # esiste solo nei plugin Deepgram recenti: se manca lo si segnala
+            # invece di far cadere il worker.
+            extra = {}
+            if "speed" in inspect.signature(deepgram.TTS.__init__).parameters:
+                extra["speed"] = max(0.7, min(1.5, CONFIG.tts_speed))
+            else:
+                logger.warning("plugin Deepgram senza parametro speed: TTS_SPEED ignorata, "
+                               "aggiornare con `pip install -U livekit-plugins-deepgram`")
+            motori.append(deepgram.TTS(model=voce, **extra))
     if not motori:
         raise RuntimeError("Nessun provider TTS configurato (TTS_PROVIDER / chiavi API).")
     logger.info("TTS: %s", " → ".join(CONFIG.tts_providers))

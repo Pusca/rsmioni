@@ -153,6 +153,32 @@ class SchedaDemoTest extends TestCase
             );
     }
 
+    public function test_le_note_libere_finiscono_nelle_istruzioni_di_alice(): void
+    {
+        $hotel = $this->hotel();
+        $gestore = $this->utente(Profilo::GestoreHotel, $hotel);
+
+        $this->actingAs($gestore)
+            ->put('/demo', array_replace($this->payload(), [
+                'note' => "Animali ammessi di piccola taglia, 15 euro a notte.\r\nParcheggio gratuito dietro l'hotel.",
+            ]))
+            ->assertSessionHasNoErrors()
+            ->assertRedirect(route('demo.index'));
+
+        $hotel->refresh();
+        $this->assertStringEndsWith(
+            "Altre informazioni:\nAnimali ammessi di piccola taglia, 15 euro a notte.\nParcheggio gratuito dietro l'hotel.",
+            $hotel->istruzioni_ai
+        );
+        $this->actingAs($gestore)->get('/demo')->assertInertia(fn (Assert $page) => $page
+            ->where('scheda.note', "Animali ammessi di piccola taglia, 15 euro a notte.\nParcheggio gratuito dietro l'hotel.")
+        );
+
+        // Senza note, nessuna sezione vuota
+        $this->actingAs($gestore)->put('/demo', array_replace($this->payload(), ['note' => '']));
+        $this->assertStringNotContainsString('Altre informazioni', $hotel->fresh()->istruzioni_ai);
+    }
+
     public function test_checkout_senza_orario_non_tocca_lora_gia_impostata(): void
     {
         $hotel = $this->hotel();

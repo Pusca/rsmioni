@@ -65,6 +65,7 @@ class SchedaDemoController extends Controller
             'luoghi'            => ['nullable', 'array', 'max:20'],
             'luoghi.*.nome'     => ['nullable', 'string', 'max:120'],
             'luoghi.*.nota'     => ['nullable', 'string', 'max:240'],
+            'note'              => ['nullable', 'string', 'max:3000'],
             'password_prova'    => ['nullable', 'string', 'min:8', 'max:72'],
         ], [
             'nome.required'          => 'Il nome dell\'hotel in demo è obbligatorio.',

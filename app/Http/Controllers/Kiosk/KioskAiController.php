@@ -8,6 +8,7 @@ use App\Models\Chiosco;
 use App\Services\LiveKitDispatchService;
 use App\Services\SchedaDemoService;
 use App\Services\PortineriaService;
+use App\Services\RegolamentoAiService;
 use App\Services\WebRtcSessionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -103,6 +104,9 @@ class KioskAiController extends Controller
                 // docs/11: senza walk-in l'AI lavora solo su prenotazioni esistenti
                 'walkin'           => (bool) ($hotel?->ai_walkin_abilitato ?? true),
                 'istruzioni_hotel' => $hotel?->istruzioni_ai,
+                // Regolamento valorizzato dal gestore (animali, parcheggio, wifi…):
+                // senza, Alice conosce solo la scheda demo.
+                'regolamento_hotel' => $hotel ? app(RegolamentoAiService::class)->testo($hotel, $lingua) : null,
             ]);
         } catch (\Throwable $e) {
             // Niente agent → niente sessione fantasma: pulizia e errore onesto

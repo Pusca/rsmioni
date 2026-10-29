@@ -6,7 +6,9 @@ use App\Enums\Profilo;
 use App\Enums\StatoChiosco;
 use App\Models\Chiosco;
 use App\Models\Hotel;
+use App\Models\Regola;
 use App\Models\User;
+use App\Models\ValorizzazioneRegola;
 use App\Services\LiveKitDispatchService;
 use App\Services\PortineriaService;
 use App\Services\WebRtcSessionService;
@@ -107,6 +109,53 @@ class KioskAiTest extends TestCase
             ->postJson('/kiosk/ai/avvia', ['scopo' => 'checkin', 'lingua' => 'fr'])
             ->assertOk()->assertJsonPath('lingua', 'it');
         $this->assertSame('it', $metadata[1]['lingua']);
+    }
+
+    public function test_il_regolamento_valorizzato_arriva_all_agent_nella_lingua_giusta(): void
+    {
+        $this->hotel->update(['lingue_abilitate' => ['it', 'en'], 'istruzioni_ai' => 'Colazione: dalle 7 alle 10']);
+        $animali    = Regola::create(['codice' => 'POLITICA_ANIMALI', 'categoria' => 'generale', 'ordine' => 80]);
+        $parcheggio = Regola::create(['codice' => 'PARCHEGGIO', 'categoria' => 'generale', 'ordine' => 100]);
+        $vuota      = Regola::create(['codice' => 'WIFI_CREDENZIALI', 'categoria' => 'generale', 'ordine' => 60]);
+        ValorizzazioneRegola::create(['regola_id' => $animali->id, 'hotel_id' => $this->hotel->id, 'lingua' => 'it', 'testo' => "Animali ammessi di piccola taglia.\r\nSupplemento 15 euro a notte."]);
+        ValorizzazioneRegola::create(['regola_id' => $animali->id, 'hotel_id' => $this->hotel->id, 'lingua' => 'en', 'testo' => 'Small pets welcome, 15 euro per night.']);
+        ValorizzazioneRegola::create(['regola_id' => $parcheggio->id, 'hotel_id' => $this->hotel->id, 'lingua' => 'it', 'testo' => "Parcheggio gratuito dietro l'hotel."]);
+        ValorizzazioneRegola::create(['regola_id' => $vuota->id, 'hotel_id' => $this->hotel->id, 'lingua' => 'it', 'testo' => '  ']);
+        // Regola di un altro hotel: non deve comparire
+        $altro = Hotel::create([
+            'id' => Str::uuid()->toString(), 'nome' => 'Altro', 'indirizzo' => 'Via Altra 2',
+            'chioschi_concorrenti_max' => 1, 'checkout_libero' => true, 'lingua_default' => 'it', 'lingue_abilitate' => ['it'],
+            'suoneria_attiva' => true, 'volume_suoneria' => 80, 'numero_massimo_pax' => 4, 'campi_pax_obbligatori' => [],
+        ]);
+        ValorizzazioneRegola::create(['regola_id' => $parcheggio->id, 'hotel_id' => $altro->id, 'lingua' => 'it', 'testo' => 'Garage a pagamento.']);
+        app(PortineriaService::class)->impostaStato($this->chiosco, StatoChiosco::Idle);
+
+        $metadata = [];
+        $this->mock(LiveKitDispatchService::class, function ($m) use (&$metadata) {
+            $m->shouldReceive('dispatch')->andReturnUsing(function ($room, $meta) use (&$metadata) { $metadata[] = $meta; });
+        });
+
+        $this->avvia()->assertOk();
+        $testo = $metadata[0]['regolamento_hotel'];
+        $this->assertSame('Colazione: dalle 7 alle 10', $metadata[0]['istruzioni_hotel']);
+        $this->assertStringContainsString("Politica Animali:\nAnimali ammessi di piccola taglia.\nSupplemento 15 euro a notte.", $testo);
+        $this->assertStringContainsString("Parcheggio:\nParcheggio gratuito dietro l'hotel.", $testo);
+        $this->assertStringNotContainsString('Wifi Credenziali', $testo, 'le regole vuote non compaiono');
+        $this->assertStringNotContainsString('Garage', $testo, 'regole di un altro hotel escluse');
+        $this->assertStringNotContainsString('Small pets', $testo, 'in italiano si usa il testo italiano');
+
+        // In inglese si preferisce la valorizzazione inglese, con l'italiano di riserva
+        app(PortineriaService::class)->impostaStato($this->chiosco, StatoChiosco::Idle);
+        $this->actingAs($this->account)->withSession(['chiosco_id' => $this->chiosco->id])
+            ->postJson('/kiosk/ai/avvia', ['scopo' => 'info', 'lingua' => 'en'])->assertOk();
+        $this->assertStringContainsString("Politica Animali:\nSmall pets welcome", $metadata[1]['regolamento_hotel']);
+        $this->assertStringContainsString('Parcheggio gratuito', $metadata[1]['regolamento_hotel']);
+
+        // Hotel senza regole valorizzate: niente blocco
+        ValorizzazioneRegola::where('hotel_id', $this->hotel->id)->delete();
+        app(PortineriaService::class)->impostaStato($this->chiosco, StatoChiosco::Idle);
+        $this->avvia()->assertOk();
+        $this->assertNull($metadata[2]['regolamento_hotel']);
     }
 
     public function test_da_idle_parte_e_porta_il_chiosco_in_parlato(): void

@@ -99,7 +99,7 @@ class Impostazioni:
             tts_stability=float(os.environ.get("TTS_STABILITY", "0.5")),
             tts_similarity=float(os.environ.get("TTS_SIMILARITY", "0.8")),
             tts_style=float(os.environ.get("TTS_STYLE", "0.0")),
-            tts_speed=float(os.environ.get("TTS_SPEED", "1.08")),
+            tts_speed=float(os.environ.get("TTS_SPEED", "1.2")),
             llm_max_tokens=int(os.environ.get("LLM_MAX_TOKENS", "600")),
             lingua_default=os.environ.get("AGENT_DEFAULT_LANGUAGE", "it"),
             problemi=problemi,

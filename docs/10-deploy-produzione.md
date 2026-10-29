@@ -109,6 +109,9 @@ TTS_PROVIDER                                         # opz., default auto = Elev
                                                      #   di riserva; "deepgram" = solo Deepgram (23/10/2026: in prod
                                                      #   finché l'abbonamento ElevenLabs resta sospeso per pagamento)
 DEEPGRAM_TTS_VOICES                                  # opz., voci Aura-2 per lingua: it=aura-2-cinzia-it,en=...
+TTS_SPEED                                            # opz., default 1.2 — velocità della voce su ENTRAMBI i provider
+                                                     #   (ElevenLabs 0.7–1.2, Aura-2 0.7–1.5); 29/10/2026: in demo a 1.0 troppo lenta.
+                                                     #   Su Deepgram richiede livekit-plugins-deepgram recente (pip install -U)
 ELEVENLABS_API_KEY / ELEVENLABS_VOICE_ID             # testo → voce (voice id opz., ha default)
 ELEVENLABS_MODEL                                     # opz., default eleven_flash_v2_5
 RSMIONI_API_BASE_URL=https://rsmioni.it              # ← non più localhost!

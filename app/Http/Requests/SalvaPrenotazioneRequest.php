@@ -66,9 +66,16 @@ class SalvaPrenotazioneRequest extends FormRequest
         return $messages;
     }
 
-    /** true per store (nessuna prenotazione nella route), false per update */
+    /**
+     * true per store (POST), false per update (PUT/PATCH).
+     *
+     * Non si guarda il parametro di rotta: Route::resource lo chiama
+     * {prenotazioni}, non {prenotazione}, e il controllo sul nome sbagliato
+     * trattava ogni modifica come un inserimento («hotel id obbligatorio»),
+     * impedendo di salvare codice chiave o stato pagamento.
+     */
     private function isCreazione(): bool
     {
-        return $this->route('prenotazione') === null;
+        return $this->isMethod('POST');
     }
 }

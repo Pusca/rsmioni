@@ -71,7 +71,11 @@ Dal metadata del dispatch arrivano anche (docs/11):
   check-in SOLO su prenotazioni già presenti, niente creazione né camere in
   vendita; Laravel rifiuta comunque `/agent/prenotazione` e `/agent/camere` (403).
 - `istruzioni_hotel` (testo) — informazioni scritte dal gestore in
-  Configurazioni → Receptionist AI, uniche fonti per le risposte dell'agent.
+  Configurazioni → Receptionist AI (o composte dalla scheda demo).
+- `regolamento_hotel` (testo, 29/10/2026) — regole valorizzate nel menu
+  Regolamento, una voce per regola nella lingua della conversazione (fallback
+  lingua hotel → italiano). Insieme a `istruzioni_hotel` sono le uniche fonti
+  per le risposte dell'agent (A33).
 
 ## Stato / Roadmap
 

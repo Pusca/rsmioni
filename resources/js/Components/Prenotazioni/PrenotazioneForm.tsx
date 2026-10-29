@@ -77,6 +77,12 @@ function buildDefaults(prenotazione?: Props['prenotazione'], hotels?: HotelConfi
 
 // ── Componente ────────────────────────────────────────────────────────────────
 
+/** Chiavi di errore già mostrate accanto al proprio campo. */
+const CAMPI_CON_ERRORE_PROPRIO = new Set([
+    'hotel_id', 'codice', 'codice_chiave', 'nome', 'cognome', 'gruppo', 'check_in', 'check_out',
+    'pax.adulti', 'pax.ragazzi', 'pax.bambini', 'tipo_pagamento', 'documento_identita', 'prezzo', 'overbooking',
+]);
+
 export default function PrenotazioneForm({ hotels, profilo, oggi, prenotazione, onSubmit, submitLabel, isEdit = false, hotelDefault }: Props) {
     const form = useForm<FormValues>(buildDefaults(prenotazione, hotels, hotelDefault));
     const { data, setData, processing } = form;
@@ -233,6 +239,12 @@ export default function PrenotazioneForm({ hotels, profilo, oggi, prenotazione, 
                     {errors.overbooking && <ErrorText>{errors.overbooking}</ErrorText>}
                 </FormSection>
             )}
+
+            {/* Errori del server senza un campo nel form (es. check-in confermato): altrimenti il
+                salvataggio fallisce in silenzio e il bottone sembra non fare nulla. */}
+            {Object.entries(errors)
+                .filter(([chiave, msg]) => msg && !CAMPI_CON_ERRORE_PROPRIO.has(chiave))
+                .map(([chiave, msg]) => <ErrorText key={chiave}>{msg}</ErrorText>)}
 
             {/* ── Azioni ── */}
             <div className="flex items-center gap-3 pt-2">
