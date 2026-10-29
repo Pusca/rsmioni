@@ -29,11 +29,7 @@ interface AttesoScreenProps {
     lingue:    string[];
     lingua:    string;
     onLingua:  (lingua: string) => void;
-    /** Chiamata dal chiosco (manuale: «chiamata dal chiosco»). Assente = non possibile ora. */
-    onChiama?:     () => void;
-    /** Richiesta inviata, in attesa che il receptionist risponda */
-    chiamando?:    boolean;
-    /** Risposta negativa del server (es. chiamata non possibile dallo stato attuale) */
+    /** Risposta negativa del server alla chiamata dal riquadro presenza (es. stato non idle) */
     chiamaErrore?: string | null;
 }
 
@@ -48,37 +44,31 @@ interface Testi {
     checkin: string; checkinSub: string;
     checkout: string; checkoutSub: string;
     info: string; infoSub: string;
-    chiama: string; chiamaSub: string; chiamaAttesa: string;
 }
 const TESTI: Record<string, Testi> = {
     it: { benvenuto: 'Benvenuto',   hint: 'Scegli la lingua e tocca un pulsante per iniziare', lingua: 'Lingua',   attesa: 'Un attimo…',
           checkin: 'Esegui il check-in',  checkinSub: 'Arrivo in hotel, documenti e chiave',
           checkout: 'Esegui il check-out', checkoutSub: 'Partenza e saldo',
-          info: 'Richiedi informazioni',   infoSub: 'Orari, servizi, come funziona',
-          chiama: 'Parla con il receptionist', chiamaSub: 'Una persona risponde dalla reception', chiamaAttesa: 'Richiesta inviata…' },
+          info: 'Richiedi informazioni',   infoSub: 'Orari, servizi, come funziona' },
     en: { benvenuto: 'Welcome',     hint: 'Choose your language and tap a button to start',   lingua: 'Language', attesa: 'One moment…',
           checkin: 'Check in',            checkinSub: 'Arrival, documents and key',
           checkout: 'Check out',           checkoutSub: 'Departure and payment',
-          info: 'Ask for information',     infoSub: 'Hours, services, how it works',
-          chiama: 'Talk to the receptionist', chiamaSub: 'A person answers from the front desk', chiamaAttesa: 'Request sent…' },
+          info: 'Ask for information',     infoSub: 'Hours, services, how it works' },
     de: { benvenuto: 'Willkommen',  hint: 'Sprache wählen und eine Taste antippen',           lingua: 'Sprache',  attesa: 'Einen Moment…',
           checkin: 'Einchecken',          checkinSub: 'Ankunft, Ausweis und Schlüssel',
           checkout: 'Auschecken',          checkoutSub: 'Abreise und Zahlung',
-          info: 'Informationen',           infoSub: 'Zeiten, Services, Ablauf',
-          chiama: 'Mit der Rezeption sprechen', chiamaSub: 'Eine Person an der Rezeption antwortet', chiamaAttesa: 'Anfrage gesendet…' },
+          info: 'Informationen',           infoSub: 'Zeiten, Services, Ablauf' },
     fr: { benvenuto: 'Bienvenue',   hint: 'Choisissez la langue et touchez un bouton',        lingua: 'Langue',   attesa: 'Un instant…',
           checkin: 'Faire le check-in',   checkinSub: 'Arrivée, pièce d’identité et clé',
           checkout: 'Faire le check-out',  checkoutSub: 'Départ et paiement',
-          info: 'Demander des infos',      infoSub: 'Horaires, services, fonctionnement',
-          chiama: 'Parler à la réception', chiamaSub: 'Une personne vous répond', chiamaAttesa: 'Demande envoyée…' },
+          info: 'Demander des infos',      infoSub: 'Horaires, services, fonctionnement' },
     es: { benvenuto: 'Bienvenido',  hint: 'Elige el idioma y toca un botón para empezar',     lingua: 'Idioma',   attesa: 'Un momento…',
           checkin: 'Hacer el check-in',   checkinSub: 'Llegada, documentos y llave',
           checkout: 'Hacer el check-out',  checkoutSub: 'Salida y pago',
-          info: 'Pedir información',       infoSub: 'Horarios, servicios, cómo funciona',
-          chiama: 'Hablar con recepción', chiamaSub: 'Una persona le atiende', chiamaAttesa: 'Solicitud enviada…' },
+          info: 'Pedir información',       infoSub: 'Horarios, servicios, cómo funciona' },
 };
 
-export default function AttesoScreen({ chiosco, onAvviaAi, aiLoading, aiErrore, lingue, lingua, onLingua, onChiama, chiamando = false, chiamaErrore = null }: AttesoScreenProps) {
+export default function AttesoScreen({ chiosco, onAvviaAi, aiLoading, aiErrore, lingue, lingua, onLingua, chiamaErrore = null }: AttesoScreenProps) {
     const handleLogout = () => {
         if (confirm('Disconnettere il chiosco?')) {
             router.post('/logout');
@@ -191,21 +181,6 @@ export default function AttesoScreen({ chiosco, onAvviaAi, aiLoading, aiErrore, 
                             <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                                 <circle cx="12" cy="12" r="9" />
                                 <path d="M12 16v-4.5M12 8h.01" />
-                            </svg>
-                        }
-                    />
-                    {/* Chiamata dal chiosco: sempre qui, anche quando il riquadro
-                        della presenza (con il suo pulsante) non è in onda */}
-                    <AzioneCard
-                        colore="34,197,94"
-                        label={chiamando ? t.chiamaAttesa : t.chiama}
-                        sub={t.chiamaSub}
-                        attesa={chiamando}
-                        disabled={aiLoading !== null || chiamando || !onChiama}
-                        onClick={() => onChiama?.()}
-                        icon={
-                            <svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                                <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z" />
                             </svg>
                         }
                     />

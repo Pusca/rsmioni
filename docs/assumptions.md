@@ -351,6 +351,14 @@ Per il **Restart PC**: il chiosco riceve un comando Socket.IO e lancia `shutdown
 
 Stesso giorno, conversazione a voce dalla presenza: spegnere il microfono del receptionist silenzia la track LiveKit senza toglierla, e il chiosco restava su «La reception ti parla» / «Microfono in attivazione…». Ora il chiosco considera «parla» solo una track audio non muta e riceve un messaggio esplicito `{type:'parla', on}`; in portineria, mentre si parla, compare un pulsante rosso «Chiudi la chiamata» sul video del chiosco.
 
+## A35 — Hotel demo: il documento si accetta senza leggerlo
+
+**Contesto**: in demo (29/10/2026) la lettura vision del documento rallentava e a volte rifiutava la foto («non è un documento», «illeggibile») davanti al cliente, e sostituiva il nome dato a voce con quello letto. Nelle demo il documento è spesso finto o mostrato male.
+
+**Assunzione adottata**: per gli hotel con `demo=true` Laravel passa `documento_verifica=false` nel dispatch; l'agent accetta la foto così com'è (è già salvata sulla prenotazione dall'acquisizione), non chiama la vision, non sostituisce il nome e mostra subito il riepilogo. I copioni del check-in in quel caso non promettono la lettura del nome e non prevedono il «non è un documento». Il worker può forzare con `DOC_VERIFICA=on|off`. Gli hotel reali restano con lettura e verifica.
+
+**Impatto**: in demo il nome sulla prenotazione è quello sentito a voce (trascrizione), non quello ufficiale.
+
 ---
 
 ## Da Validare Prima dell'Implementazione

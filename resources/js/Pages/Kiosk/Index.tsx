@@ -348,8 +348,6 @@ export default function KioskIndex({ chiosco, stato_iniziale, messaggio_attesa: 
                     lingue={lingue}
                     lingua={lingua}
                     onLingua={setLingua}
-                    onChiama={schermataAttesa ? handleChiama : undefined}
-                    chiamando={chiamando}
                     chiamaErrore={chiamaErrore}
                 />
             )}

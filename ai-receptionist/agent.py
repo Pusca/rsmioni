@@ -124,16 +124,19 @@ def crea_tts(lingua: str):
             # Aura-2 ha una voce per lingua: quella della lingua scelta sul
             # chiosco, inglese se la lingua non è coperta.
             voce = CONFIG.deepgram_tts_voci.get(lingua) or CONFIG.deepgram_tts_voci["en"]
-            # Stessa TTS_SPEED di ElevenLabs (Aura-2 accetta 0.7–1.5): senza,
-            # Aura-2 parla a 1.0 e in demo risultava troppo lenta. Il parametro
-            # esiste solo nei plugin Deepgram recenti: se manca lo si segnala
-            # invece di far cadere il worker.
+            # Stessa TTS_SPEED di ElevenLabs (Aura-2 accetta 0.7–1.5) ma SOLO
+            # per le lingue che la supportano (DEEPGRAM_SPEED_LANGS, default
+            # en,es): sull'italiano Deepgram risponde 400 e la sessione cade
+            # («pipeline_voce_guasta», 29/10/2026). Per l'italiano la velocità
+            # oggi si regola solo con ElevenLabs.
             extra = {}
-            if "speed" in inspect.signature(deepgram.TTS.__init__).parameters:
-                extra["speed"] = max(0.7, min(1.5, CONFIG.tts_speed))
-            else:
+            if "speed" not in inspect.signature(deepgram.TTS.__init__).parameters:
                 logger.warning("plugin Deepgram senza parametro speed: TTS_SPEED ignorata, "
                                "aggiornare con `pip install -U livekit-plugins-deepgram`")
+            elif lingua in CONFIG.deepgram_speed_lingue:
+                extra["speed"] = max(0.7, min(1.5, CONFIG.tts_speed))
+            else:
+                logger.info("Deepgram %s: la voce %s non accetta `speed`, velocità naturale", lingua, voce)
             motori.append(deepgram.TTS(model=voce, **extra))
     if not motori:
         raise RuntimeError("Nessun provider TTS configurato (TTS_PROVIDER / chiavi API).")
@@ -155,9 +158,16 @@ async def entrypoint(ctx: agents.JobContext) -> None:
     lingua     = (meta.get("lingua") or CONFIG.lingua_default or "it").lower()
 
     walkin     = prompts.walkin_abilitato(meta)
+    # Verifica vision del documento: DOC_VERIFICA on/off vince, altrimenti
+    # decide Laravel per hotel (demo → False). Il prompt segue la scelta.
+    if CONFIG.doc_verifica == "on":
+        meta["documento_verifica"] = True
+    elif CONFIG.doc_verifica == "off":
+        meta["documento_verifica"] = False
+    verifica_documento = prompts.documento_verificato(meta)
 
-    logger.info("receptionist AI su stanza %s (scopo=%s, hotel=%s, walkin=%s, lingua=%s)",
-                ctx.room.name, scopo, meta.get("hotel_nome"), walkin, lingua)
+    logger.info("receptionist AI su stanza %s (scopo=%s, hotel=%s, walkin=%s, lingua=%s, verifica_doc=%s)",
+                ctx.room.name, scopo, meta.get("hotel_nome"), walkin, lingua, verifica_documento)
 
     stato   = StatoConversazione(scopo=scopo)
     backend = BackendRsmioni(CONFIG.api_base_url, CONFIG.api_token, session_id)
@@ -207,7 +217,7 @@ async def entrypoint(ctx: agents.JobContext) -> None:
         agent=ReceptionistAgent(
             instructions=istruzioni, stato=stato,
             backend=backend, schermo=schermo, lingua=lingua, config=CONFIG,
-            walkin=walkin,
+            walkin=walkin, verifica_documento=verifica_documento,
         ),
         room_input_options=RoomInputOptions(
             participant_identity=f"kiosk-{chiosco_id}" if chiosco_id else None,

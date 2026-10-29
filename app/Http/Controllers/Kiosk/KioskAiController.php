@@ -107,6 +107,10 @@ class KioskAiController extends Controller
                 // Regolamento valorizzato dal gestore (animali, parcheggio, wifi…):
                 // senza, Alice conosce solo la scheda demo.
                 'regolamento_hotel' => $hotel ? app(RegolamentoAiService::class)->testo($hotel, $lingua) : null,
+                // Sugli hotel demo la foto del documento si accetta così com'è: niente
+                // lettura vision, niente «non è un documento», il nome resta quello
+                // dato a voce (A35). Il worker può forzare con DOC_VERIFICA=on|off.
+                'documento_verifica' => ! (bool) ($hotel?->demo),
             ]);
         } catch (\Throwable $e) {
             // Niente agent → niente sessione fantasma: pulizia e errore onesto

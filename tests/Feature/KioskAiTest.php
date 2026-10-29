@@ -138,6 +138,7 @@ class KioskAiTest extends TestCase
         $this->avvia()->assertOk();
         $testo = $metadata[0]['regolamento_hotel'];
         $this->assertSame('Colazione: dalle 7 alle 10', $metadata[0]['istruzioni_hotel']);
+        $this->assertTrue($metadata[0]['documento_verifica'], 'hotel reale: il documento si legge e si verifica');
         $this->assertStringContainsString("Politica Animali:\nAnimali ammessi di piccola taglia.\nSupplemento 15 euro a notte.", $testo);
         $this->assertStringContainsString("Parcheggio:\nParcheggio gratuito dietro l'hotel.", $testo);
         $this->assertStringNotContainsString('Wifi Credenziali', $testo, 'le regole vuote non compaiono');
@@ -156,6 +157,19 @@ class KioskAiTest extends TestCase
         app(PortineriaService::class)->impostaStato($this->chiosco, StatoChiosco::Idle);
         $this->avvia()->assertOk();
         $this->assertNull($metadata[2]['regolamento_hotel']);
+    }
+
+    public function test_sull_hotel_demo_il_documento_si_accetta_senza_verifica(): void
+    {
+        $this->hotel->update(['demo' => true]);
+        app(PortineriaService::class)->impostaStato($this->chiosco, StatoChiosco::Idle);
+        $metadata = [];
+        $this->mock(LiveKitDispatchService::class, function ($m) use (&$metadata) {
+            $m->shouldReceive('dispatch')->andReturnUsing(function ($room, $meta) use (&$metadata) { $metadata[] = $meta; });
+        });
+
+        $this->avvia()->assertOk();
+        $this->assertFalse($metadata[0]['documento_verifica']);
     }
 
     public function test_da_idle_parte_e_porta_il_chiosco_in_parlato(): void

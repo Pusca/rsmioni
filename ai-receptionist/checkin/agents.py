@@ -41,7 +41,7 @@ NO_WALKIN = ("In questo hotel le nuove prenotazioni NON si fanno al chiosco: non
 class ReceptionistAgent(Agent):
     def __init__(self, *, instructions: str, stato: StatoConversazione,
                  backend: BackendRsmioni, schermo: SchermoChiosco, lingua: str,
-                 config: Impostazioni, walkin: bool = True) -> None:
+                 config: Impostazioni, walkin: bool = True, verifica_documento: bool = True) -> None:
         super().__init__(instructions=instructions)
         self.stato = stato
         self._backend = backend
@@ -50,6 +50,9 @@ class ReceptionistAgent(Agent):
         self._config = config
         # docs/11: False → check-in solo su prenotazioni esistenti (PMS esterno master)
         self._walkin = walkin
+        # False (hotel demo o DOC_VERIFICA=off): la foto si accetta così com'è,
+        # niente vision, il nome resta quello dato a voce (A35).
+        self._verifica_documento = verifica_documento
         # Anti chiusura prematura: il primo termina con passi pendenti viene
         # respinto con l'istruzione correttiva; il secondo chiude davvero.
         self._termina_avvisato = False
@@ -281,11 +284,12 @@ class ReceptionistAgent(Agent):
                     self.stato.avanza_a(Fase.DOCUMENTO)
                     await self._schermo.fase(self.stato.fase)
                     logger.info("fase=%s esito=ok: documento acquisito (watcher)", self.stato.fase.value)
+                    chiusura = ("per leggere il nome ufficiale e mostrare il riepilogo"
+                                if self._verifica_documento else "per salvarlo e mostrare il riepilogo")
                     await self._sveglia(
                         "La foto del documento è stata fatta (fronte e retro). Se ci sono altri "
                         "adulti con documenti da acquisire, chiedi e ripeti acquisisci_documento; "
-                        "altrimenti chiama leggi_documento per leggere il nome ufficiale e mostrare "
-                        "il riepilogo.")
+                        f"altrimenti chiama leggi_documento {chiusura}.")
                     return
                 if stato == "nessuna":
                     logger.info("fase=%s: acquisizione annullata dal chiosco (watcher)", self.stato.fase.value)
@@ -348,6 +352,18 @@ class ReceptionistAgent(Agent):
                 Fase.DOCUMENTO, "Prima acquisisci il documento (acquisisci_documento), poi la lettura.")
         except AzioneFuoriFase as e:
             return self._fallimento(str(e))
+
+        if not self._verifica_documento:
+            # Demo: la foto è già salvata sulla prenotazione dall'acquisizione;
+            # si accetta senza guardarla e il nome resta quello dato a voce.
+            self.stato.documento_letto = True
+            await self._mostra_riepilogo()
+            logger.info("fase=%s esito=ok: documento accettato senza verifica", self.stato.fase.value)
+            return await self._successo(
+                None,
+                "Documento salvato così com'è (in questa configurazione non si legge né si "
+                "verifica). Il riepilogo (nome dato a voce, date, camera, codice) è già sullo "
+                "schermo: presentalo in UNA frase e chiedi se è tutto corretto. Non scandire il codice.")
 
         esito = await self._backend.documento_immagine()
         if not esito.ok:

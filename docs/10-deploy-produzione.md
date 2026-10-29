@@ -112,6 +112,9 @@ DEEPGRAM_TTS_VOICES                                  # opz., voci Aura-2 per lin
 TTS_SPEED                                            # opz., default 1.2 — velocità della voce su ENTRAMBI i provider
                                                      #   (ElevenLabs 0.7–1.2, Aura-2 0.7–1.5); 29/10/2026: in demo a 1.0 troppo lenta.
                                                      #   Su Deepgram richiede livekit-plugins-deepgram recente (pip install -U)
+                                                     #   e vale SOLO per le lingue in DEEPGRAM_SPEED_LANGS (default en,es):
+                                                     #   la voce italiana Aura-2 NON accetta speed (400) → velocità naturale.
+                                                     #   Per l'italiano più svelto serve ElevenLabs (TTS_PROVIDER=auto con abbonamento attivo).
 ELEVENLABS_API_KEY / ELEVENLABS_VOICE_ID             # testo → voce (voice id opz., ha default)
 ELEVENLABS_MODEL                                     # opz., default eleven_flash_v2_5
 RSMIONI_API_BASE_URL=https://rsmioni.it              # ← non più localhost!
@@ -119,6 +122,7 @@ RSMIONI_AGENT_HMAC_SECRET=<stesso AGENT_SERVICE_TOKEN del server>
                                                      # token statico inviato come X-Agent-Token
                                                      #   (non è una firma HMAC; hardening pianificato, A26)
 AGENT_DEFAULT_LANGUAGE                               # opz., default it
+DOC_VERIFICA                                         # opz., auto (default: hotel demo → foto accettata senza lettura) | on | off
 ```
 
 ### Con Docker (VPS, Railway, Render)

@@ -42,12 +42,19 @@ class Impostazioni:
     elevenlabs_model: str
     # Deepgram Aura-2: una voce per lingua (modello = "aura-2-<nome>-<lingua>").
     deepgram_tts_voci: dict[str, str]
+    # Lingue le cui voci Aura-2 accettano `speed`: Deepgram risponde 400
+    # «Requested model does not support the 'speed' parameter» sulle altre
+    # (verificato 29/10/2026: inglese sì, italiano no) e la sessione cadrebbe.
+    deepgram_speed_lingue: frozenset[str]
     # Carattere della voce (regolabili da .env senza toccare il codice):
     # stability bassa = più espressiva/variabile, alta = più piatta e costante.
     tts_stability: float
     tts_similarity: float
     tts_style: float
     tts_speed: float
+    # Lettura/verifica del documento acquisito: "auto" (segue l'hotel: gli hotel
+    # demo accettano la foto così com'è), "on" (sempre), "off" (mai).
+    doc_verifica: str
 
     # Conversazione
     llm_max_tokens: int
@@ -83,12 +90,15 @@ class Impostazioni:
         return cls(
             tts_providers=tts_providers,
             deepgram_tts_voci=_deepgram_voci(os.environ.get("DEEPGRAM_TTS_VOICES", ""), problemi),
+            deepgram_speed_lingue=frozenset(
+                l.strip().lower() for l in os.environ.get("DEEPGRAM_SPEED_LANGS", "en,es").split(",") if l.strip()),
             api_base_url=os.environ.get("RSMIONI_API_BASE_URL", "http://localhost:8000"),
             api_token=api_token,
             llm_providers=llm_providers,
             anthropic_api_key=anthropic_key or None,
             anthropic_model=os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-5-5"),
             llm_effort=llm_effort,
+            doc_verifica=_doc_verifica(os.environ.get("DOC_VERIFICA", "auto"), problemi),
             openrouter_api_key=openrouter_key or None,
             openrouter_model=os.environ.get("OPENROUTER_MODEL", "anthropic/claude-sonnet-4.6"),
             anthropic_vision_model=os.environ.get("ANTHROPIC_VISION_MODEL", "claude-sonnet-5-5"),
@@ -201,3 +211,12 @@ def _deepgram_voci(raw: str, problemi: list[str]) -> dict[str, str]:
             continue
         voci[lingua] = modello
     return voci
+
+
+def _doc_verifica(raw: str, problemi: list[str]) -> str:
+    """DOC_VERIFICA: auto (default) | on | off."""
+    valore = (raw or "auto").strip().lower()
+    if valore not in ("auto", "on", "off"):
+        problemi.append(f"DOC_VERIFICA '{raw}' non valido (auto|on|off): uso auto.")
+        return "auto"
+    return valore

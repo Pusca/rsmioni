@@ -326,13 +326,72 @@ def componi(scopo: str, meta: dict, oggi: str, lingua_default: str) -> tuple[str
     if scopo == "checkout":
         return base + CHECKOUT_SCRIPT + coda, \
             in_lingua + "Saluta l'ospite in una frase e chiedi il cognome della prenotazione per il check-out."
+
+    # Check-in: con la verifica del documento spenta i copioni non promettono
+    # la lettura del nome e non prevedono il «non è un documento».
+    adatta = (lambda t: t) if documento_verificato(meta) else senza_verifica
     if not walkin_abilitato(meta):
-        return base + CHECKIN_ESISTENTE_SCRIPT + coda, \
+        return adatta(base + CHECKIN_ESISTENTE_SCRIPT + coda), \
             (in_lingua + "Presentati in una frase (sei la receptionist dell'hotel e farete il check-in "
              "insieme), poi chiedi il cognome con cui è stata fatta la prenotazione.")
-    return base + CHECKIN_SCRIPT + coda, \
+    return adatta(base + CHECKIN_SCRIPT + coda), \
         (in_lingua + "Presentati in una frase (sei la receptionist dell'hotel e farete il check-in "
          "insieme), poi chiedi con chi hai il piacere di parlare e per quante persone è il soggiorno.")
+
+
+def documento_verificato(meta: dict) -> bool:
+    """False (hotel demo / DOC_VERIFICA=off): la foto si accetta senza leggerla."""
+    return bool(meta.get("documento_verifica", True))
+
+
+# Frasi dei copioni che parlano della lettura del documento: quando la
+# verifica è spenta si sostituiscono, così Alice non promette una lettura
+# che non farà e non dice mai «non è un documento».
+SENZA_VERIFICA = [
+    ("""correzioni: il nome ufficiale viene letto dal documento a fine check-in
+e sostituisce automaticamente quello sentito.""",
+     """correzioni: UN tentativo e avanti, il nome resta quello che hai sentito."""),
+    ("""cognome invece NON compaiono sullo schermo: quelli ufficiali verranno letti
+dal documento a fine check-in.""",
+     """cognome invece NON compaiono sullo schermo fino al riepilogo finale."""),
+    ("""   niente conferme, niente correzioni — UN tentativo e avanti. Il nome
+   ufficiale verrà letto dal documento più avanti.""",
+     """   niente conferme, niente correzioni — UN tentativo e avanti."""),
+    ("""8. Dopo l'ULTIMO documento chiama leggi_documento: verifica che sia un vero
+   documento e ne legge il nome ufficiale, poi fa comparire il RIEPILOGO
+   sullo schermo (nome completo, date, camera, codice).
+   - Se il tool dice che NON è un documento (es. ha fotografato un telefono)
+     o che è illeggibile: DIGLIELO con gentilezza e fai rifare la foto
+     (acquisisci_documento e poi di nuovo leggi_documento). Il check-in non
+     si chiude senza un documento letto o l'escalation al receptionist.
+   - A lettura riuscita: presenta il riepilogo in UNA frase ("Trova il
+     riepilogo sullo schermo: è tutto corretto?") e aspetta la conferma.
+     Se l'ospite corregge qualcosa, sistemalo con registra_dati.""",
+     """8. Dopo l'ULTIMO documento chiama leggi_documento: salva la foto così com'è
+   (NESSUN controllo su cosa c'è scritto, mai dire che non è un documento) e
+   fa comparire il RIEPILOGO sullo schermo (nome, date, camera, codice). Il
+   nome resta quello dato a voce.
+   - Presenta il riepilogo in UNA frase ("Trova il riepilogo sullo schermo:
+     è tutto corretto?") e aspetta la conferma. Se l'ospite corregge
+     qualcosa, sistemalo con registra_dati."""),
+    ("""4. Dopo l'ULTIMO documento chiama leggi_documento: verifica che sia un vero
+   documento, legge il nome ufficiale e fa comparire il RIEPILOGO.
+   - Se NON è un documento o è illeggibile: diglielo con gentilezza e fai
+     rifare la foto (acquisisci_documento e poi leggi_documento).
+   - A lettura riuscita: "Trova il riepilogo sullo schermo: è tutto
+     corretto?" e aspetta la conferma.""",
+     """4. Dopo l'ULTIMO documento chiama leggi_documento: salva la foto così com'è
+   (NESSUN controllo su cosa c'è scritto, mai dire che non è un documento) e
+   fa comparire il RIEPILOGO. Il nome resta quello della prenotazione.
+   - Poi: "Trova il riepilogo sullo schermo: è tutto corretto?" e aspetta
+     la conferma."""),
+]
+
+
+def senza_verifica(testo: str) -> str:
+    for vecchio, nuovo in SENZA_VERIFICA:
+        testo = testo.replace(vecchio, nuovo)
+    return testo
 
 
 def walkin_abilitato(meta: dict) -> bool:
