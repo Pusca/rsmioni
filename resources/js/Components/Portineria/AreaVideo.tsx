@@ -461,10 +461,25 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
                                         LIVE · {chiosco.nome}
                                     </div>
                                     {micAttivo && (
-                                        <div className="absolute bottom-2 left-2 flex items-center gap-1.5 rounded px-2 py-1"
-                                             style={{ backgroundColor: 'rgba(34,197,94,0.95)', fontSize: '11px', fontWeight: 700, color: '#052e16' }}>
-                                            <MicIcon /> Stai parlando con il chiosco — l'ospite ti sente e tu senti lui
-                                        </div>
+                                        <>
+                                            <div className="absolute bottom-2 left-2 flex items-center gap-1.5 rounded px-2 py-1"
+                                                 style={{ backgroundColor: 'rgba(34,197,94,0.95)', fontSize: '11px', fontWeight: 700, color: '#052e16' }}>
+                                                <MicIcon /> Stai parlando con il chiosco — l'ospite ti sente e tu senti lui
+                                            </div>
+                                            {/* Chiusura esplicita: spegne il microfono, avvisa il chiosco
+                                                (che torna a «Reception») e spegne il microfono dell'ospite */}
+                                            <button
+                                                onClick={toggleMic}
+                                                disabled={micLoading}
+                                                className="absolute bottom-2 right-2 flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-bold transition-all active:scale-95"
+                                                style={{ backgroundColor: '#ef4444', color: '#fff', boxShadow: '0 4px 14px rgba(239,68,68,0.45)', opacity: micLoading ? 0.6 : 1 }}
+                                            >
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                                    <path d="M12 9c-1.6 0-3.15.25-4.6.72v3.1c0 .39-.23.74-.56.9-.98.49-1.87 1.12-2.66 1.85-.18.18-.43.28-.7.28-.28 0-.53-.11-.71-.29L.29 13.08c-.18-.17-.29-.42-.29-.7 0-.28.11-.53.29-.71C3.34 8.78 7.46 7 12 7s8.66 1.78 11.71 4.67c.18.18.29.43.29.71 0 .28-.11.53-.29.7l-2.48 2.48c-.18.18-.43.29-.71.29-.27 0-.52-.1-.7-.28-.79-.73-1.68-1.36-2.66-1.85-.33-.16-.56-.51-.56-.9v-3.1C15.15 9.25 13.6 9 12 9z" />
+                                                </svg>
+                                                Chiudi la chiamata
+                                            </button>
+                                        </>
                                     )}
                                 </div>
                             </div>

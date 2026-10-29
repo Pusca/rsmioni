@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { DisconnectReason, Room, RoomEvent, Track, VideoPresets, type RemoteTrack, type RemoteParticipant } from 'livekit-client';
+import { DisconnectReason, Room, RoomEvent, Track, VideoPresets, type Participant, type RemoteTrack, type RemoteParticipant, type TrackPublication } from 'livekit-client';
 
 /**
  * Presenza del receptionist sul chiosco (docs/11 — canale sempre acceso).
@@ -108,9 +108,17 @@ export function usePresenzaReceptionist(pubblicaCamera: boolean): Result {
                             const el = t.attach();
                             document.body.appendChild(el);
                             audioRef.current.push(el);
-                            setParla(true);
+                            // Il receptionist che spegne il microfono NON toglie la
+                            // track: la silenzia. «Parla» vale solo se non è muta.
+                            setParla(!t.isMuted);
                             provaPlay();
                         }
+                    })
+                    .on(RoomEvent.TrackMuted, (pub: TrackPublication, p: Participant) => {
+                        if (p !== room.localParticipant && pub.kind === Track.Kind.Audio) setParla(false);
+                    })
+                    .on(RoomEvent.TrackUnmuted, (pub: TrackPublication, p: Participant) => {
+                        if (p !== room.localParticipant && pub.kind === Track.Kind.Audio && audioRef.current.length > 0) setParla(true);
                     })
                     .on(RoomEvent.TrackUnsubscribed, (t: RemoteTrack) => {
                         if (t.kind === Track.Kind.Audio) {
@@ -139,6 +147,9 @@ export function usePresenzaReceptionist(pubblicaCamera: boolean): Result {
                                     .then(() => setMic(!!msg.on))
                                     .catch(() => setMic(false));
                             }
+                            // Il receptionist dice esplicitamente quando apre e chiude la
+                            // conversazione: la cintura oltre alle bretelle del mute.
+                            if (msg.type === 'parla') setParla(!!msg.on);
                         } catch { /* messaggio non nostro */ }
                     })
                     .on(RoomEvent.Disconnected, (reason?: DisconnectReason) => {

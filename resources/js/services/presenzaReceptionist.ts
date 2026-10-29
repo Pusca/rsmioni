@@ -210,11 +210,25 @@ function riapplicaPermessi(room: Room): void {
     lp.setTrackSubscriptionPermissions(false, permessi);
 }
 
-function inviaMic(room: Room, chioscoId: string, on: boolean): void {
-    const payload = new TextEncoder().encode(JSON.stringify({ type: 'mic', on }));
+function inviaDati(room: Room, chioscoId: string, msg: { type: string; on: boolean }): void {
+    const payload = new TextEncoder().encode(JSON.stringify(msg));
     void room.localParticipant.publishData(payload, {
         reliable: true, topic: TOPIC, destinationIdentities: [IDENT_KIOSK + chioscoId],
     }).catch(() => { /* chiosco non in stanza: ignora */ });
+}
+
+/** Chiede al chiosco di accendere/spegnere il SUO microfono. */
+function inviaMic(room: Room, chioscoId: string, on: boolean): void {
+    inviaDati(room, chioscoId, { type: 'mic', on });
+}
+
+/**
+ * Dice al chiosco che la conversazione a voce inizia/finisce. Spegnere il
+ * microfono silenzia la track senza toglierla: senza questo avviso il chiosco
+ * restava su «La reception ti parla» e «Microfono in attivazione…».
+ */
+function inviaParla(room: Room, chioscoId: string, on: boolean): void {
+    inviaDati(room, chioscoId, { type: 'parla', on });
 }
 
 /**
@@ -229,6 +243,7 @@ export async function parlaCon(chioscoId: string | null): Promise<boolean> {
     if (precedente) {
         const r = roomDelChiosco(precedente);
         if (r) {
+            inviaParla(r, precedente, false);
             if (snapshot.ascoltaCon !== precedente) { inviaMic(r, precedente, false); staccaAudioDi(r, precedente); }
             try { await r.localParticipant.setMicrophoneEnabled(false); } catch { /* ignore */ }
         }
@@ -254,6 +269,7 @@ export async function parlaCon(chioscoId: string | null): Promise<boolean> {
         return false;
     }
     riapplicaPermessi(room); // ora la track mic ha un SID: gli altri restano esclusi
+    inviaParla(room, chioscoId, true);
     inviaMic(room, chioscoId, true);
     attaccaAudioGiaPresente(room, chioscoId);
     listeners.forEach((l) => l());

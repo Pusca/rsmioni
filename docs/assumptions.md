@@ -349,6 +349,8 @@ Per il **Restart PC**: il chiosco riceve un comando Socket.IO e lancia `shutdown
 
 **Impatto**: su un totem verticale il fotogramma (orizzontale) occupa una fascia centrale, non tutto lo schermo: è voluto, è ciò che vede il receptionist.
 
+Stesso giorno, conversazione a voce dalla presenza: spegnere il microfono del receptionist silenzia la track LiveKit senza toglierla, e il chiosco restava su «La reception ti parla» / «Microfono in attivazione…». Ora il chiosco considera «parla» solo una track audio non muta e riceve un messaggio esplicito `{type:'parla', on}`; in portineria, mentre si parla, compare un pulsante rosso «Chiudi la chiamata» sul video del chiosco.
+
 ---
 
 ## Da Validare Prima dell'Implementazione
