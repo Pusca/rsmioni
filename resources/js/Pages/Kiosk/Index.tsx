@@ -135,13 +135,27 @@ export default function KioskIndex({ chiosco, stato_iniziale, messaggio_attesa: 
     const handleChiama = async () => {
         if (chiamando) return;
         setChiamando(true);
+        setChiamaErrore(null);
         const res = await chiamaReceptionist();
-        if (! res.ok) { setChiamando(false); return; }
+        if (! res.ok) {
+            // Prima il rifiuto (es. chiosco rimasto in uno stato non idle) era
+            // muto: il tocco sembrava non fare nulla.
+            setChiamando(false);
+            setChiamaErrore(res.error ?? 'Chiamata non riuscita, riprova tra qualche secondo.');
+            aggiornaStato();
+            return;
+        }
         // Schermata "chiamata in corso" subito, senza aspettare Reverb
         aggiornaStato();
     };
     const [chiamando, setChiamando] = useState(false);
+    const [chiamaErrore, setChiamaErrore] = useState<string | null>(null);
     useEffect(() => { if (stato !== 'in_chiamata') setChiamando(false); }, [stato]);
+    useEffect(() => {
+        if (! chiamaErrore) return;
+        const t = setTimeout(() => setChiamaErrore(null), 8_000);
+        return () => clearTimeout(t);
+    }, [chiamaErrore]);
 
     // ── Handler annullo chiamata ────────────────────────────────────────────
     const handleAnnullaChiamata = async () => {
@@ -334,6 +348,9 @@ export default function KioskIndex({ chiosco, stato_iniziale, messaggio_attesa: 
                     lingue={lingue}
                     lingua={lingua}
                     onLingua={setLingua}
+                    onChiama={schermataAttesa ? handleChiama : undefined}
+                    chiamando={chiamando}
+                    chiamaErrore={chiamaErrore}
                 />
             )}
         </KioskLayout>

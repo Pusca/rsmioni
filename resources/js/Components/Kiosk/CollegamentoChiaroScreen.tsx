@@ -1,6 +1,8 @@
 import { Chiosco } from '@/types';
 import type { StatoMediaChiosco } from '@/types/media';
-import { STILE_MINIATURA, OverlayAttesa, GrigliaDocumento } from './VideoOverlays';
+import { useRef } from 'react';
+import { STILE_MINIATURA, OverlayAttesa } from './VideoOverlays';
+import { CorniceDocumento, stileVideoNelBox, useBoxFotogramma, useRapportoVideo } from '@/Components/InquadraturaDocumento';
 
 // ── CollegamentoChiaroScreen ─────────────────────────────────────────────────
 
@@ -26,6 +28,12 @@ export default function CollegamentoChiaroScreen({
     messaggioAttesa,
 }: CollegamentoChiaroScreenProps) {
     const isConnected = stato === 'connected';
+
+    // Fotogramma intero (object-fit contain) e cornice in proporzione al
+    // fotogramma: l'ospite vede ESATTAMENTE quello che vede il receptionist.
+    const areaRef  = useRef<HTMLDivElement>(null);
+    const rapporto = useRapportoVideo(localVideoRef, !!grigliaDoc);
+    const box      = useBoxFotogramma(areaRef, rapporto, !!grigliaDoc);
 
     return (
         <div className="w-full h-full flex flex-col" style={{ backgroundColor: '#050710' }}>
@@ -57,7 +65,7 @@ export default function CollegamentoChiaroScreen({
             {/* Area video. In acquisizione documento (grigliaDoc) la camera del
                 chiosco diventa grande (con la cornice guida) e il receptionist va
                 in miniatura: così l'ospite allinea il documento sul feed giusto. */}
-            <div className="flex-1 relative overflow-hidden">
+            <div ref={areaRef} className="flex-1 relative overflow-hidden">
                 {/* Receptionist (remoto) */}
                 <video ref={remoteVideoRef} autoPlay playsInline className="absolute"
                        style={grigliaDoc ? STILE_MINIATURA : {
@@ -70,10 +78,10 @@ export default function CollegamentoChiaroScreen({
                 {/* Camera chiosco (locale) */}
                 <video ref={localVideoRef} autoPlay playsInline muted className="absolute"
                        style={grigliaDoc
-                           ? { top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover', backgroundColor: '#050710' }
+                           ? stileVideoNelBox(box)
                            : { ...STILE_MINIATURA, border: '1px solid rgba(34,197,94,0.3)' }} />
 
-                {grigliaDoc && <GrigliaDocumento />}
+                {grigliaDoc && <CorniceDocumento box={box} testo="Posiziona il documento nel riquadro" />}
                 {inAttesa && <OverlayAttesa messaggio={messaggioAttesa} />}
 
                 {!isConnected && !grigliaDoc && !inAttesa && (

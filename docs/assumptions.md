@@ -341,6 +341,14 @@ Per il **Restart PC**: il chiosco riceve un comando Socket.IO e lancia `shutdown
 
 **Impatto**: il prompt dell'agent cresce con il regolamento (coperto dal prompt caching: identico a ogni turno). Chi scrive prezzi nel regolamento li espone a voce: Alice li ripete così come sono scritti.
 
+## A34 — Chiamata dal chiosco sempre a portata di tocco; cornice documento identica sulle due parti
+
+**Contesto**: in demo (29/10/2026) «Parla con il receptionist» non funzionava: il pulsante stava solo nel riquadro della presenza, che compare quando la webcam del receptionist è in onda; senza presenza l'ospite non aveva alcun modo di chiamare, e un rifiuto del server restava muto. Inoltre il chiosco mostrava la propria camera ritagliata a schermo pieno con una cornice calcolata sullo schermo, mentre il receptionist vede il fotogramma intero: il documento che riempiva la cornice sul chiosco arrivava piccolo in portineria.
+
+**Assunzione adottata**: la «chiamata dal chiosco» del manuale è una quarta azione della schermata di attesa (sempre visibile, disabilitata solo durante una sessione), oltre al pulsante nel riquadro presenza; un rifiuto del server (`/kiosk/chiama` 422) si mostra per 8 secondi e lo stato viene riletto. Per i documenti, chiosco e portineria usano la stessa inquadratura (`InquadraturaDocumento`): fotogramma intero nel suo rapporto reale e cornice larga il 72 % del fotogramma con proporzioni ID-1 (1,586). Vale per acquisizione dal collegamento (parlato/chiaro), acquisizione sul chiosco e anteprima in portineria. La cattura resta il fotogramma intero, nessun ritaglio.
+
+**Impatto**: su un totem verticale il fotogramma (orizzontale) occupa una fascia centrale, non tutto lo schermo: è voluto, è ciò che vede il receptionist.
+
 ---
 
 ## Da Validare Prima dell'Implementazione

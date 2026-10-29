@@ -29,15 +29,5 @@ export function OverlayAttesa({ messaggio }: { messaggio?: string }) {
     );
 }
 
-/** Cornice/griglia guida per il posizionamento del documento davanti alla camera. */
-export function GrigliaDocumento() {
-    return (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-            <div className="relative" style={{ width: '70%', maxWidth: 520, aspectRatio: '1.586', border: '3px dashed rgba(255,255,255,0.85)', borderRadius: 12, boxShadow: '0 0 0 9999px rgba(0,0,0,0.35)' }}>
-                <span className="absolute -top-7 left-0 right-0 text-center text-sm font-medium" style={{ color: '#fff' }}>
-                    Posiziona il documento nel riquadro
-                </span>
-            </div>
-        </div>
-    );
-}
+// La cornice guida del documento sta in @/Components/InquadraturaDocumento:
+// è in proporzione al fotogramma, identica a quella del receptionist.

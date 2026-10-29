@@ -228,7 +228,8 @@ button:focus-visible { outline: 2px solid #3b82f6; outline-offset: 2px; }
 
 /* Tre card affiancate; su schermi stretti impilate */
 .kiosk-actions {
-    display: flex; align-items: stretch; justify-content: center;
+    /* Quattro azioni (check-in, check-out, informazioni, receptionist): 2x2 */
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: stretch;
     gap: 1.25rem; width: 100%; max-width: 1080px; padding: 0 2rem;
 }
 .kiosk-action {
@@ -306,7 +307,7 @@ button:focus-visible { outline: 2px solid #3b82f6; outline-offset: 2px; }
     .kiosk-hint    { font-size: 14px; }
     .kiosk-lingue  { gap: 0.4rem; margin-bottom: 1.1rem; }
     .kiosk-lingua  { min-height: 40px; font-size: 13px; padding: 0.35rem 0.8rem 0.35rem 0.55rem; }
-    .kiosk-actions { flex-direction: column; gap: 0.75rem; padding: 0 1rem; max-width: 480px; }
+    .kiosk-actions { grid-template-columns: minmax(0, 1fr); gap: 0.75rem; padding: 0 1rem; max-width: 480px; }
     .kiosk-action  { min-height: 0; padding: 14px 16px; gap: 0.8rem; border-radius: 1.1rem; }
     .kiosk-action-icon  { width: 46px; height: 46px; }
     .kiosk-action-icon svg { width: 22px; height: 22px; }

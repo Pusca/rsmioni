@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { router } from '@inertiajs/react';
 import * as liveKitCall from '@/services/liveKitCall';
+import { CorniceDocumento, useBoxFotogramma, useRapportoVideo } from '@/Components/InquadraturaDocumento';
 
 /**
  * Acquisizione documento "dal vivo": cattura un fotogramma dal video del chiosco
@@ -34,6 +35,12 @@ export default function CatturaDocumento({ onClose, prenotazioneIdFissa }: Props
     const [snapshot, setSnapshot] = useState<Blob | null>(null);
     const [snapshotUrl, setSnapshotUrl] = useState<string | null>(null);
     const [errore, setErrore] = useState<string | null>(null);
+
+    // Stessa inquadratura del chiosco: fotogramma intero nel suo rapporto
+    // reale, cornice in proporzione al fotogramma (docs/assumptions A34).
+    const riquadroRef = useRef<HTMLDivElement>(null);
+    const rapporto    = useRapportoVideo(videoRef, fase === 'capture');
+    const box         = useBoxFotogramma(riquadroRef, rapporto, fase === 'capture');
 
     // Carica le prenotazioni candidate (solo se non già fissata) + griglia sul chiosco
     useEffect(() => {
@@ -188,13 +195,14 @@ export default function CatturaDocumento({ onClose, prenotazioneIdFissa }: Props
                                 {latoLabel}{fronteRetro ? (lato === 'fronte' ? ' (1/2)' : ' (2/2)') : ''}
                             </span>
                         </div>
-                        <div className="relative rounded-lg overflow-hidden" style={{ aspectRatio: '4/3', backgroundColor: '#050710', border: '1px solid var(--color-border)' }}>
+                        <div ref={riquadroRef} className="relative rounded-lg overflow-hidden" style={{ aspectRatio: String(rapporto), backgroundColor: '#050710', border: '1px solid var(--color-border)' }}>
                             <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-contain" />
-                            {/* cornice guida documento */}
-                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                <div style={{ width: '78%', height: '64%', border: '2px dashed rgba(255,255,255,0.5)', borderRadius: 8 }} />
-                            </div>
+                            {/* Cornice guida: la stessa, in proporzione, che l'ospite vede sul chiosco */}
+                            <CorniceDocumento box={box} scuro={false} />
                         </div>
+                        <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                            L'ospite vede questa stessa cornice sul chiosco: se il documento la riempie lì, la riempie anche qui.
+                        </p>
                         <div className="flex justify-end gap-2">
                             <button onClick={onClose} className="rounded px-4 py-1.5 text-xs"
                                     style={{ color: 'var(--color-text-muted)', border: '1px solid var(--color-border)' }}>Annulla</button>
@@ -207,7 +215,7 @@ export default function CatturaDocumento({ onClose, prenotazioneIdFissa }: Props
                 {/* PREVIEW */}
                 {fase === 'preview' && snapshotUrl && (
                     <div className="space-y-3">
-                        <div className="rounded-lg overflow-hidden" style={{ aspectRatio: '4/3', backgroundColor: '#050710', border: '1px solid var(--color-border)' }}>
+                        <div className="rounded-lg overflow-hidden" style={{ aspectRatio: String(rapporto), backgroundColor: '#050710', border: '1px solid var(--color-border)' }}>
                             <img src={snapshotUrl} alt="Documento catturato" className="w-full h-full object-contain" />
                         </div>
                         <p className="text-xs text-center" style={{ color: 'var(--color-text-secondary)' }}>

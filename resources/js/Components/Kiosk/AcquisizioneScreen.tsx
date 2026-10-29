@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Chiosco } from '@/types';
 import { uploadDocumentoAcquisito } from '@/services/kioskApi';
+import { CorniceDocumento, useBoxFotogramma, useRapportoVideo } from '@/Components/InquadraturaDocumento';
 
 // ── AcquisizioneScreen ───────────────────────────────────────────────────────
 // Mostrata quando il receptionist ha inviato una richiesta di acquisizione.
@@ -30,6 +31,13 @@ export default function AcquisizioneScreen({ chiosco, titolo, fronteRetro, onCom
     const [errore,  setErrore]  = useState<string | null>(null);
     const [snapshot, setSnapshot] = useState<string | null>(null);
     const [lato,    setLato]    = useState<LatoAcquisizione>(fronteRetro ? 'fronte' : 'fronte');
+
+    // Anteprima = fotogramma intero (quello che viene catturato), con la stessa
+    // cornice guida che il receptionist vede in portineria.
+    const riquadroRef = useRef<HTMLDivElement>(null);
+    const inAnteprima = fase === 'preview' && ! snapshot;
+    const rapporto    = useRapportoVideo(videoRef, inAnteprima);
+    const box         = useBoxFotogramma(riquadroRef, rapporto, inAnteprima);
 
     // Avvio webcam. Se la camera è già impegnata dalla sessione video (mobile:
     // accesso esclusivo → secondo getUserMedia nero o NotReadableError), riusa
@@ -190,13 +198,14 @@ export default function AcquisizioneScreen({ chiosco, titolo, fronteRetro, onCom
 
                 {/* Preview / snapshot */}
                 {(fase === 'preview' || fase === 'uploading') && (
-                    <div className="relative rounded-2xl overflow-hidden shadow-2xl"
-                        style={{ width: '480px', maxWidth: '90vw', aspectRatio: '4/3',
+                    <div ref={riquadroRef} className="relative rounded-2xl overflow-hidden shadow-2xl"
+                        style={{ width: 'min(90vw, 760px)', aspectRatio: String(rapporto),
                                  backgroundColor: 'var(--color-bg-primary)', border: '2px solid rgba(59,130,246,0.3)' }}>
-                        {/* Video live */}
+                        {/* Video live: fotogramma intero, mai ritagliato */}
                         <video ref={videoRef} autoPlay playsInline muted
-                            className="w-full h-full object-cover"
+                            className="w-full h-full object-contain"
                             style={{ display: snapshot ? 'none' : 'block' }} />
+                        {inAnteprima && <CorniceDocumento box={box} testo="Posiziona il documento nel riquadro" />}
                         {/* Snapshot catturato */}
                         {snapshot && (
                             <img src={snapshot} alt="Documento catturato"
