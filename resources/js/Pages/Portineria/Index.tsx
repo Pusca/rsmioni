@@ -4,7 +4,6 @@ import { useLiveKitCall } from '@/hooks/useLiveKitCall';
 import ReceptionistLayout from '@/Layouts/ReceptionistLayout';
 import ChioscoCard from '@/Components/Portineria/ChioscoCard';
 import AreaVideo from '@/Components/Portineria/AreaVideo';
-import BriefingDock from '@/Components/Portineria/BriefingDock';
 import MessaggioAttesaModal from '@/Components/Portineria/MessaggioAttesaModal';
 import { usePortineriaRealtime, usePortineriaPolling, StatoAggiornato, AiHandoffEvento, AiBriefingEvento } from '@/hooks/usePortineriaRealtime';
 import { cambiaStato, demoSimula, demoReset } from '@/services/portineriaApi';
@@ -137,6 +136,23 @@ export default function PortineriaIndex({ chioschi: chioschiIniziali, hotel_ids,
         }));
     }, []);
     const handleAiBriefing = useCallback((e: AiBriefingEvento) => aggiornaBriefing(e.chiosco_id, e.briefing), [aggiornaBriefing]);
+
+    // Rete di sicurezza senza realtime: la scheda del chiosco selezionato si rilegge ogni 8 s
+    const statoSelezionato = chioscoSelezionato?.stato;
+    useEffect(() => {
+        if (! selezioneId || ! statoSelezionato || ['idle', 'offline'].includes(statoSelezionato)) return;
+        let fermo = false;
+        const leggi = async () => {
+            try {
+                const res = await fetch(`/portineria/chioschi/${selezioneId}/stato?_t=${Date.now()}`, { headers: { Accept: 'application/json' } });
+                if (! res.ok || fermo) return;
+                const data = (await res.json()) as { ai_briefing?: AiBriefing | null };
+                if (data.ai_briefing !== undefined) aggiornaBriefing(selezioneId, data.ai_briefing);
+            } catch { /* rete: al prossimo giro */ }
+        };
+        const timer = setInterval(leggi, 8000);
+        return () => { fermo = true; clearInterval(timer); };
+    }, [selezioneId, statoSelezionato, aggiornaBriefing]);
 
     // ── Realtime (Reverb) ─────────────────────────────────────────────────
     const { realtimeAttivo } = usePortineriaRealtime({
@@ -383,14 +399,6 @@ export default function PortineriaIndex({ chioschi: chioschiIniziali, hotel_ids,
                     )}
                 </div>
             </div>
-
-            {/* Briefing del self check-in: sempre in basso a destra, qualunque chiosco sia selezionato */}
-            <BriefingDock
-                chioschi={chioschi}
-                selezioneId={selezioneId}
-                onAggiorna={aggiornaBriefing}
-                onSeleziona={setSelezioneId}
-            />
 
             {/* Modal messaggio attesa */}
             <MessaggioAttesaModal

@@ -17,6 +17,7 @@ import CatturaDocumento from './CatturaDocumento';
 import CollegamentoView from './CollegamentoView';
 import ParlatoView from './ParlatoView';
 import AzioneBtn from './AzioneBtn';
+import SchedaSelfCheckin from './SchedaSelfCheckin';
 import { EyeOffIcon, MsgIcon, MicIcon, XIcon, ScreenIcon, DocIcon, ScreenStopIcon } from '@/Components/Icons';
 
 interface Props {
@@ -417,8 +418,8 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
                         </div>
                     )}
 
-                    {/* Corpo principale */}
-                    <div className="flex-1 flex flex-col items-center justify-center gap-6 p-6">
+                    {/* Corpo principale (scorre se la scheda self check-in allunga il contenuto) */}
+                    <div className="flex-1 flex flex-col items-center gap-6 p-6 overflow-y-auto" style={{ justifyContent: 'safe center' }}>
 
                         {/* ── OFFLINE ── */}
                         {chiosco.stato === 'offline' && (
@@ -733,6 +734,8 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
                                         />
                                     </div>
                                 )}
+                                {/* La pratica in corso: chi c'è, a che punto è, cosa si sono detti */}
+                                {chiosco.ai_briefing && <SchedaSelfCheckin briefing={chiosco.ai_briefing} />}
                             </div>
                         )}
 
@@ -784,6 +787,8 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
                                         icon={<XIcon />}
                                     />
                                 </div>
+                                {/* Dopo il Subentra all'AI: la pratica com'era rimasta, conversazione compresa */}
+                                {chiosco.ai_briefing && <SchedaSelfCheckin briefing={chiosco.ai_briefing} />}
                             </div>
                         )}
 
