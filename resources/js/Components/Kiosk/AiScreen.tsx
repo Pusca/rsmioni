@@ -20,15 +20,35 @@ interface AiScreenProps {
     onChiamaReceptionist?: () => void;
     /** Richiesta già inviata (da qui o dal riquadro presenza): un receptionist sta arrivando */
     richiestaInviata?: boolean;
+    /** Stato dettagliato della richiesta: invio in corso / errore (il booleano sopra resta per compatibilità) */
+    richiestaStato?: 'idle' | 'invio' | 'inviata' | 'errore';
     lingua?: string;
 }
 
-const TESTO_RECEPTIONIST: Record<string, { chiama: string; attesa: string; nota: string }> = {
-    it: { chiama: 'Parla con il receptionist', attesa: 'Richiesta inviata: un receptionist sta arrivando', nota: 'Un receptionist può intervenire in ogni momento.' },
-    en: { chiama: 'Talk to the receptionist',  attesa: 'Request sent: a receptionist is on the way',       nota: 'A receptionist can step in at any time.' },
-    de: { chiama: 'Mit der Rezeption sprechen', attesa: 'Anfrage gesendet: die Rezeption kommt',            nota: 'Die Rezeption kann jederzeit übernehmen.' },
-    fr: { chiama: 'Parler à la réception',      attesa: 'Demande envoyée : la réception arrive',            nota: 'La réception peut intervenir à tout moment.' },
-    es: { chiama: 'Hablar con recepción',       attesa: 'Solicitud enviada: recepción está llegando',       nota: 'Recepción puede intervenir en cualquier momento.' },
+const TESTO_RECEPTIONIST: Record<string, { chiama: string; invio: string; attesa: string; attesaSub: string; errore: string; nota: string }> = {
+    it: { chiama: 'Parla con il receptionist', invio: 'Invio della richiesta…', attesa: 'Richiesta inviata', attesaSub: 'Un receptionist sta arrivando: nel frattempo puoi continuare con l’assistente.', errore: 'Non sono riuscito ad avvisare la reception. Riprova.', nota: 'Un receptionist può intervenire in ogni momento.' },
+    en: { chiama: 'Talk to the receptionist',  invio: 'Sending your request…',  attesa: 'Request sent',     attesaSub: 'A receptionist is on the way: you can keep going with the assistant meanwhile.',       errore: 'We could not reach the front desk. Please try again.',  nota: 'A receptionist can step in at any time.' },
+    de: { chiama: 'Mit der Rezeption sprechen', invio: 'Anfrage wird gesendet…', attesa: 'Anfrage gesendet', attesaSub: 'Die Rezeption kommt: Sie können inzwischen mit dem Assistenten fortfahren.',             errore: 'Die Rezeption konnte nicht erreicht werden. Bitte erneut versuchen.', nota: 'Die Rezeption kann jederzeit übernehmen.' },
+    fr: { chiama: 'Parler à la réception',      invio: 'Envoi de la demande…',  attesa: 'Demande envoyée',  attesaSub: 'La réception arrive : vous pouvez continuer avec l’assistant en attendant.',          errore: 'Impossible de prévenir la réception. Réessayez.',       nota: 'La réception peut intervenir à tout moment.' },
+    es: { chiama: 'Hablar con recepción',       invio: 'Enviando la solicitud…', attesa: 'Solicitud enviada', attesaSub: 'Recepción está llegando: mientras tanto puedes seguir con el asistente.',             errore: 'No se pudo avisar a recepción. Inténtalo de nuevo.',      nota: 'Recepción puede intervenir en cualquier momento.' },
+}
+
+/** Conferma grande sotto l'orb: l'ospite deve capire a colpo d'occhio che la
+    reception è stata avvisata (spunta verde, titolo, riga di spiegazione). */
+function RichiestaInviataCard({ titolo, sub }: { titolo: string; sub: string }) {
+    return (
+        <div className="ai-richiesta-card ai-pop-in mt-4" role="status" aria-live="polite">
+            <span className="ai-richiesta-check">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#052e16" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M20 6L9 17l-5-5" />
+                </svg>
+            </span>
+            <div className="text-left">
+                <p className="font-semibold" style={{ fontSize: 18, color: '#bbf7d0', lineHeight: 1.2 }}>{titolo}</p>
+                <p className="mt-1" style={{ fontSize: 14, color: 'rgba(187,247,208,0.75)', lineHeight: 1.35 }}>{sub}</p>
+            </div>
+        </div>
+    );
 }
 
 /** Riga del recap live: etichetta + valore, flash animato a ogni aggiornamento.
@@ -223,9 +243,10 @@ function VoceEqualizer({ track }: { track: MediaStreamTrack | null }) {
     );
 }
 
-export default function AiScreen({ scopo, statoMedia, localVideoRef, aiUi, audioTrack, audioBloccato, onTermina, onChiamaReceptionist, richiestaInviata = false, lingua = 'it' }: AiScreenProps) {
+export default function AiScreen({ scopo, statoMedia, localVideoRef, aiUi, audioTrack, audioBloccato, onTermina, onChiamaReceptionist, richiestaInviata = false, richiestaStato, lingua = 'it' }: AiScreenProps) {
     const connesso = statoMedia === 'connected';
     const tr = TESTO_RECEPTIONIST[lingua] ?? TESTO_RECEPTIONIST.it;
+    const statoRichiesta = richiestaStato ?? (richiestaInviata ? 'inviata' : 'idle');
     const titolo   = scopo === 'checkin' ? 'Check-in con l’assistente'
         : scopo === 'checkout' ? 'Check-out' : 'Informazioni';
 
@@ -289,11 +310,19 @@ export default function AiScreen({ scopo, statoMedia, localVideoRef, aiUi, audio
                         </p>
                     </div>
                 )}
-                {richiestaInviata ? (
-                    <p className="text-sm mt-3 text-center font-medium" style={{ color: '#fcd34d' }}>
-                        {tr.attesa}
-                    </p>
-                ) : onChiamaReceptionist ? (
+                {statoRichiesta === 'inviata' ? (
+                    <RichiestaInviataCard titolo={tr.attesa} sub={tr.attesaSub} />
+                ) : statoRichiesta === 'invio' ? (
+                    <button disabled className="presenza-badge-btn presenza-badge-btn-attesa mt-3"
+                            style={{ width: 'auto', minWidth: 240, paddingLeft: '1.1rem', paddingRight: '1.1rem' }}>
+                        <span className="flex gap-1">
+                            <span className="ai-dot w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#fde68a' }} />
+                            <span className="ai-dot w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#fde68a' }} />
+                            <span className="ai-dot w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#fde68a' }} />
+                        </span>
+                        <span>{tr.invio}</span>
+                    </button>
+                ) : onChiamaReceptionist ? (<>
                     <button onClick={onChiamaReceptionist}
                             className="presenza-badge-btn mt-3"
                             style={{ width: 'auto', minWidth: 240, paddingLeft: '1.1rem', paddingRight: '1.1rem' }}>
@@ -302,7 +331,10 @@ export default function AiScreen({ scopo, statoMedia, localVideoRef, aiUi, audio
                         </svg>
                         <span>{tr.chiama}</span>
                     </button>
-                ) : (
+                    {statoRichiesta === 'errore' && (
+                        <p className="text-sm mt-2 text-center font-medium" style={{ color: '#fca5a5' }}>{tr.errore}</p>
+                    )}
+                </>) : (
                     <p className="text-xs mt-2 text-center" style={{ color: 'var(--color-text-muted)' }}>
                         {tr.nota}
                     </p>

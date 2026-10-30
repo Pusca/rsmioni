@@ -201,13 +201,17 @@ export default function KioskIndex({ chiosco, stato_iniziale, messaggio_attesa: 
     // Stesso pulsante verde del riquadro presenza: suona la campanella in
     // portineria (badge "chiede aiuto" → Subentra) e avvisa l'agent, che lo
     // dice a voce. La sessione resta dell'AI finché l'umano non subentra.
-    const [aiutoInviato, setAiutoInviato] = useState(false);
-    useEffect(() => { if (! inAi) setAiutoInviato(false); }, [inAi]);
+    // Stato a vista per l'ospite: invio in corso → inviata (conferma grande
+    // sotto l'orb) oppure errore (resta il pulsante + messaggio per riprovare).
+    const [aiutoStato, setAiutoStato] = useState<'idle' | 'invio' | 'inviata' | 'errore'>('idle');
+    const aiutoInviato = aiutoStato === 'inviata' || aiutoStato === 'invio';
+    useEffect(() => { if (! inAi) setAiutoStato('idle'); }, [inAi]);
     const handleChiamaInAi = async () => {
         if (aiutoInviato) return;
-        setAiutoInviato(true);
+        setAiutoStato('invio');
         const res = await richiediReceptionistAi();
-        if (! res.ok) { setAiutoInviato(false); return; }
+        if (! res.ok) { setAiutoStato('errore'); return; }
+        setAiutoStato('inviata');
         lk.inviaComandoAi('receptionist');
     };
 
@@ -309,6 +313,7 @@ export default function KioskIndex({ chiosco, stato_iniziale, messaggio_attesa: 
                     onTermina={handleTerminaAi}
                     onChiamaReceptionist={mostraPresenzaBadge && presenza.track ? undefined : handleChiamaInAi}
                     richiestaInviata={aiutoInviato}
+                    richiestaStato={aiutoStato}
                     lingua={lingua}
                 />
             ) : inParlato ? (
