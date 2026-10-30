@@ -318,6 +318,18 @@ class AgentApiTest extends TestCase
         $this->agentPost('/agent/briefing', ['trascrizione' => [['chi' => 'hacker', 'testo' => 'x']]])
             ->assertStatus(422);
 
+        // Il polling della portineria (senza realtime) porta anche il briefing
+        $receptionist = User::create([
+            'id' => Str::uuid()->toString(), 'username' => 'rec_brief', 'email' => 'rec_brief@test.local',
+            'password' => Hash::make('password'), 'profilo' => Profilo::Receptionist, 'ip_whitelist' => [], 'attivo' => true,
+        ]);
+        $receptionist->hotels()->attach($this->hotel->id);
+        $this->actingAs($receptionist)
+            ->getJson("/portineria/chioschi/{$this->chiosco->id}/stato")
+            ->assertOk()
+            ->assertJsonPath('ai_briefing.ospite.nome', 'Tommaso')
+            ->assertJsonPath('ai_briefing.motivo', 'Secondo adulto senza documento');
+
         // Chiosco di nuovo libero → il briefing decade
         $portineria->impostaStato($this->chiosco, StatoChiosco::Idle);
         $this->assertNull($portineria->briefingAi($this->chiosco->id));

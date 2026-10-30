@@ -4,13 +4,14 @@ import { useLiveKitCall } from '@/hooks/useLiveKitCall';
 import ReceptionistLayout from '@/Layouts/ReceptionistLayout';
 import ChioscoCard from '@/Components/Portineria/ChioscoCard';
 import AreaVideo from '@/Components/Portineria/AreaVideo';
+import BriefingDock from '@/Components/Portineria/BriefingDock';
 import MessaggioAttesaModal from '@/Components/Portineria/MessaggioAttesaModal';
 import { usePortineriaRealtime, usePortineriaPolling, StatoAggiornato, AiHandoffEvento, AiBriefingEvento } from '@/hooks/usePortineriaRealtime';
 import { cambiaStato, demoSimula, demoReset } from '@/services/portineriaApi';
 import * as liveKitCall from '@/services/liveKitCall';
 import { suonaChiamata, suonaCampanellaAi } from '@/services/suoneria';
 import * as presenza from '@/services/presenzaReceptionist';
-import { ChioscoConStato, StatoChiosco, SharedProps } from '@/types';
+import { ChioscoConStato, StatoChiosco, SharedProps, AiBriefing } from '@/types';
 
 interface Props {
     chioschi:      ChioscoConStato[];
@@ -74,7 +75,9 @@ export default function PortineriaIndex({ chioschi: chioschiIniziali, hotel_ids,
 
     // ── Aggiornamento stato da evento realtime ────────────────────────────
     const handleStatoCambiato = useCallback((update: StatoAggiornato) => {
-        const precedente = chioschiRef.current.find((c) => c.id === update.chiosco_id)?.stato;
+        const prima      = chioschiRef.current.find((c) => c.id === update.chiosco_id);
+        const precedente = prima?.stato;
+        const fine       = ['idle', 'offline'].includes(update.stato);
 
         setChioschi((prev) =>
             prev.map((c) =>
@@ -83,9 +86,10 @@ export default function PortineriaIndex({ chioschi: chioschiIniziali, hotel_ids,
                         ...c,
                         stato: update.stato,
                         messaggio_attesa: update.messaggio ?? c.messaggio_attesa,
-                        // sessione finita → la richiesta di aiuto dell'AI decade
-                        ai_handoff: ['idle', 'offline'].includes(update.stato) ? null : c.ai_handoff,
-                        ai_briefing: ['idle', 'offline'].includes(update.stato) ? null : c.ai_briefing,
+                        // sessione finita → richiesta di aiuto e briefing dell'AI decadono;
+                        // dal polling arrivano aggiornati, dal realtime restano com'erano
+                        ai_handoff:  fine ? null : (update.ai_handoff  !== undefined ? update.ai_handoff  : c.ai_handoff),
+                        ai_briefing: fine ? null : (update.ai_briefing !== undefined ? update.ai_briefing : c.ai_briefing),
                     }
                     : c,
             ),
@@ -97,6 +101,11 @@ export default function PortineriaIndex({ chioschi: chioschiIniziali, hotel_ids,
         if (update.stato === 'in_chiamata') {
             setSelezioneId((prev) => prev ?? update.chiosco_id);
             if (precedente !== 'in_chiamata') suonaChiamata(opzioniSuoneria(update.chiosco_id));
+        }
+        // Campanella dell'AI arrivata dal polling (senza realtime)
+        if (! fine && update.ai_handoff && ! prima?.ai_handoff) {
+            setSelezioneId((prev) => prev ?? update.chiosco_id);
+            suonaCampanellaAi(opzioniSuoneria(update.chiosco_id));
         }
     }, [opzioniSuoneria]);
 
@@ -118,10 +127,16 @@ export default function PortineriaIndex({ chioschi: chioschiIniziali, hotel_ids,
         }
     }, [opzioniSuoneria]);
 
-    // ── Briefing della pratica scritto dall'AI (si aggiorna a ogni fase) ──
-    const handleAiBriefing = useCallback((e: AiBriefingEvento) => {
-        setChioschi((prev) => prev.map((c) => (c.id === e.chiosco_id ? { ...c, ai_briefing: e.briefing } : c)));
+    // ── Briefing della pratica scritto dall'AI (si aggiorna a ogni battuta) ─
+    const aggiornaBriefing = useCallback((chioscoId: string, briefing: AiBriefing | null) => {
+        setChioschi((prev) => prev.map((c) => {
+            if (c.id !== chioscoId) return c;
+            // mai tornare indietro: un aggiornamento più vecchio di quello a schermo si ignora
+            if (briefing && c.ai_briefing && (c.ai_briefing.aggiornato_at ?? '') > (briefing.aggiornato_at ?? '')) return c;
+            return { ...c, ai_briefing: briefing };
+        }));
     }, []);
+    const handleAiBriefing = useCallback((e: AiBriefingEvento) => aggiornaBriefing(e.chiosco_id, e.briefing), [aggiornaBriefing]);
 
     // ── Realtime (Reverb) ─────────────────────────────────────────────────
     const { realtimeAttivo } = usePortineriaRealtime({
@@ -368,6 +383,14 @@ export default function PortineriaIndex({ chioschi: chioschiIniziali, hotel_ids,
                     )}
                 </div>
             </div>
+
+            {/* Briefing del self check-in: sempre in basso a destra, qualunque chiosco sia selezionato */}
+            <BriefingDock
+                chioschi={chioschi}
+                selezioneId={selezioneId}
+                onAggiorna={aggiornaBriefing}
+                onSeleziona={setSelezioneId}
+            />
 
             {/* Modal messaggio attesa */}
             <MessaggioAttesaModal

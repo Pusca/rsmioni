@@ -283,6 +283,7 @@ async def entrypoint(ctx: agents.JobContext) -> None:
             participant_identity=f"kiosk-{chiosco_id}" if chiosco_id else None,
         ),
     )
+    agent._avvia_briefing()  # la portineria vede subito che al chiosco c'è una sessione
 
     # Diario della conversazione nel log (prima si vedevano solo i tool: dopo
     # una foto non si capiva se Alice avesse parlato o fosse rimasta muta).
@@ -293,6 +294,7 @@ async def entrypoint(ctx: agents.JobContext) -> None:
         if testo:
             chi = "ospite" if getattr(item, "role", "") == "user" else "alice"
             logger.info("%s: %s", chi, testo[:300])
+            agent._avvia_briefing_leggero()  # trascrizione quasi in diretta in portineria
 
     # Sessione chiusa (ospite/chiosco scollegato, close_on_disconnect): il job
     # deve terminare SUBITO così la shutdown callback chiude la sessione lato

@@ -98,6 +98,7 @@ class ReceptionistAgent(Agent):
         # e, con i punti salienti, quando serve un umano. Motivo e punti
         # restano negli aggiornamenti successivi.
         self._briefing_task: asyncio.Task | None = None
+        self._briefing_debounce: asyncio.Task | None = None
         self._ultimo_motivo: str | None = None
         self._ultimi_punti: list[str] = []
 
@@ -437,6 +438,19 @@ class ReceptionistAgent(Agent):
                 return  # un aggiornamento leggero alla volta: il prossimo arriva alla fase dopo
             self._briefing_task.cancel()
         self._briefing_task = asyncio.create_task(self._invia_briefing(con_punti))
+
+    def _avvia_briefing_leggero(self) -> None:
+        """Dopo ogni battuta: aggiornamento leggero (dati + trascrizione) con
+        2,5 s di attesa, così più battute ravvicinate fanno un solo invio e il
+        receptionist legge la conversazione quasi in diretta."""
+        if self._briefing_debounce and not self._briefing_debounce.done():
+            self._briefing_debounce.cancel()
+
+        async def _poi() -> None:
+            await asyncio.sleep(2.5)
+            self._avvia_briefing()
+
+        self._briefing_debounce = asyncio.create_task(_poi())
 
     async def _invia_briefing(self, con_punti: bool) -> None:
         try:

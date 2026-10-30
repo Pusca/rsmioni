@@ -39,9 +39,15 @@ class AiBriefingAggiornato implements ShouldBroadcastNow
 
     public function broadcastWith(): array
     {
+        // Pusher accetta messaggi fino a 10 KB: nell'evento va la trascrizione
+        // ridotta alle ultime battute; quella completa si legge da
+        // GET /portineria/chioschi/{id}/stato (la portineria la rilegge da sé).
         return [
             'chiosco_id' => $this->chiosco->id,
-            'briefing'   => $this->briefing,
+            'briefing'   => $this->briefing === null ? null : [
+                ...$this->briefing,
+                'trascrizione' => array_slice($this->briefing['trascrizione'] ?? [], -12),
+            ],
         ];
     }
 }

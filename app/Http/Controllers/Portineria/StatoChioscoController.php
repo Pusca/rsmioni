@@ -91,6 +91,10 @@ class StatoChioscoController extends Controller
             'session_id'   => $sessionId,
             'session_tipo' => $session['tipo'] ?? null,
             'gestita_da'   => $session['gestita_da'] ?? null,
+            // Richiesta di aiuto e briefing dell'AI: così il polling (senza
+            // realtime) porta in portineria anche campanella e riassunto.
+            'ai_handoff'   => $this->portineria->richiestaAiuto($chiosco->id),
+            'ai_briefing'  => $this->portineria->briefingAi($chiosco->id),
         ]);
     }
 }

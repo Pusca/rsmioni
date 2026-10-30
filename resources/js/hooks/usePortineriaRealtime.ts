@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
-import { StatoChiosco, AiBriefing } from '@/types';
+import { StatoChiosco, AiBriefing, AiHandoff } from '@/types';
 
 export interface StatoAggiornato {
     chiosco_id:   string;
     chiosco_nome: string;
     stato:        StatoChiosco;
     messaggio:    string | null;
+    /** Solo dal polling: campanella e briefing dell'AI (undefined = non noto, lascia com'è) */
+    ai_handoff?:  AiHandoff | null;
+    ai_briefing?: AiBriefing | null;
 }
 
 /** Evento `.ai.handoff`: il receptionist AI chiede (o smette di chiedere) un umano. */
@@ -129,15 +132,19 @@ export function usePortineriaPolling(
                     });
                     if (res.ok) {
                         const data = (await res.json()) as {
-                            chiosco_id: string;
-                            stato:      string;
-                            messaggio:  string | null;
+                            chiosco_id:   string;
+                            stato:        string;
+                            messaggio:    string | null;
+                            ai_handoff?:  AiHandoff | null;
+                            ai_briefing?: AiBriefing | null;
                         };
                         callbackRef.current({
                             chiosco_id:   data.chiosco_id,
                             chiosco_nome: '',
                             stato:        data.stato as StatoChiosco,
                             messaggio:    data.messaggio ?? null,
+                            ai_handoff:   data.ai_handoff,
+                            ai_briefing:  data.ai_briefing,
                         });
                     }
                 } catch { /* network error, skip */ }
