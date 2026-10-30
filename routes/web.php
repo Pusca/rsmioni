@@ -355,6 +355,7 @@ Route::middleware(['auth', 'role:chiosco'])
         // Self check-in AI — avvio/chiusura sessione vocale con l'agent (docs/09)
         Route::post('/ai/avvia',   [\App\Http\Controllers\Kiosk\KioskAiController::class, 'avvia'])->name('ai.avvia');
         Route::post('/ai/termina', [\App\Http\Controllers\Kiosk\KioskAiController::class, 'termina'])->name('ai.termina');
+        Route::post('/ai/aiuto',   [\App\Http\Controllers\Kiosk\KioskAiController::class, 'aiuto'])->name('ai.aiuto');
 
         // Heartbeat — il kiosk lo invia ogni 60s (M5D)
         Route::post('/heartbeat', [KioskHeartbeatController::class, 'store'])->name('heartbeat.store');

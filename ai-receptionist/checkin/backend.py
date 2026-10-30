@@ -75,8 +75,10 @@ class BackendRsmioni:
     async def assegna_camera(self, camera_id: str | None = None) -> EsitoApi:
         return await self._post("/agent/camera", {"camera_id": camera_id} if camera_id else None)
 
-    async def avvia_acquisizione(self, lingua: str = "it") -> EsitoApi:
-        return await self._post("/agent/acquisizione", {"lingua": lingua})
+    async def avvia_acquisizione(self, lingua: str = "it", numero: int = 1, totale: int = 1) -> EsitoApi:
+        """Apre la foto sul chiosco per l'ospite `numero` di `totale` (titolo
+        «ospite 2 di 3» sullo schermo; la risposta porta il richiesta_id)."""
+        return await self._post("/agent/acquisizione", {"lingua": lingua, "numero": numero, "totale": totale})
 
     async def annulla_acquisizione(self) -> EsitoApi:
         return await self._post("/agent/acquisizione/annulla")

@@ -70,6 +70,10 @@ class StatoConversazione:
     camera: dict | None = None
     documento_letto: bool = False                # leggi_documento eseguita (o fallback tecnico)
     documento_rinunciato: bool = False           # ospite senza documento: passato al receptionist
+    # Documenti d'identità: uno per OGNI adulto, obbligatorio. Avanza a ogni
+    # foto arrivata dal chiosco; la lettura e il riepilogo partono solo quando
+    # ci sono tutti (o l'ospite ha rinunciato → receptionist).
+    documenti_acquisiti: int = 0
 
     def __post_init__(self) -> None:
         if self.scopo == "checkout":
@@ -135,6 +139,23 @@ class StatoConversazione:
             errori.append("adulti deve essere tra 1 e 10: richiedi il numero di persone.")
         return errori
 
+    # ── Documenti: uno per adulto ───────────────────────────────────────
+
+    @property
+    def documenti_attesi(self) -> int:
+        try:
+            return max(1, min(10, int(self.dati.get("adulti") or 1)))
+        except (TypeError, ValueError):
+            return 1
+
+    @property
+    def documenti_completi(self) -> bool:
+        return self.documenti_acquisiti >= self.documenti_attesi
+
+    @property
+    def documenti_mancanti(self) -> int:
+        return max(0, self.documenti_attesi - self.documenti_acquisiti)
+
     # ── Escalation ──────────────────────────────────────────────────────
 
     def registra_errore(self) -> bool:
@@ -150,5 +171,6 @@ class StatoConversazione:
             "fase": self.fase.value,
             "dati": dict(self.dati),
             "codice": self.codice,
+            "documenti": f"{self.documenti_acquisiti}/{self.documenti_attesi}",
             "errori": dict(self.errori),
         }

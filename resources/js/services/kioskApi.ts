@@ -126,6 +126,22 @@ export async function avviaSessioneAi(
     }
 }
 
+/**
+ * POST /kiosk/ai/aiuto — l'ospite tocca «Parla con il receptionist» DURANTE
+ * la conversazione con l'assistente: campanella e badge in portineria, la
+ * sessione resta dell'AI finché un receptionist non subentra.
+ */
+export async function richiediReceptionistAi(): Promise<{ ok: boolean; error?: string }> {
+    try {
+        const res = await fetch('/kiosk/ai/aiuto', { method: 'POST', headers: headers(), body: '{}' });
+        const data = await res.json() as { error?: string };
+        if (! res.ok) return { ok: false, error: data.error ?? 'Richiesta non riuscita' };
+        return { ok: true };
+    } catch {
+        return { ok: false, error: 'Errore di rete' };
+    }
+}
+
 /** POST /kiosk/ai/termina — l'ospite chiude la conversazione con l'AI. */
 export async function terminaSessioneAi(): Promise<void> {
     try {
@@ -181,6 +197,10 @@ export interface AcquisizionePendenteResult {
     lingua:           string | null;
     tipo_documento:   string | null;
     fronte_retro:     boolean;
+    /** Self check-in AI: una richiesta per ospite (documenti per tutti gli adulti) */
+    richiesta_id:     string | null;
+    numero:           number;
+    totale:           number;
 }
 
 /**
@@ -202,6 +222,9 @@ export async function getAcquisizionePendente(): Promise<AcquisizionePendenteRes
             lingua:          data.lingua          ?? null,
             tipo_documento:  data.tipo_documento  ?? null,
             fronte_retro:    (data as any).fronte_retro ?? false,
+            richiesta_id:    data.richiesta_id    ?? null,
+            numero:          data.numero          ?? 1,
+            totale:          data.totale          ?? 1,
         };
     } catch {
         return null;
@@ -237,13 +260,16 @@ export async function uploadDocumentoAcquisito(
 
 /**
  * DELETE /kiosk/acquisizioni
- * Annulla l'acquisizione pendente (guest rifiuta o timeout).
+ * Annulla l'acquisizione pendente (guest rifiuta o timeout). Con `richiestaId`
+ * annulla SOLO quella richiesta: la chiusura della schermata "completata"
+ * non deve spegnere la foto appena riaperta per l'ospite successivo.
  */
-export async function annullaAcquisizione(): Promise<void> {
+export async function annullaAcquisizione(richiestaId?: string | null): Promise<void> {
     try {
         await fetch('/kiosk/acquisizioni', {
             method:  'DELETE',
             headers: headers(),
+            body:    JSON.stringify({ richiesta_id: richiestaId ?? null }),
         });
     } catch { /* best-effort */ }
 }

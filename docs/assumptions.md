@@ -371,6 +371,16 @@ Stesso giorno, conversazione a voce dalla presenza: spegnere il microfono del re
 
 ---
 
+## A37 — Self check-in AI: un documento per OGNI adulto, pipeline che avanza da sola
+
+**Contesto**: in produzione (30/10/2026) con due ospiti bastava il documento di chi parlava, e dopo la foto la conversazione restava ferma (nessun tool richiamato dal modello, trascrizioni in ebraico/croato dal rilevamento automatico della lingua, ospite che chiudeva da solo). Il manuale chiede i documenti degli ospiti ma non dice come al chiosco.
+
+**Assunzione adottata**: i documenti sono obbligatori per tutti gli adulti della prenotazione (`pax.adulti`), non per ragazzi/bambini. Il worker numera le richieste («ospite 2 di 3» sullo schermo e sul documento salvato) e dopo ogni foto riapre DA SOLO la schermata per l'adulto successivo; dopo l'ultima la lettura e il riepilogo partono da soli, senza aspettare che il modello richiami il tool. Se un ospite non ha il documento si passa al receptionist (`senza_documento`), non si prosegue con meno documenti. L'intestatario letto dalla vision è l'ospite 1 (l'ultima sua foto, se rifatta); gli altri documenti sono salvati ma non verificati dalla vision. Se il turno generato dopo una foto fallisce, Alice pronuncia una frase fissa nella lingua della conversazione (mai silenzio). La trascrizione è nella lingua scelta sul chiosco (`STT_LANGUAGE=chiosco`), non più in rilevamento automatico.
+
+**Impatto**: `/agent/acquisizione` con `numero`/`totale`/`richiesta_id`, l'annulla del chiosco vale solo per la propria richiesta; il pulsante verde «Parla con il receptionist» funziona anche durante la sessione AI (`/kiosk/ai/aiuto` → campanella, e l'agent lo dice a voce). Un ospite che cambia lingua a metà conversazione viene trascritto peggio: per hotel con lingue fuori dalle bandierine usare `STT_LANGUAGE=auto`.
+
+---
+
 ## Da Validare Prima dell'Implementazione
 
 | ID | Assunzione | Urgenza |
@@ -391,3 +401,4 @@ Stesso giorno, conversazione a voce dalla presenza: spegnere il microfono del re
 | A25 | Privacy/retention audio-video sessione AI | Alta |
 | A30 | Claim «receptionist di notte > 30.000 €/anno» nelle inserzioni Meta | Alta (prima di attivare la campagna) |
 | A36 | Voce Cartesia/Inworld via LiveKit Inference: voci italiane di default da ascoltare | Media (prima di cambiare TTS_PROVIDER in produzione) |
+| A37 | Documenti obbligatori per tutti gli adulti; vision solo sull'ospite 1; STT nella lingua del chiosco | Media (confermare con Edoardo la regola «uno per adulto») |

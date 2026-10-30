@@ -77,6 +77,8 @@ interface Result {
     inAttesa:           boolean; // il receptionist sta gestendo un altro chiosco → mostra messaggio attesa
     messaggioAttesa:    string;  // testo del messaggio di attesa (impostato dal receptionist)
     aiUi:               AiUiState; // recap live del check-in AI (form, camera, codice)
+    /** Comando toccato dall'ospite durante la sessione AI (topic ai_cmd), es. 'receptionist' */
+    inviaComandoAi:     (tipo: string) => void;
     remoteAudioTrack:   MediaStreamTrack | null; // audio del remoto (voce AI) per visualizzazioni reattive
     localCameraTrack:   MediaStreamTrack | null; // webcam già pubblicata: riusabile dove la camera è occupata (mobile)
     audioBloccato:      boolean; // autoplay negato dal browser: serve un tocco per sentire l'audio
@@ -426,5 +428,16 @@ export function useLiveKitChiosco(): Result {
 
     const aggiorna = () => { void pollRef.current(); };
 
-    return { sessionTipo, gestitaDa, localVideoRef, remoteVideoRef, stato, errore, condivisioneAttiva, grigliaDoc, inAttesa, messaggioAttesa, aiUi, remoteAudioTrack, localCameraTrack, audioBloccato, duplicato, ultimoErrore, aggiorna };
+    // L'agent ascolta il DataChannel (agent.py, topic ai_cmd): così, oltre alla
+    // campanella fatta suonare da Laravel, Alice dice a voce che il receptionist arriva.
+    const inviaComandoAi = (tipo: string) => {
+        const room = roomRef.current;
+        if (!room) return;
+        try {
+            const payload = new TextEncoder().encode(JSON.stringify({ topic: 'ai_cmd', tipo }));
+            void room.localParticipant.publishData(payload, { reliable: true, topic: 'ai_cmd' });
+        } catch { /* best-effort */ }
+    };
+
+    return { sessionTipo, gestitaDa, localVideoRef, remoteVideoRef, stato, errore, condivisioneAttiva, grigliaDoc, inAttesa, messaggioAttesa, aiUi, inviaComandoAi, remoteAudioTrack, localCameraTrack, audioBloccato, duplicato, ultimoErrore, aggiorna };
 }

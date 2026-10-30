@@ -13,7 +13,7 @@ Architettura completa: [`../docs/09-ai-self-checkin.md`](../docs/09-ai-self-chec
 |-------|-----------|
 | Framework agente | LiveKit Agents (Python) |
 | Cervello / tool calling / vision | Claude (`claude-sonnet-4-6` default) |
-| STT (voce→testo) | Deepgram `nova-3` multilingua |
+| STT (voce→testo) | Deepgram `nova-3` nella lingua scelta sul chiosco (o multilingua con `STT_LANGUAGE=auto`) |
 | TTS (testo→voce) | Cartesia Sonic-3 / Inworld TTS-2 via **LiveKit Inference** (nessun account extra), ElevenLabs, Deepgram Aura-2 — in cascata, scelta da `TTS_PROVIDER` |
 | VAD / barge-in | Silero |
 
@@ -112,6 +112,7 @@ la fonte di verità è `checkin/config.py`.
 | `OPENROUTER_MODEL` / `VISION_MODEL` | no | Modelli via OpenRouter (default `anthropic/claude-sonnet-4.6`) |
 | `LLM_MAX_TOKENS` | no | Token max per risposta (default `600`) |
 | `DEEPGRAM_API_KEY` | sì | STT — e TTS Aura-2 quando `TTS_PROVIDER` lo include |
+| `STT_LANGUAGE` | no | `chiosco` (default: trascrizione nella lingua scelta sul chiosco) o `auto` (rilevamento fra tutte le lingue, meno preciso) |
 | `TTS_PROVIDER` | no | `auto` (default: ElevenLabs se c'è la chiave, poi Deepgram di riserva), oppure lista esplicita fra `cartesia`, `inworld` (LiveKit Inference: bastano le credenziali `LIVEKIT_*`), `elevenlabs`, `deepgram` — es. `cartesia,deepgram` |
 | `CARTESIA_MODEL` / `CARTESIA_VOICES` | no | Default `cartesia/sonic-3`; voci per lingua con ID di libreria, es. `it=<uuid>` |
 | `INWORLD_MODEL` / `INWORLD_VOICES` | no | Default `inworld/inworld-tts-2`; voci per lingua per nome, es. `it=Orietta,en=Ashley` |

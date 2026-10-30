@@ -8,7 +8,7 @@ import { useKioskStato } from '@/hooks/useKioskStato';
 import { useKioskAcquisizione } from '@/hooks/useKioskAcquisizione';
 import { useKioskStampa } from '@/hooks/useKioskStampa';
 import { useKioskPagamento } from '@/hooks/useKioskPagamento';
-import { annullaChiamata, chiamaReceptionist, avviaSessioneAi, terminaSessioneAi, annullaAcquisizione } from '@/services/kioskApi';
+import { annullaChiamata, chiamaReceptionist, avviaSessioneAi, terminaSessioneAi, annullaAcquisizione, richiediReceptionistAi } from '@/services/kioskApi';
 import PagamentoPOSScreen from '@/Components/Kiosk/PagamentoPOSScreen';
 import StampaScreen from '@/Components/Kiosk/StampaScreen';
 import AcquisizioneScreen from '@/Components/Kiosk/AcquisizioneScreen';
@@ -197,6 +197,20 @@ export default function KioskIndex({ chiosco, stato_iniziale, messaggio_attesa: 
         await terminaSessioneAi();
     };
 
+    // ── «Parla con il receptionist» DURANTE la sessione AI ──────────────────
+    // Stesso pulsante verde del riquadro presenza: suona la campanella in
+    // portineria (badge "chiede aiuto" → Subentra) e avvisa l'agent, che lo
+    // dice a voce. La sessione resta dell'AI finché l'umano non subentra.
+    const [aiutoInviato, setAiutoInviato] = useState(false);
+    useEffect(() => { if (! inAi) setAiutoInviato(false); }, [inAi]);
+    const handleChiamaInAi = async () => {
+        if (aiutoInviato) return;
+        setAiutoInviato(true);
+        const res = await richiediReceptionistAi();
+        if (! res.ok) { setAiutoInviato(false); return; }
+        lk.inviaComandoAi('receptionist');
+    };
+
     // ── Schermata finale: il riepilogo resta visibile dopo la sessione AI ───
     // aiUi si azzera alla disconnessione → se ne conserva una copia mentre la
     // sessione è viva; alla chiusura con esito utile la si mostra per 45s.
@@ -242,8 +256,8 @@ export default function KioskIndex({ chiosco, stato_iniziale, messaggio_attesa: 
                     parla={presenza.parla}
                     microfonoAttivo={presenza.microfonoAttivo}
                     audioBloccato={presenza.audioBloccato}
-                    onChiama={schermataAttesa ? handleChiama : undefined}
-                    chiamando={chiamando || stato === 'in_chiamata'}
+                    onChiama={schermataAttesa ? handleChiama : inAi && ! acquisizione ? handleChiamaInAi : undefined}
+                    chiamando={inAi ? aiutoInviato : (chiamando || stato === 'in_chiamata')}
                     lingua={lingua}
                 />
             )}
@@ -273,12 +287,15 @@ export default function KioskIndex({ chiosco, stato_iniziale, messaggio_attesa: 
                     titolo={stampa.titolo}
                 />
             ) : acquisizione && ! inParlato && ! inChiaro ? (
+                /* key: una schermata nuova per ogni richiesta (documenti per più ospiti),
+                   così "completata" non resta appesa quando si riapre per il prossimo */
                 <AcquisizioneScreen
+                    key={acquisizione.richiesta_id ?? acquisizione.prenotazione_id}
                     chiosco={chiosco}
                     titolo={acquisizione.titolo}
                     fronteRetro={acquisizione.fronte_retro}
-                    onCompletata={annullaAcquisizione}
-                    onAnnulla={annullaAcquisizione}
+                    onCompletata={() => annullaAcquisizione(acquisizione.richiesta_id)}
+                    onAnnulla={() => annullaAcquisizione(acquisizione.richiesta_id)}
                     trackCondiviso={lk.localCameraTrack}
                 />
             ) : inAi ? (
@@ -290,6 +307,9 @@ export default function KioskIndex({ chiosco, stato_iniziale, messaggio_attesa: 
                     audioTrack={lk.remoteAudioTrack}
                     audioBloccato={lk.audioBloccato}
                     onTermina={handleTerminaAi}
+                    onChiamaReceptionist={mostraPresenzaBadge && presenza.track ? undefined : handleChiamaInAi}
+                    richiestaInviata={aiutoInviato}
+                    lingua={lingua}
                 />
             ) : inParlato ? (
                 <ParlatoScreen

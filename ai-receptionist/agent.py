@@ -44,6 +44,12 @@ AGENT_NAME = "ai-receptionist"  # deve combaciare con LiveKitDispatchService::AG
 CONFIG = Impostazioni.da_ambiente()
 for problema in CONFIG.problemi:
     logger.warning("CONFIG: %s", problema)
+for orfana in prompts.verifica_sostituzioni():
+    logger.warning("PROMPT: sostituzione 'senza verifica' orfana (copione cambiato?): %s…", orfana)
+
+# Lingue che Deepgram nova-3 trascrive con modello dedicato: per le altre si
+# resta sul rilevamento automatico ("multi").
+STT_LINGUE_DEEPGRAM = {"it", "en", "de", "fr", "es", "pt", "nl"}
 
 
 class ClaudeLLM(anthropic.LLM):
@@ -216,9 +222,14 @@ async def entrypoint(ctx: agents.JobContext) -> None:
 
     istruzioni, apertura = prompts.componi(scopo, meta, date.today().isoformat(), lingua)
 
+    # STT: nella lingua scelta sul chiosco (default). Il rilevamento automatico
+    # ("multi") in produzione trascriveva rumore e italiano come ebraico/croato
+    # e il turn detector si spegneva ("does not support language hr").
+    stt_lingua = lingua if CONFIG.stt_lingua == "chiosco" and lingua in STT_LINGUE_DEEPGRAM else "multi"
+    logger.info("STT: nova-3 lingua=%s", stt_lingua)
+
     session = AgentSession(
-        # STT multilingua con rilevamento lingua.
-        stt=deepgram.STT(model="nova-3", language="multi"),
+        stt=deepgram.STT(model="nova-3", language=stt_lingua),
         # Cervello: Claude (tool calling + ragionamento).
         llm=crea_llm(),
         # Voce: ElevenLabs, Cartesia/Inworld (LiveKit Inference) e/o Deepgram
@@ -242,17 +253,46 @@ async def entrypoint(ctx: agents.JobContext) -> None:
     # Con l'identity fissata, entrata/uscita del receptionist sono ininfluenti
     # e la sessione si chiude solo quando si scollega il CHIOSCO.
     chiosco_id = meta.get("chiosco_id")
+    agent = ReceptionistAgent(
+        instructions=istruzioni, stato=stato,
+        backend=backend, schermo=schermo, lingua=lingua, config=CONFIG,
+        walkin=walkin, verifica_documento=verifica_documento,
+    )
+
+    # Comandi toccati dall'ospite sullo schermo del chiosco (topic ai_cmd),
+    # es. «Parla con il receptionist»: Laravel ha già fatto suonare la
+    # campanella, qui l'agent lo dice a voce e resta in linea.
+    @ctx.room.on("data_received")
+    def _on_data(pkt) -> None:
+        try:
+            mittente = getattr(getattr(pkt, "participant", None), "identity", "") or ""
+            if chiosco_id and mittente and mittente != f"kiosk-{chiosco_id}":
+                return
+            if getattr(pkt, "topic", None) not in (None, "", "ai_cmd"):
+                return
+            msg = json.loads(bytes(pkt.data).decode("utf-8"))
+        except Exception:
+            return
+        if isinstance(msg, dict) and msg.get("topic") == "ai_cmd":
+            asyncio.create_task(agent.comando_ospite(str(msg.get("tipo") or "")))
+
     await session.start(
         room=ctx.room,
-        agent=ReceptionistAgent(
-            instructions=istruzioni, stato=stato,
-            backend=backend, schermo=schermo, lingua=lingua, config=CONFIG,
-            walkin=walkin, verifica_documento=verifica_documento,
-        ),
+        agent=agent,
         room_input_options=RoomInputOptions(
             participant_identity=f"kiosk-{chiosco_id}" if chiosco_id else None,
         ),
     )
+
+    # Diario della conversazione nel log (prima si vedevano solo i tool: dopo
+    # una foto non si capiva se Alice avesse parlato o fosse rimasta muta).
+    @session.on("conversation_item_added")
+    def _on_item(ev) -> None:
+        item = getattr(ev, "item", None)
+        testo = (getattr(item, "text_content", None) or "").replace("\n", " ").strip()
+        if testo:
+            chi = "ospite" if getattr(item, "role", "") == "user" else "alice"
+            logger.info("%s: %s", chi, testo[:300])
 
     # Sessione chiusa (ospite/chiosco scollegato, close_on_disconnect): il job
     # deve terminare SUBITO così la shutdown callback chiude la sessione lato

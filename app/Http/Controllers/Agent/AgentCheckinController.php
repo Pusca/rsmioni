@@ -480,6 +480,12 @@ class AgentCheckinController extends Controller
      * Avvia l'acquisizione del documento sul chiosco: la schermata kiosk
      * mostra il riquadro guida e l'ospite scatta fronte e retro. Riusa il
      * flusso esistente (cache acquisizione_pendente + upload kiosk).
+     *
+     * Un documento per OGNI adulto: `numero`/`totale` numerano la richiesta
+     * (titolo «ospite 2 di 3» sullo schermo e sul documento salvato) e ogni
+     * richiesta ha un `richiesta_id`, così l'annulla tardivo del chiosco per
+     * la foto precedente non chiude la schermata appena riaperta per il
+     * prossimo ospite.
      */
     public function avviaAcquisizione(Request $request): JsonResponse
     {
@@ -488,22 +494,47 @@ class AgentCheckinController extends Controller
             return response()->json(['error' => 'Sessione AI non trovata o scaduta.'], 404);
         }
 
+        $validated = $request->validate([
+            'lingua' => ['nullable', 'string', 'max:5'],
+            'numero' => ['nullable', 'integer', 'min:1', 'max:10'],
+            'totale' => ['nullable', 'integer', 'min:1', 'max:10'],
+        ]);
+
         $form = $this->sessioni->form($request->session_id);
         if (empty($form['prenotazione_id'])) {
             return response()->json(['error' => 'Prenotazione non ancora salvata: salvala prima del documento.'], 422);
         }
 
+        $numero = (int) ($validated['numero'] ?? 1);
+        $totale = max($numero, (int) ($validated['totale'] ?? 1));
+        $titolo = $totale > 1 ? "Documento d'identità · ospite {$numero} di {$totale}" : "Documento d'identità";
+        $richiestaId = (string) Str::uuid();
+
         Cache::put("acquisizione_pendente:chiosco_{$sessione['chiosco_id']}", [
             'prenotazione_id' => $form['prenotazione_id'],
-            'titolo'          => 'Documento d\'identità',
-            'lingua'          => $request->input('lingua', 'it'),
+            'titolo'          => $titolo,
+            'lingua'          => $validated['lingua'] ?? 'it',
             'tipo_documento'  => 'carta_identita',
             'fronte_retro'    => true,
+            'richiesta_id'    => $richiestaId,
+            'numero'          => $numero,
+            'totale'          => $totale,
         ], 300);
         Cache::forget("acquisizione_completata:chiosco_{$sessione['chiosco_id']}");
-        $this->audit('acquisizione.avvia', $request, $sessione, true, ['prenotazione_id' => $form['prenotazione_id']]);
 
-        return response()->json(['ok' => true]);
+        // Prima foto della sessione: da qui in poi i documenti della prenotazione
+        // appartengono a QUESTO check-in (serve a documentoImmagine per scegliere
+        // l'intestatario, non un documento caricato in passato).
+        if (empty($form['documenti_da'])) {
+            $this->sessioni->aggiornaForm($request->session_id, ['documenti_da' => now()->toIso8601String()]);
+        }
+        $this->audit('acquisizione.avvia', $request, $sessione, true, [
+            'prenotazione_id' => $form['prenotazione_id'], 'numero' => $numero, 'totale' => $totale,
+        ]);
+
+        return response()->json([
+            'ok' => true, 'richiesta_id' => $richiestaId, 'titolo' => $titolo, 'numero' => $numero, 'totale' => $totale,
+        ]);
     }
 
     /**
@@ -567,17 +598,24 @@ class AgentCheckinController extends Controller
             return response()->json(['error' => 'Prenotazione non ancora salvata.'], 422);
         }
 
-        $doc = \App\Models\Documento::where('contesto_tipo', \App\Enums\ContestoDocumento::Prenotazione)
+        $immagini = fn () => Documento::where('contesto_tipo', ContestoDocumento::Prenotazione)
             ->where('contesto_id', $form['prenotazione_id'])
-            ->whereIn('estensione', ['jpg', 'jpeg', 'png'])
-            ->where('titolo', 'like', '%fronte%')
-            ->orderByDesc('created_at')
-            ->first()
-            ?? \App\Models\Documento::where('contesto_tipo', \App\Enums\ContestoDocumento::Prenotazione)
-                ->where('contesto_id', $form['prenotazione_id'])
-                ->whereIn('estensione', ['jpg', 'jpeg', 'png'])
-                ->orderByDesc('created_at')
-                ->first();
+            ->whereIn('estensione', ['jpg', 'jpeg', 'png']);
+
+        // Più adulti = più documenti: l'intestatario è l'OSPITE 1 di questa
+        // sessione (l'ultima sua foto, se l'ha rifatta), non l'ultimo documento
+        // caricato. Con un solo ospite vale l'ultimo fronte della sessione.
+        $doc = null;
+        if (! empty($form['documenti_da'])) {
+            $sessioneQ = fn () => $immagini()
+                ->where('created_at', '>=', Carbon::parse($form['documenti_da'])->subSeconds(5))
+                ->where('titolo', 'like', '%fronte%');
+            $doc = $sessioneQ()->where('titolo', 'like', '%ospite 1 di%')->orderByDesc('created_at')->first()
+                ?? $sessioneQ()->orderByDesc('created_at')->first();
+        }
+        $doc = $doc
+            ?? $immagini()->where('titolo', 'like', '%fronte%')->orderByDesc('created_at')->first()
+            ?? $immagini()->orderByDesc('created_at')->first();
 
         if (! $doc || ! \Illuminate\Support\Facades\Storage::disk('local')->exists($doc->storage_path)) {
             return response()->json(['error' => 'Nessun documento acquisito trovato per questa prenotazione.'], 404);

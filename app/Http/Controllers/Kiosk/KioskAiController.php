@@ -25,6 +25,12 @@ use Illuminate\Validation\Rule;
  *   dispaccia l'agent AI sulla stanza. Il chiosco si connette col normale
  *   polling del token LiveKit.
  *
+ * POST /kiosk/ai/aiuto
+ *   L'ospite tocca «Parla con il receptionist» DURANTE la sessione con
+ *   l'assistente: campanella e badge in portineria (stesso canale della
+ *   richiesta fatta dall'agent), la sessione resta dell'AI finché un
+ *   receptionist non preme "Subentra".
+ *
  * POST /kiosk/ai/termina
  *   L'ospite chiude la conversazione: elimina la sessione e torna Idle.
  */
@@ -142,6 +148,25 @@ class KioskAiController extends Controller
         $scelta    = $scelta ? strtolower($scelta) : null;
 
         return $scelta && in_array($scelta, $abilitate, true) ? $scelta : $default;
+    }
+
+    public function aiuto(): JsonResponse
+    {
+        $chioscoId = session('chiosco_id');
+        if (! $chioscoId) {
+            return response()->json(['error' => 'Nessun chiosco selezionato.'], 403);
+        }
+
+        $chiosco   = Chiosco::findOrFail($chioscoId);
+        $sessionId = $this->sessioni->sessioneAttivaPerChiosco($chiosco->id);
+        $sessione  = $sessionId ? $this->sessioni->trova($sessionId) : null;
+        if (! $sessione || ($sessione['gestita_da'] ?? 'umano') !== 'ai') {
+            return response()->json(['error' => 'Nessuna conversazione con l\'assistente in corso.'], 422);
+        }
+
+        $this->portineria->segnaRichiestaAiuto($chiosco, 'L\'ospite ha toccato «Parla con il receptionist» sul chiosco');
+
+        return response()->json(['ok' => true]);
     }
 
     public function termina(): JsonResponse

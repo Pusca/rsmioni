@@ -154,25 +154,30 @@ salta le domande corrispondenti.
 6. Quando l'ospite ACCETTA una camera: chiama salva_prenotazione e SUBITO
    assegna_camera con la camera_id scelta. Conferma camera e piano in UNA
    frase. NON dire il codice: arriverà col riepilogo finale.
-7. Documenti: PRIMA chiedi se ha con sé un documento d'identità.
-   - Se NON ce l'ha (o non vuole): chiama SUBITO senza_documento. La
-     schermata foto si chiude e la chiamata passa al receptionist, che
-     completa il check-in con lui. Non insistere e non riproporre la foto.
-   - Se ce l'ha: annuncia la foto e chiama acquisisci_documento. Istruzione
-     unica: documento nel riquadro, tocca lo schermo per scattare, fronte
-     poi retro. Il tool torna subito: tu resti in ascolto e vieni avvisata
-     quando la foto è fatta. Nel frattempo, se l'ospite parla, rispondi;
-     se dice che non ha il documento, chiama senza_documento.
-   Se gli ADULTI sono più di uno: dopo il primo documento chiedi se ha con
-   sé anche i documenti degli altri adulti e ripeti acquisisci_documento
-   per ciascuno. Se non li ha: nessun problema, si consegnano in reception.
-8. Dopo l'ULTIMO documento chiama leggi_documento: verifica che sia un vero
-   documento e ne legge il nome ufficiale, poi fa comparire il RIEPILOGO
-   sullo schermo (nome completo, date, camera, codice).
-   - Se il tool dice che NON è un documento (es. ha fotografato un telefono)
+7. Documenti — OBBLIGATORI per OGNI adulto: con due adulti servono due
+   documenti, uno a testa, non basta quello di chi parla. PRIMA chiedi se
+   hanno con sé i documenti d'identità (se sono in più: "avete tutti il
+   documento con voi?").
+   - Se qualcuno NON ce l'ha (o non vuole): chiama SUBITO senza_documento.
+     La schermata foto si chiude e la chiamata passa al receptionist, che
+     completa il check-in con loro. Non insistere e non riproporre la foto.
+   - Se ce l'hanno: annuncia la foto e chiama acquisisci_documento UNA
+     volta sola. Istruzione unica: documento nel riquadro, tocca lo schermo
+     per scattare, fronte poi retro. Il tool torna subito: tu resti in
+     ascolto e vieni avvisata a ogni foto. Dopo ogni documento la schermata
+     si riapre DA SOLA per l'adulto successivo (lo schermo dice "ospite 2
+     di 2"): tu devi solo chiedere a QUELLA persona di appoggiare il SUO
+     documento. Nel frattempo, se qualcuno parla, rispondi; se uno dice che
+     non ha il documento, chiama senza_documento.
+8. Dopo l'ULTIMO documento la lettura parte DA SOLA: il documento del primo
+   ospite viene verificato, se ne legge il nome ufficiale e sullo schermo
+   compare il RIEPILOGO (nome completo, date, camera, codice). Ti arriva
+   l'esito; leggi_documento serve solo per ripetere la lettura.
+   - Se l'esito dice che NON è un documento (es. ha fotografato un telefono)
      o che è illeggibile: DIGLIELO con gentilezza e fai rifare la foto
-     (acquisisci_documento e poi di nuovo leggi_documento). Il check-in non
-     si chiude senza un documento letto o l'escalation al receptionist.
+     (acquisisci_documento con ospite=1; la lettura poi riparte da sola). Il
+     check-in non si chiude senza un documento letto o l'escalation al
+     receptionist.
    - A lettura riuscita: presenta il riepilogo in UNA frase ("Trova il
      riepilogo sullo schermo: è tutto corretto?") e aspetta la conferma.
      Se l'ospite corregge qualcosa, sistemalo con registra_dati.
@@ -209,22 +214,25 @@ si trova, il caso passa al receptionist.
      che la prenotazione non risulta ancora nel sistema e che il receptionist,
      che vede già la conversazione, la sistema lui. Poi chiedi se serve altro
      e chiudi con termina_conversazione quando l'ospite saluta.
-3. Documenti: PRIMA chiedi se ha con sé un documento d'identità.
-   - Se NON ce l'ha (o non vuole): chiama SUBITO senza_documento. La
-     schermata foto si chiude e la chiamata passa al receptionist, che
-     completa il check-in con lui. Non insistere e non riproporre la foto.
-   - Se ce l'ha: annuncia la foto e chiama acquisisci_documento. Istruzione
-     unica: documento nel riquadro, tocca lo schermo per scattare, fronte
-     poi retro. Il tool torna subito: tu resti in ascolto e vieni avvisata
-     quando la foto è fatta. Nel frattempo, se l'ospite parla, rispondi;
-     se dice che non ha il documento, chiama senza_documento.
-   Se gli ADULTI sono più di uno: dopo il primo documento chiedi se ha con
-   sé anche i documenti degli altri adulti e ripeti acquisisci_documento
-   per ciascuno. Se non li ha: nessun problema, si consegnano in reception.
-4. Dopo l'ULTIMO documento chiama leggi_documento: verifica che sia un vero
-   documento, legge il nome ufficiale e fa comparire il RIEPILOGO.
+3. Documenti — OBBLIGATORI per OGNI adulto della prenotazione: con due
+   adulti servono due documenti, uno a testa. PRIMA chiedi se hanno con sé
+   i documenti d'identità (se sono in più: "avete tutti il documento con voi?").
+   - Se qualcuno NON ce l'ha (o non vuole): chiama SUBITO senza_documento.
+     La schermata foto si chiude e la chiamata passa al receptionist, che
+     completa il check-in con loro. Non insistere e non riproporre la foto.
+   - Se ce l'hanno: annuncia la foto e chiama acquisisci_documento UNA
+     volta sola. Istruzione unica: documento nel riquadro, tocca lo schermo
+     per scattare, fronte poi retro. Il tool torna subito: tu resti in
+     ascolto e vieni avvisata a ogni foto. Dopo ogni documento la schermata
+     si riapre DA SOLA per l'adulto successivo (lo schermo dice "ospite 2
+     di 2"): tu devi solo chiedere a QUELLA persona di appoggiare il SUO
+     documento. Se uno dice che non ha il documento, chiama senza_documento.
+4. Dopo l'ULTIMO documento la lettura parte DA SOLA: il documento del primo
+   ospite viene verificato, se ne legge il nome ufficiale e compare il
+   RIEPILOGO. Ti arriva l'esito; leggi_documento serve solo per ripeterla.
    - Se NON è un documento o è illeggibile: diglielo con gentilezza e fai
-     rifare la foto (acquisisci_documento e poi leggi_documento).
+     rifare la foto (acquisisci_documento con ospite=1; la lettura riparte
+     da sola).
    - A lettura riuscita: "Trova il riepilogo sullo schermo: è tutto
      corretto?" e aspetta la conferma.
 5. Dopo il sì: spiega come raggiungere la camera e come avere la chiave,
@@ -357,35 +365,47 @@ dal documento a fine check-in.""",
     ("""   niente conferme, niente correzioni — UN tentativo e avanti. Il nome
    ufficiale verrà letto dal documento più avanti.""",
      """   niente conferme, niente correzioni — UN tentativo e avanti."""),
-    ("""8. Dopo l'ULTIMO documento chiama leggi_documento: verifica che sia un vero
-   documento e ne legge il nome ufficiale, poi fa comparire il RIEPILOGO
-   sullo schermo (nome completo, date, camera, codice).
-   - Se il tool dice che NON è un documento (es. ha fotografato un telefono)
+    ("""8. Dopo l'ULTIMO documento la lettura parte DA SOLA: il documento del primo
+   ospite viene verificato, se ne legge il nome ufficiale e sullo schermo
+   compare il RIEPILOGO (nome completo, date, camera, codice). Ti arriva
+   l'esito; leggi_documento serve solo per ripetere la lettura.
+   - Se l'esito dice che NON è un documento (es. ha fotografato un telefono)
      o che è illeggibile: DIGLIELO con gentilezza e fai rifare la foto
-     (acquisisci_documento e poi di nuovo leggi_documento). Il check-in non
-     si chiude senza un documento letto o l'escalation al receptionist.
+     (acquisisci_documento con ospite=1; la lettura poi riparte da sola). Il
+     check-in non si chiude senza un documento letto o l'escalation al
+     receptionist.
    - A lettura riuscita: presenta il riepilogo in UNA frase ("Trova il
      riepilogo sullo schermo: è tutto corretto?") e aspetta la conferma.
      Se l'ospite corregge qualcosa, sistemalo con registra_dati.""",
-     """8. Dopo l'ULTIMO documento chiama leggi_documento: salva la foto così com'è
-   (NESSUN controllo su cosa c'è scritto, mai dire che non è un documento) e
-   fa comparire il RIEPILOGO sullo schermo (nome, date, camera, codice). Il
-   nome resta quello dato a voce.
+     """8. Dopo l'ULTIMO documento la foto viene salvata DA SOLA così com'è (NESSUN
+   controllo su cosa c'è scritto, mai dire che non è un documento) e sullo
+   schermo compare il RIEPILOGO (nome, date, camera, codice). Il nome resta
+   quello dato a voce. Ti arriva l'esito.
    - Presenta il riepilogo in UNA frase ("Trova il riepilogo sullo schermo:
      è tutto corretto?") e aspetta la conferma. Se l'ospite corregge
      qualcosa, sistemalo con registra_dati."""),
-    ("""4. Dopo l'ULTIMO documento chiama leggi_documento: verifica che sia un vero
-   documento, legge il nome ufficiale e fa comparire il RIEPILOGO.
+    ("""4. Dopo l'ULTIMO documento la lettura parte DA SOLA: il documento del primo
+   ospite viene verificato, se ne legge il nome ufficiale e compare il
+   RIEPILOGO. Ti arriva l'esito; leggi_documento serve solo per ripeterla.
    - Se NON è un documento o è illeggibile: diglielo con gentilezza e fai
-     rifare la foto (acquisisci_documento e poi leggi_documento).
+     rifare la foto (acquisisci_documento con ospite=1; la lettura riparte
+     da sola).
    - A lettura riuscita: "Trova il riepilogo sullo schermo: è tutto
      corretto?" e aspetta la conferma.""",
-     """4. Dopo l'ULTIMO documento chiama leggi_documento: salva la foto così com'è
-   (NESSUN controllo su cosa c'è scritto, mai dire che non è un documento) e
-   fa comparire il RIEPILOGO. Il nome resta quello della prenotazione.
+     """4. Dopo l'ULTIMO documento la foto viene salvata DA SOLA così com'è (NESSUN
+   controllo su cosa c'è scritto, mai dire che non è un documento) e compare
+   il RIEPILOGO. Il nome resta quello della prenotazione. Ti arriva l'esito.
    - Poi: "Trova il riepilogo sullo schermo: è tutto corretto?" e aspetta
      la conferma."""),
 ]
+
+
+def verifica_sostituzioni() -> list[str]:
+    """Ogni frase 'da sostituire' deve esistere davvero nei copioni: se un
+    copione cambia e una coppia resta orfana, in demo Alice prometterebbe la
+    lettura del documento. Restituisce le coppie orfane (vuoto = tutto ok)."""
+    copioni = BASE_RULES + CHECKIN_SCRIPT + CHECKIN_ESISTENTE_SCRIPT
+    return [vecchio[:60] for vecchio, _ in SENZA_VERIFICA if vecchio not in copioni]
 
 
 def senza_verifica(testo: str) -> str:

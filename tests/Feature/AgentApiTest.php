@@ -436,6 +436,79 @@ class AgentApiTest extends TestCase
             ->assertJsonPath('era_pendente', false);
     }
 
+    public function test_acquisizione_per_piu_ospiti_numera_le_richieste_e_le_annulla_solo_con_il_loro_id(): void
+    {
+        $this->accountChiosco->hotels()->attach($this->hotel->id);
+        $this->agentPost('/agent/form', [
+            'check_in' => now()->toDateString(), 'check_out' => now()->addDay()->toDateString(), 'adulti' => 2,
+        ]);
+        $this->agentPost('/agent/prenotazione')->assertOk();
+
+        $prima = $this->agentPost('/agent/acquisizione', ['lingua' => 'it', 'numero' => 1, 'totale' => 2])->assertOk();
+        $this->assertSame("Documento d'identità · ospite 1 di 2", $prima->json('titolo'));
+        $idPrima = $prima->json('richiesta_id');
+        $this->assertNotEmpty($idPrima);
+
+        $kiosk = fn () => $this->actingAs($this->accountChiosco)->withSession(['chiosco_id' => $this->chiosco->id]);
+        $kiosk()->getJson('/kiosk/acquisizione-pendente')->assertOk()
+            ->assertJsonPath('richiesta_id', $idPrima)
+            ->assertJsonPath('numero', 1)
+            ->assertJsonPath('totale', 2);
+
+        // Il worker riapre la schermata per il secondo ospite
+        $idSeconda = $this->agentPost('/agent/acquisizione', ['lingua' => 'it', 'numero' => 2, 'totale' => 2])
+            ->assertOk()->json('richiesta_id');
+        $this->assertNotSame($idPrima, $idSeconda);
+
+        // L'annulla "tardivo" del chiosco per la prima foto NON chiude la seconda
+        $kiosk()->deleteJson('/kiosk/acquisizioni', ['richiesta_id' => $idPrima])->assertOk();
+        $this->agentPost('/agent/acquisizione/stato')->assertJsonPath('stato', 'pendente');
+
+        $kiosk()->deleteJson('/kiosk/acquisizioni', ['richiesta_id' => $idSeconda])->assertOk();
+        $this->agentPost('/agent/acquisizione/stato')->assertJsonPath('stato', 'nessuna');
+    }
+
+    public function test_la_lettura_usa_il_documento_del_primo_ospite_della_sessione(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('local');
+        $this->agentPost('/agent/form', [
+            'check_in' => now()->toDateString(), 'check_out' => now()->addDay()->toDateString(), 'adulti' => 2,
+        ]);
+        $prenId = $this->agentPost('/agent/prenotazione')->assertOk()->json('prenotazione_id');
+
+        // Documento vecchio sulla prenotazione (caricato prima della sessione): ignorato
+        $this->documentoFronte($prenId, 'vecchio', "Documento d'identità (fronte)", now()->subHour());
+
+        $this->agentPost('/agent/acquisizione', ['numero' => 1, 'totale' => 2])->assertOk();
+        $this->documentoFronte($prenId, 'ospite1', "Documento d'identità · ospite 1 di 2 (fronte)", now()->addSeconds(10));
+        $this->documentoFronte($prenId, 'ospite2', "Documento d'identità · ospite 2 di 2 (fronte)", now()->addSeconds(40));
+
+        $r = $this->agentPost('/agent/documento/immagine')->assertOk();
+        $this->assertSame('ospite1', base64_decode($r->json('immagine')), 'l\'intestatario è il primo ospite, non l\'ultimo documento');
+
+        // Foto dell'ospite 1 rifatta (es. la prima non era un documento): vale l'ultima
+        $this->documentoFronte($prenId, 'ospite1bis', "Documento d'identità · ospite 1 di 2 (fronte)", now()->addSeconds(70));
+        $r = $this->agentPost('/agent/documento/immagine')->assertOk();
+        $this->assertSame('ospite1bis', base64_decode($r->json('immagine')));
+    }
+
+    private function documentoFronte(string $prenId, string $contenuto, string $titolo, $quando): void
+    {
+        \Illuminate\Support\Facades\Storage::disk('local')->put("documenti/test/{$contenuto}.jpg", $contenuto);
+        $doc = \App\Models\Documento::create([
+            'contesto_tipo'       => 'prenotazione',
+            'contesto_id'         => $prenId,
+            'titolo'              => $titolo,
+            'estensione'          => 'jpg',
+            'storage_path'        => "documenti/test/{$contenuto}.jpg",
+            'lingua'              => 'it',
+            'tipo_documento'      => 'carta_identita',
+            'inserito_da'         => $this->accountChiosco->id,
+            'inserito_da_profilo' => 'chiosco',
+        ]);
+        $doc->forceFill(['created_at' => $quando, 'updated_at' => $quando])->saveQuietly();
+    }
+
     // ── Chiusura sessione ──────────────────────────────────────────────────
 
     public function test_termina_chiude_la_sessione(): void

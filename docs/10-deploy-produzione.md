@@ -108,6 +108,9 @@ LLM_EFFORT                                           # opz., default low (veloci
 OPENROUTER_API_KEY / OPENROUTER_MODEL / VISION_MODEL # opz., riserva via OpenRouter (default anthropic/claude-sonnet-4.6)
 LLM_MAX_TOKENS                                       # opz., default 600
 DEEPGRAM_API_KEY                                     # voce → testo (e testo → voce con Aura-2)
+STT_LANGUAGE                                         # opz., default chiosco = trascrive nella lingua scelta dall'ospite;
+                                                     #   auto = rilevamento fra tutte le lingue (30/10/2026: dava trascrizioni
+                                                     #   in ebraico/croato su rumore e italiano)
 TTS_PROVIDER                                         # opz., default auto = ElevenLabs se c'è la chiave, poi Deepgram
                                                      #   di riserva; "deepgram" = solo Deepgram (23/10/2026: in prod
                                                      #   finché l'abbonamento ElevenLabs resta sospeso per pagamento).

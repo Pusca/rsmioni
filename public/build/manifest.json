@@ -1,65 +1,65 @@
 {
-  "_CameraForm-DPTM-Zfs.js": {
-    "file": "assets/CameraForm-DPTM-Zfs.js",
+  "_CameraForm-C3j9MQj1.js": {
+    "file": "assets/CameraForm-C3j9MQj1.js",
     "name": "CameraForm",
     "imports": [
       "resources/js/app.tsx"
     ]
   },
-  "_GestoreHotelLayout-pNXrwKlr.js": {
-    "file": "assets/GestoreHotelLayout-pNXrwKlr.js",
+  "_GestoreHotelLayout-BKNzPc3K.js": {
+    "file": "assets/GestoreHotelLayout-BKNzPc3K.js",
     "name": "GestoreHotelLayout",
     "imports": [
       "resources/js/app.tsx",
-      "_HotelSelector-BC1rQDWd.js"
+      "_HotelSelector-5UhnmRis.js"
     ]
   },
-  "_GuestLayout-C6dJD5Yb.js": {
-    "file": "assets/GuestLayout-C6dJD5Yb.js",
+  "_GuestLayout-055GS2hn.js": {
+    "file": "assets/GuestLayout-055GS2hn.js",
     "name": "GuestLayout",
     "imports": [
       "resources/js/app.tsx"
     ]
   },
-  "_HotelSelector-BC1rQDWd.js": {
-    "file": "assets/HotelSelector-BC1rQDWd.js",
+  "_HotelSelector-5UhnmRis.js": {
+    "file": "assets/HotelSelector-5UhnmRis.js",
     "name": "HotelSelector",
     "imports": [
       "resources/js/app.tsx"
     ]
   },
-  "_InquadraturaDocumento-LSdCTuXp.js": {
-    "file": "assets/InquadraturaDocumento-LSdCTuXp.js",
+  "_InquadraturaDocumento-NIrklxPf.js": {
+    "file": "assets/InquadraturaDocumento-NIrklxPf.js",
     "name": "InquadraturaDocumento",
     "imports": [
       "resources/js/app.tsx"
     ]
   },
-  "_KioskLayout-D9nMSPvk.js": {
-    "file": "assets/KioskLayout-D9nMSPvk.js",
+  "_KioskLayout-DLDyMLe0.js": {
+    "file": "assets/KioskLayout-DLDyMLe0.js",
     "name": "KioskLayout",
     "imports": [
       "resources/js/app.tsx"
     ]
   },
-  "_PrenotazioneForm-Do7iGKlL.js": {
-    "file": "assets/PrenotazioneForm-Do7iGKlL.js",
+  "_PrenotazioneForm-D7-Z3sx2.js": {
+    "file": "assets/PrenotazioneForm-D7-Z3sx2.js",
     "name": "PrenotazioneForm",
     "imports": [
       "resources/js/app.tsx"
     ]
   },
-  "_ReceptionistLayout-Dx__yo1_.js": {
-    "file": "assets/ReceptionistLayout-Dx__yo1_.js",
+  "_ReceptionistLayout-BtKzEZC3.js": {
+    "file": "assets/ReceptionistLayout-BtKzEZC3.js",
     "name": "ReceptionistLayout",
     "imports": [
       "resources/js/app.tsx",
-      "_InquadraturaDocumento-LSdCTuXp.js",
-      "_HotelSelector-BC1rQDWd.js"
+      "_InquadraturaDocumento-NIrklxPf.js",
+      "_HotelSelector-5UhnmRis.js"
     ]
   },
-  "_SezioneDocumenti-CNnaOqxX.js": {
-    "file": "assets/SezioneDocumenti-CNnaOqxX.js",
+  "_SezioneDocumenti-D1w7Vyl1.js": {
+    "file": "assets/SezioneDocumenti-D1w7Vyl1.js",
     "name": "SezioneDocumenti",
     "imports": [
       "resources/js/app.tsx"
@@ -75,284 +75,284 @@
     "isEntry": true
   },
   "resources/js/Pages/Auth/CambioPassword.tsx": {
-    "file": "assets/CambioPassword-BI1AVbSH.js",
+    "file": "assets/CambioPassword-Da8oULra.js",
     "name": "CambioPassword",
     "src": "resources/js/Pages/Auth/CambioPassword.tsx",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.tsx",
-      "_ReceptionistLayout-Dx__yo1_.js",
-      "_GestoreHotelLayout-pNXrwKlr.js"
+      "_ReceptionistLayout-BtKzEZC3.js",
+      "_GestoreHotelLayout-BKNzPc3K.js"
     ]
   },
   "resources/js/Pages/Auth/Login.tsx": {
-    "file": "assets/Login-CVlor9q3.js",
+    "file": "assets/Login-CR3bm2kG.js",
     "name": "Login",
     "src": "resources/js/Pages/Auth/Login.tsx",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.tsx",
-      "_GuestLayout-C6dJD5Yb.js"
+      "_GuestLayout-055GS2hn.js"
     ]
   },
   "resources/js/Pages/Auth/SelezioneChiosco.tsx": {
-    "file": "assets/SelezioneChiosco-CD45EVXz.js",
+    "file": "assets/SelezioneChiosco-J43FotN0.js",
     "name": "SelezioneChiosco",
     "src": "resources/js/Pages/Auth/SelezioneChiosco.tsx",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.tsx",
-      "_GuestLayout-C6dJD5Yb.js"
+      "_GuestLayout-055GS2hn.js"
     ]
   },
   "resources/js/Pages/Camere/Create.tsx": {
-    "file": "assets/Create-BYNwiQ3_.js",
+    "file": "assets/Create-6mfikb_m.js",
     "name": "Create",
     "src": "resources/js/Pages/Camere/Create.tsx",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.tsx",
-      "_CameraForm-DPTM-Zfs.js",
-      "_GestoreHotelLayout-pNXrwKlr.js"
+      "_CameraForm-C3j9MQj1.js",
+      "_GestoreHotelLayout-BKNzPc3K.js"
     ]
   },
   "resources/js/Pages/Camere/Edit.tsx": {
-    "file": "assets/Edit-i9z1Y39q.js",
+    "file": "assets/Edit-DhM48iRa.js",
     "name": "Edit",
     "src": "resources/js/Pages/Camere/Edit.tsx",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.tsx",
-      "_CameraForm-DPTM-Zfs.js",
-      "_GestoreHotelLayout-pNXrwKlr.js"
+      "_CameraForm-C3j9MQj1.js",
+      "_GestoreHotelLayout-BKNzPc3K.js"
     ]
   },
   "resources/js/Pages/Camere/Index.tsx": {
-    "file": "assets/Index-By9P6vJV.js",
+    "file": "assets/Index-ntb56Ajd.js",
     "name": "Index",
     "src": "resources/js/Pages/Camere/Index.tsx",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.tsx",
-      "_GestoreHotelLayout-pNXrwKlr.js"
+      "_GestoreHotelLayout-BKNzPc3K.js"
     ]
   },
   "resources/js/Pages/Camere/Show.tsx": {
-    "file": "assets/Show-BYMpSWUG.js",
+    "file": "assets/Show-BD-fxlK-.js",
     "name": "Show",
     "src": "resources/js/Pages/Camere/Show.tsx",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.tsx",
-      "_SezioneDocumenti-CNnaOqxX.js",
-      "_GestoreHotelLayout-pNXrwKlr.js"
+      "_SezioneDocumenti-D1w7Vyl1.js",
+      "_GestoreHotelLayout-BKNzPc3K.js"
     ]
   },
   "resources/js/Pages/Configurazioni/Chioschi.tsx": {
-    "file": "assets/Chioschi-Byo0x1kQ.js",
+    "file": "assets/Chioschi-CKGJ4n-R.js",
     "name": "Chioschi",
     "src": "resources/js/Pages/Configurazioni/Chioschi.tsx",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.tsx",
-      "_GestoreHotelLayout-pNXrwKlr.js"
+      "_GestoreHotelLayout-BKNzPc3K.js"
     ]
   },
   "resources/js/Pages/Configurazioni/ChioscoEdit.tsx": {
-    "file": "assets/ChioscoEdit-DG4CRNtJ.js",
+    "file": "assets/ChioscoEdit-CKEWCtVL.js",
     "name": "ChioscoEdit",
     "src": "resources/js/Pages/Configurazioni/ChioscoEdit.tsx",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.tsx",
-      "_GestoreHotelLayout-pNXrwKlr.js"
+      "_GestoreHotelLayout-BKNzPc3K.js"
     ]
   },
   "resources/js/Pages/Configurazioni/Collaudo.tsx": {
-    "file": "assets/Collaudo-Dk2tcR6s.js",
+    "file": "assets/Collaudo-BaY85wz_.js",
     "name": "Collaudo",
     "src": "resources/js/Pages/Configurazioni/Collaudo.tsx",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.tsx",
-      "_GestoreHotelLayout-pNXrwKlr.js"
+      "_GestoreHotelLayout-BKNzPc3K.js"
     ]
   },
   "resources/js/Pages/Configurazioni/Diagnostica.tsx": {
-    "file": "assets/Diagnostica-CAC6O4w3.js",
+    "file": "assets/Diagnostica-DJsii-rZ.js",
     "name": "Diagnostica",
     "src": "resources/js/Pages/Configurazioni/Diagnostica.tsx",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.tsx",
-      "_GestoreHotelLayout-pNXrwKlr.js"
+      "_GestoreHotelLayout-BKNzPc3K.js"
     ]
   },
   "resources/js/Pages/Configurazioni/Hotel.tsx": {
-    "file": "assets/Hotel-CurRKJiL.js",
+    "file": "assets/Hotel-Cm4husvR.js",
     "name": "Hotel",
     "src": "resources/js/Pages/Configurazioni/Hotel.tsx",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.tsx",
-      "_GestoreHotelLayout-pNXrwKlr.js"
+      "_GestoreHotelLayout-BKNzPc3K.js"
     ]
   },
   "resources/js/Pages/Configurazioni/Installazione.tsx": {
-    "file": "assets/Installazione-BOGABhSE.js",
+    "file": "assets/Installazione-DMxFsnyA.js",
     "name": "Installazione",
     "src": "resources/js/Pages/Configurazioni/Installazione.tsx",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.tsx",
-      "_GestoreHotelLayout-pNXrwKlr.js"
+      "_GestoreHotelLayout-BKNzPc3K.js"
     ]
   },
   "resources/js/Pages/Demo/Account.tsx": {
-    "file": "assets/Account-BJeZXCOq.js",
+    "file": "assets/Account-DVdrW3tI.js",
     "name": "Account",
     "src": "resources/js/Pages/Demo/Account.tsx",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.tsx",
-      "_GestoreHotelLayout-pNXrwKlr.js"
+      "_GestoreHotelLayout-BKNzPc3K.js"
     ]
   },
   "resources/js/Pages/Demo/Index.tsx": {
-    "file": "assets/Index-dJzZPaz_.js",
+    "file": "assets/Index-B9pxYqmE.js",
     "name": "Index",
     "src": "resources/js/Pages/Demo/Index.tsx",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.tsx",
-      "_GestoreHotelLayout-pNXrwKlr.js"
+      "_GestoreHotelLayout-BKNzPc3K.js"
     ]
   },
   "resources/js/Pages/Kiosk/Collaudo.tsx": {
-    "file": "assets/Collaudo-DAUuZba1.js",
+    "file": "assets/Collaudo-Cby8Qayf.js",
     "name": "Collaudo",
     "src": "resources/js/Pages/Kiosk/Collaudo.tsx",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.tsx",
-      "_KioskLayout-D9nMSPvk.js"
+      "_KioskLayout-DLDyMLe0.js"
     ]
   },
   "resources/js/Pages/Kiosk/Diagnostica.tsx": {
-    "file": "assets/Diagnostica-CKIBIIgO.js",
+    "file": "assets/Diagnostica-D53eoBhX.js",
     "name": "Diagnostica",
     "src": "resources/js/Pages/Kiosk/Diagnostica.tsx",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.tsx",
-      "_KioskLayout-D9nMSPvk.js"
+      "_KioskLayout-DLDyMLe0.js"
     ]
   },
   "resources/js/Pages/Kiosk/Index.tsx": {
-    "file": "assets/Index-DtXp5iNd.js",
+    "file": "assets/Index-w3TLWR9d.js",
     "name": "Index",
     "src": "resources/js/Pages/Kiosk/Index.tsx",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.tsx",
-      "_InquadraturaDocumento-LSdCTuXp.js",
-      "_KioskLayout-D9nMSPvk.js"
+      "_InquadraturaDocumento-NIrklxPf.js",
+      "_KioskLayout-DLDyMLe0.js"
     ]
   },
   "resources/js/Pages/Portineria/Index.tsx": {
-    "file": "assets/Index-Du0w_29L.js",
+    "file": "assets/Index-DBD2iJ9Z.js",
     "name": "Index",
     "src": "resources/js/Pages/Portineria/Index.tsx",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.tsx",
-      "_ReceptionistLayout-Dx__yo1_.js"
+      "_ReceptionistLayout-BtKzEZC3.js"
     ]
   },
   "resources/js/Pages/Prenotazioni/Create.tsx": {
-    "file": "assets/Create-DFzL5zVq.js",
+    "file": "assets/Create-DqmjhAg7.js",
     "name": "Create",
     "src": "resources/js/Pages/Prenotazioni/Create.tsx",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.tsx",
-      "_ReceptionistLayout-Dx__yo1_.js",
-      "_PrenotazioneForm-Do7iGKlL.js",
-      "_GestoreHotelLayout-pNXrwKlr.js"
+      "_ReceptionistLayout-BtKzEZC3.js",
+      "_PrenotazioneForm-D7-Z3sx2.js",
+      "_GestoreHotelLayout-BKNzPc3K.js"
     ]
   },
   "resources/js/Pages/Prenotazioni/Edit.tsx": {
-    "file": "assets/Edit-CnD6v_Dx.js",
+    "file": "assets/Edit-BqMAF-bE.js",
     "name": "Edit",
     "src": "resources/js/Pages/Prenotazioni/Edit.tsx",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.tsx",
-      "_ReceptionistLayout-Dx__yo1_.js",
-      "_PrenotazioneForm-Do7iGKlL.js",
-      "_GestoreHotelLayout-pNXrwKlr.js"
+      "_ReceptionistLayout-BtKzEZC3.js",
+      "_PrenotazioneForm-D7-Z3sx2.js",
+      "_GestoreHotelLayout-BKNzPc3K.js"
     ]
   },
   "resources/js/Pages/Prenotazioni/Index.tsx": {
-    "file": "assets/Index-CXM_fMo8.js",
+    "file": "assets/Index-DbKRnHHK.js",
     "name": "Index",
     "src": "resources/js/Pages/Prenotazioni/Index.tsx",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.tsx",
-      "_ReceptionistLayout-Dx__yo1_.js",
-      "_GestoreHotelLayout-pNXrwKlr.js"
+      "_ReceptionistLayout-BtKzEZC3.js",
+      "_GestoreHotelLayout-BKNzPc3K.js"
     ]
   },
   "resources/js/Pages/Prenotazioni/Show.tsx": {
-    "file": "assets/Show-AcX6FZF8.js",
+    "file": "assets/Show-B3mWsAio.js",
     "name": "Show",
     "src": "resources/js/Pages/Prenotazioni/Show.tsx",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.tsx",
-      "_SezioneDocumenti-CNnaOqxX.js",
-      "_ReceptionistLayout-Dx__yo1_.js",
-      "_GestoreHotelLayout-pNXrwKlr.js"
+      "_SezioneDocumenti-D1w7Vyl1.js",
+      "_ReceptionistLayout-BtKzEZC3.js",
+      "_GestoreHotelLayout-BKNzPc3K.js"
     ]
   },
   "resources/js/Pages/Regolamento/Edit.tsx": {
-    "file": "assets/Edit-BdYlxic5.js",
+    "file": "assets/Edit-BISp7hRH.js",
     "name": "Edit",
     "src": "resources/js/Pages/Regolamento/Edit.tsx",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.tsx",
-      "_GestoreHotelLayout-pNXrwKlr.js",
+      "_GestoreHotelLayout-BKNzPc3K.js",
       "resources/js/Pages/Regolamento/Index.tsx"
     ]
   },
   "resources/js/Pages/Regolamento/Index.tsx": {
-    "file": "assets/Index-B7PPSWtp.js",
+    "file": "assets/Index-Bg_slPfQ.js",
     "name": "Index",
     "src": "resources/js/Pages/Regolamento/Index.tsx",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.tsx",
-      "_ReceptionistLayout-Dx__yo1_.js",
-      "_GestoreHotelLayout-pNXrwKlr.js"
+      "_ReceptionistLayout-BtKzEZC3.js",
+      "_GestoreHotelLayout-BKNzPc3K.js"
     ]
   },
   "resources/js/Pages/Regolamento/Show.tsx": {
-    "file": "assets/Show-BI_BsJSB.js",
+    "file": "assets/Show-CoOkUo1m.js",
     "name": "Show",
     "src": "resources/js/Pages/Regolamento/Show.tsx",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.tsx",
-      "_SezioneDocumenti-CNnaOqxX.js",
-      "_ReceptionistLayout-Dx__yo1_.js",
-      "_GestoreHotelLayout-pNXrwKlr.js",
+      "_SezioneDocumenti-D1w7Vyl1.js",
+      "_ReceptionistLayout-BtKzEZC3.js",
+      "_GestoreHotelLayout-BKNzPc3K.js",
       "resources/js/Pages/Regolamento/Index.tsx"
     ]
   },
   "resources/js/app.tsx": {
-    "file": "assets/app-CFdMOMJG.js",
+    "file": "assets/app-CDWtCBm_.js",
     "name": "app",
     "src": "resources/js/app.tsx",
     "isEntry": true,

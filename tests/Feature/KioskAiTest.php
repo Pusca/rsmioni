@@ -195,6 +195,25 @@ class KioskAiTest extends TestCase
         $this->assertNull($sessioni->trova($vecchia), 'la sessione appesa va chiusa');
     }
 
+    public function test_parla_con_il_receptionist_durante_l_ai_suona_in_portineria(): void
+    {
+        $kiosk = fn () => $this->actingAs($this->account)->withSession(['chiosco_id' => $this->chiosco->id]);
+
+        // Senza una conversazione con l'assistente in corso la richiesta non ha senso
+        $kiosk()->postJson('/kiosk/ai/aiuto')->assertStatus(422);
+
+        $this->avvia()->assertOk();
+        $kiosk()->postJson('/kiosk/ai/aiuto')->assertOk()->assertJsonPath('ok', true);
+
+        $aiuto = app(PortineriaService::class)->richiestaAiuto($this->chiosco->id);
+        $this->assertNotNull($aiuto, 'la campanella deve suonare in portineria');
+        $this->assertStringContainsString('ospite', $aiuto['motivo']);
+        $this->assertNotNull(
+            collect(app(PortineriaService::class)->chioschiConStato([$this->hotel->id]))->first()['ai_handoff'],
+            'la cella del chiosco mostra la richiesta',
+        );
+    }
+
     public function test_non_interrompe_un_parlato_umano(): void
     {
         $receptionist = User::create([

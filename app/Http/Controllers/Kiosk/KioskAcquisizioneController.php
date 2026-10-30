@@ -47,6 +47,11 @@ class KioskAcquisizioneController extends Controller
             'lingua'          => $payload['lingua'],
             'tipo_documento'  => $payload['tipo_documento'],
             'fronte_retro'    => $payload['fronte_retro'] ?? false,
+            // Self check-in AI: una richiesta per ospite (richiesta_id la
+            // distingue dalla precedente; numero/totale per «ospite 2 di 3»)
+            'richiesta_id'    => $payload['richiesta_id'] ?? null,
+            'numero'          => $payload['numero'] ?? 1,
+            'totale'          => $payload['totale'] ?? 1,
         ]);
     }
 
@@ -105,11 +110,19 @@ class KioskAcquisizioneController extends Controller
 
     // ── Annulla (kiosk o timeout) ─────────────────────────────────────────────
 
-    public function annulla(): JsonResponse
+    public function annulla(Request $request): JsonResponse
     {
         $chioscoId = session('chiosco_id');
         if ($chioscoId) {
-            Cache::forget("acquisizione_pendente:chiosco_{$chioscoId}");
+            // Con `richiesta_id` si annulla SOLO quella richiesta: la schermata
+            // "completata" del chiosco chiude la sua foto 2 secondi dopo
+            // l'upload, e nel frattempo il worker può aver già riaperto la foto
+            // per l'ospite successivo — quella non va toccata.
+            $richiesta = $request->input('richiesta_id');
+            $payload   = Cache::get("acquisizione_pendente:chiosco_{$chioscoId}");
+            if ($payload && (! $richiesta || ($payload['richiesta_id'] ?? null) === $richiesta)) {
+                Cache::forget("acquisizione_pendente:chiosco_{$chioscoId}");
+            }
         }
         return response()->json(['ok' => true]);
     }

@@ -16,6 +16,19 @@ interface AiScreenProps {
     audioTrack:    MediaStreamTrack | null;
     audioBloccato: boolean;
     onTermina:     () => void;
+    /** «Parla con il receptionist» qui sotto l'orb, quando il riquadro presenza non è a schermo */
+    onChiamaReceptionist?: () => void;
+    /** Richiesta già inviata (da qui o dal riquadro presenza): un receptionist sta arrivando */
+    richiestaInviata?: boolean;
+    lingua?: string;
+}
+
+const TESTO_RECEPTIONIST: Record<string, { chiama: string; attesa: string; nota: string }> = {
+    it: { chiama: 'Parla con il receptionist', attesa: 'Richiesta inviata: un receptionist sta arrivando', nota: 'Un receptionist può intervenire in ogni momento.' },
+    en: { chiama: 'Talk to the receptionist',  attesa: 'Request sent: a receptionist is on the way',       nota: 'A receptionist can step in at any time.' },
+    de: { chiama: 'Mit der Rezeption sprechen', attesa: 'Anfrage gesendet: die Rezeption kommt',            nota: 'Die Rezeption kann jederzeit übernehmen.' },
+    fr: { chiama: 'Parler à la réception',      attesa: 'Demande envoyée : la réception arrive',            nota: 'La réception peut intervenir à tout moment.' },
+    es: { chiama: 'Hablar con recepción',       attesa: 'Solicitud enviada: recepción está llegando',       nota: 'Recepción puede intervenir en cualquier momento.' },
 }
 
 /** Riga del recap live: etichetta + valore, flash animato a ogni aggiornamento.
@@ -210,8 +223,9 @@ function VoceEqualizer({ track }: { track: MediaStreamTrack | null }) {
     );
 }
 
-export default function AiScreen({ scopo, statoMedia, localVideoRef, aiUi, audioTrack, audioBloccato, onTermina }: AiScreenProps) {
+export default function AiScreen({ scopo, statoMedia, localVideoRef, aiUi, audioTrack, audioBloccato, onTermina, onChiamaReceptionist, richiestaInviata = false, lingua = 'it' }: AiScreenProps) {
     const connesso = statoMedia === 'connected';
+    const tr = TESTO_RECEPTIONIST[lingua] ?? TESTO_RECEPTIONIST.it;
     const titolo   = scopo === 'checkin' ? 'Check-in con l’assistente'
         : scopo === 'checkout' ? 'Check-out' : 'Informazioni';
 
@@ -275,9 +289,24 @@ export default function AiScreen({ scopo, statoMedia, localVideoRef, aiUi, audio
                         </p>
                     </div>
                 )}
-                <p className="text-xs mt-2 text-center" style={{ color: 'var(--color-text-muted)' }}>
-                    Un receptionist può intervenire in ogni momento.
-                </p>
+                {richiestaInviata ? (
+                    <p className="text-sm mt-3 text-center font-medium" style={{ color: '#fcd34d' }}>
+                        {tr.attesa}
+                    </p>
+                ) : onChiamaReceptionist ? (
+                    <button onClick={onChiamaReceptionist}
+                            className="presenza-badge-btn mt-3"
+                            style={{ width: 'auto', minWidth: 240, paddingLeft: '1.1rem', paddingRight: '1.1rem' }}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                            <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z" />
+                        </svg>
+                        <span>{tr.chiama}</span>
+                    </button>
+                ) : (
+                    <p className="text-xs mt-2 text-center" style={{ color: 'var(--color-text-muted)' }}>
+                        {tr.nota}
+                    </p>
+                )}
             </div>
 
             {/* Colonna destra: recap live di quello che dici */}

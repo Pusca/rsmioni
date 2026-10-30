@@ -32,6 +32,40 @@ logger = logging.getLogger("ai-receptionist.agent")
 ESCALATION = ("ATTENZIONE: troppi tentativi falliti in questa fase. Proponi "
               "all'ospite di proseguire con il receptionist, che vede già la conversazione.")
 
+# Frasi pronunciate SENZA modello (session.say) agli snodi del documento,
+# quando il turno generato dal watcher fallisce o mentre la vision lavora:
+# l'ospite davanti al chiosco non deve mai restare nel silenzio.
+FRASI_RISERVA: dict[str, dict[str, str]] = {
+    "prossimo": {
+        "it": "Perfetto, grazie. Ora il documento del prossimo ospite, per favore: prima il fronte, poi il retro.",
+        "en": "Perfect, thank you. Now the next guest's document, please: front first, then back.",
+        "de": "Perfekt, danke. Jetzt bitte den Ausweis des nächsten Gastes: zuerst die Vorderseite, dann die Rückseite.",
+        "fr": "Parfait, merci. Maintenant la pièce d'identité du prochain client, s'il vous plaît : le recto puis le verso.",
+        "es": "Perfecto, gracias. Ahora el documento del siguiente huésped, por favor: primero el frente y luego el dorso.",
+    },
+    "lettura": {
+        "it": "Grazie, un attimo: leggo il documento.",
+        "en": "Thank you, one moment: I'm reading the document.",
+        "de": "Danke, einen Moment: ich lese den Ausweis.",
+        "fr": "Merci, un instant : je lis le document.",
+        "es": "Gracias, un momento: leo el documento.",
+    },
+    "riepilogo": {
+        "it": "Grazie. Sullo schermo trova il riepilogo della prenotazione: è tutto corretto?",
+        "en": "Thank you. The booking summary is on the screen: is everything correct?",
+        "de": "Danke. Auf dem Bildschirm sehen Sie die Zusammenfassung der Buchung: ist alles richtig?",
+        "fr": "Merci. Le récapitulatif de la réservation est à l'écran : tout est correct ?",
+        "es": "Gracias. En la pantalla tiene el resumen de la reserva: ¿está todo correcto?",
+    },
+    "receptionist": {
+        "it": "Ho avvisato il receptionist: arriva subito. Intanto resto qui con lei.",
+        "en": "I've notified the receptionist: they're coming right away. I'll stay with you in the meantime.",
+        "de": "Ich habe die Rezeption benachrichtigt: jemand kommt sofort. Ich bleibe solange bei Ihnen.",
+        "fr": "J'ai prévenu la réception : quelqu'un arrive tout de suite. Je reste avec vous en attendant.",
+        "es": "He avisado a recepción: vienen enseguida. Mientras tanto me quedo con usted.",
+    },
+}
+
 NO_WALKIN = ("In questo hotel le nuove prenotazioni NON si fanno al chiosco: non creare "
              "nulla e non proporre camere. Se cerca_prenotazione non trova l'ospite, chiedi "
              "codice o nome di chi ha prenotato e riprova una volta; poi rimanda al "
@@ -239,84 +273,165 @@ class ReceptionistAgent(Agent):
     # ── Tool: documento (check-in) ──────────────────────────────────────
 
     @function_tool
-    async def acquisisci_documento(self, context: RunContext) -> str:
+    async def acquisisci_documento(self, context: RunContext, ospite: int | None = None) -> str:
         """Apre la foto del documento d'identità sul chiosco: appare un
         riquadro guida e l'ospite scatta fronte e retro toccando lo schermo.
-        Chiamalo DOPO aver spiegato all'ospite cosa fare. Torna SUBITO: tu
-        resti in ascolto e vieni avvisata quando la foto è fatta. Se l'ospite
-        dice che non ha il documento, chiama senza_documento."""
+        Serve un documento per OGNI adulto: dopo ogni foto la schermata si
+        riapre DA SOLA per l'adulto successivo e, dopo l'ultima, la lettura e
+        il riepilogo partono da soli. Chiamalo UNA volta, DOPO aver spiegato
+        all'ospite cosa fare. Torna SUBITO: tu resti in ascolto e vieni
+        avvisata a ogni foto. Se un ospite non ha il documento, chiama
+        senza_documento.
+
+        Args:
+            ospite: Numero dell'adulto da fotografare (1 = primo). Di default
+                il prossimo mancante; indicalo solo per RIFARE una foto.
+        """
         try:
             self.stato.richiedi_almeno(
                 Fase.SALVATA, "Prima salva la prenotazione: il documento va agganciato a una prenotazione esistente.")
         except AzioneFuoriFase as e:
             return self._fallimento(str(e))
 
-        esito = await self._backend.avvia_acquisizione(self._lingua)
+        attesi = self.stato.documenti_attesi
+        numero = ospite if ospite and 1 <= ospite <= attesi else min(self.stato.documenti_acquisiti + 1, attesi)
+        esito = await self._apri_foto(numero)
         if not esito.ok:
             return self._fallimento(f"Avvio acquisizione non riuscito: {esito.errore}")
 
-        # NON bloccante: il vecchio tool aspettava fino a 2 minuti dentro la
-        # chiamata e nel frattempo l'ospite non veniva ascoltato ("non ce
-        # l'ho", "come funziona?" finivano scartati). Ora un watcher in
-        # background segue la foto e sveglia l'agent con l'esito.
-        self._ferma_watcher()
-        self._acquisizione_task = asyncio.create_task(self._attendi_foto())
+        chi = f" per l'ospite {numero} di {attesi}" if attesi > 1 else ""
         return await self._successo(
             None,
-            "Schermata foto aperta sul chiosco. Resta in ascolto: ti avviso io quando la foto è "
-            "fatta. Se l'ospite dice che NON ha il documento (o non vuole farlo), chiama SUBITO "
-            "senza_documento. Se chiede come si fa, spiegaglielo: documento nel riquadro, tocca "
-            "lo schermo per scattare, fronte poi retro.")
+            f"Schermata foto aperta sul chiosco{chi}. Resta in ascolto: ti avviso io a ogni foto, e "
+            "le schermate successive si aprono da sole. Se l'ospite dice che NON ha il documento "
+            "(o non vuole farlo), chiama SUBITO senza_documento. Se chiede come si fa, spiegaglielo: "
+            "documento nel riquadro, tocca lo schermo per scattare, fronte poi retro.")
+
+    async def _apri_foto(self, numero: int):
+        """Apre (o riapre) la schermata foto per l'ospite `numero` e mette in
+        ascolto il watcher. NON bloccante: il vecchio tool aspettava fino a 2
+        minuti dentro la chiamata e intanto l'ospite non veniva ascoltato."""
+        esito = await self._backend.avvia_acquisizione(self._lingua, numero, self.stato.documenti_attesi)
+        if esito.ok:
+            self._ferma_watcher()
+            self._acquisizione_task = asyncio.create_task(self._attendi_foto(numero))
+            logger.info("fase=%s: schermata foto aperta per l'ospite %d/%d",
+                        self.stato.fase.value, numero, self.stato.documenti_attesi)
+        return esito
 
     def _ferma_watcher(self) -> None:
-        if self._acquisizione_task and not self._acquisizione_task.done():
-            self._acquisizione_task.cancel()
+        # Mai cancellare il task corrente: _apri_foto viene chiamata anche DAL
+        # watcher (foto fatta → schermata per il prossimo ospite) e cancellando
+        # sé stesso l'annuncio a voce non partirebbe più.
+        task = self._acquisizione_task
+        if task and not task.done() and task is not asyncio.current_task():
+            task.cancel()
         self._acquisizione_task = None
 
-    async def _attendi_foto(self) -> None:
-        """Watcher in background: segue lo stato dell'acquisizione e, a esito
-        noto, fa parlare l'agent con l'istruzione giusta (generate_reply)."""
+    async def _attendi_foto(self, numero: int) -> None:
+        """Watcher in background: segue la foto dell'ospite `numero` e fa
+        avanzare il processo DA SOLO — riapre la schermata per l'adulto
+        successivo o, dopo l'ultimo, legge il documento e mostra il riepilogo —
+        e poi fa parlare l'agent. Così il check-in non resta appeso se il
+        modello non richiama il tool giusto (visto in produzione il 30/10)."""
         try:
             for _ in range(60):  # poll ogni 2s, max 2 minuti
                 await asyncio.sleep(2)
                 stato = (await self._backend.stato_acquisizione()).get("stato")
                 if stato == "completata":
-                    self.stato.avanza_a(Fase.DOCUMENTO)
-                    await self._schermo.fase(self.stato.fase)
-                    logger.info("fase=%s esito=ok: documento acquisito (watcher)", self.stato.fase.value)
-                    chiusura = ("per leggere il nome ufficiale e mostrare il riepilogo"
-                                if self._verifica_documento else "per salvarlo e mostrare il riepilogo")
-                    await self._sveglia(
-                        "La foto del documento è stata fatta (fronte e retro). Se ci sono altri "
-                        "adulti con documenti da acquisire, chiedi e ripeti acquisisci_documento; "
-                        f"altrimenti chiama leggi_documento {chiusura}.")
+                    await self._foto_fatta(numero)
                     return
                 if stato == "nessuna":
                     logger.info("fase=%s: acquisizione annullata dal chiosco (watcher)", self.stato.fase.value)
                     await self._sveglia(
                         "L'ospite ha annullato la foto dallo schermo. Chiedi con calma se vuole "
                         "riprovare (acquisisci_documento) o se non ha il documento con sé "
-                        "(senza_documento).")
+                        "(senza_documento).", "annullata")
                     return
             logger.info("fase=%s: acquisizione scaduta senza foto (watcher)", self.stato.fase.value)
             await self._sveglia(
                 "Sono passati due minuti senza foto. Chiedi se ha bisogno di aiuto con la foto "
-                "(acquisisci_documento per riaprirla) o se non ha il documento (senza_documento).")
+                "(acquisisci_documento per riaprirla) o se non ha il documento (senza_documento).",
+                "scaduta")
         except asyncio.CancelledError:
             pass
         except Exception as e:  # mai far cadere la sessione per il watcher
             logger.warning("watcher acquisizione: %s", e)
 
-    async def _sveglia(self, istruzione: str) -> None:
-        """Fa generare all'agent un nuovo turno spontaneo (evento esterno)."""
+    async def _foto_fatta(self, numero: int) -> None:
+        """Foto (fronte+retro) dell'ospite `numero` arrivata: prossimo ospite
+        o, se era l'ultimo, lettura + riepilogo. Tutto senza aspettare il modello."""
+        self.stato.documenti_acquisiti = max(self.stato.documenti_acquisiti, numero)
+        attesi = self.stato.documenti_attesi
+        logger.info("fase=%s esito=ok: documento %d/%d acquisito (watcher)",
+                    self.stato.fase.value, numero, attesi)
+
+        if not self.stato.documenti_completi:
+            prossimo = self.stato.documenti_acquisiti + 1
+            esito = await self._apri_foto(prossimo)
+            if esito.ok:
+                await self._sveglia(
+                    f"Foto del documento {numero} di {attesi} fatta. La schermata foto è GIÀ riaperta "
+                    f"per l'ospite {prossimo} di {attesi}: chiedi a QUELL'adulto di appoggiare il SUO "
+                    "documento nel riquadro (fronte poi retro). NON chiamare acquisisci_documento, è "
+                    "già aperta. Se non ha il documento con sé, chiama senza_documento.", "prossimo")
+            else:
+                await self._sveglia(
+                    f"Foto {numero} di {attesi} fatta, ma non sono riuscita a riaprire la schermata "
+                    f"per l'ospite successivo ({esito.errore}). Chiama acquisisci_documento per riprovare.",
+                    "errore")
+            return
+
+        self.stato.avanza_a(Fase.DOCUMENTO)
+        await self._schermo.fase(self.stato.fase)
+        if self._verifica_documento:
+            await self._di_riserva("lettura")  # la vision impiega qualche secondo: niente silenzio
+        ok, istruzione = await self._leggi_e_riepiloga()
+        prefisso = f"Tutti i {attesi} documenti sono acquisiti. " if attesi > 1 else "Documento acquisito. "
+        await self._sveglia(prefisso + istruzione, "riepilogo" if ok else "errore")
+
+    async def _sveglia(self, istruzione: str, evento: str = "") -> None:
+        """Fa generare all'agent un nuovo turno spontaneo (evento esterno).
+        Se la generazione fallisce (modello giù, sessione in pausa) l'ospite
+        non deve restare nel silenzio: parte una frase di riserva già pronta
+        nella lingua della conversazione."""
         try:
-            self.session.generate_reply(instructions=istruzione)
+            handle = self.session.generate_reply(instructions=istruzione)
+            await handle
+            errore = handle.exception() if hasattr(handle, "exception") else None
+            if errore is None:
+                return
+            logger.warning("turno dal watcher (%s) fallito: %s", evento, errore)
         except Exception as e:
-            logger.warning("generate_reply dal watcher fallita: %s", e)
+            logger.warning("generate_reply dal watcher (%s) fallita: %s", evento, e)
+        await self._di_riserva(evento)
+
+    async def _di_riserva(self, evento: str) -> None:
+        """Frase fissa (senza modello) per gli snodi del documento."""
+        frasi = FRASI_RISERVA.get(evento)
+        if not frasi:
+            return
+        try:
+            await self.session.say(frasi.get(self._lingua) or frasi["en"])
+        except Exception as e:
+            logger.error("frase di riserva (%s) non pronunciata: %s", evento, e)
+
+    async def comando_ospite(self, tipo: str) -> None:
+        """Comandi toccati dall'ospite sullo schermo del chiosco (DataChannel, topic ai_cmd)."""
+        if tipo == "receptionist":
+            logger.info("l'ospite ha toccato «Parla con il receptionist» sul chiosco")
+            await self._sveglia(
+                "L'ospite ha appena toccato sullo schermo il pulsante «Parla con il receptionist»: "
+                "il receptionist è GIÀ stato avvisato (campanella in portineria), NON serve "
+                "richiedi_receptionist. Diglielo in UNA frase, rassicuralo che arriva subito e resta "
+                "in linea e a disposizione finché non subentra; NON chiudere la sessione.",
+                "receptionist")
+        else:
+            logger.info("comando dal chiosco ignorato: %s", tipo)
 
     @function_tool
     async def senza_documento(self, context: RunContext, motivo: str | None = None) -> str:
-        """L'ospite NON ha il documento d'identità con sé (o non vuole
+        """Un ospite NON ha il documento d'identità con sé (o non vuole
         fotografarlo). Chiude la schermata foto sul chiosco e passa la
         chiamata al receptionist (campanella in portineria), che completa
         la registrazione di persona. Chiamalo appena l'ospite lo dice: non
@@ -330,8 +445,10 @@ class ReceptionistAgent(Agent):
         self.stato.documento_rinunciato = True
 
         testo = motivo or "non ha il documento con sé"
+        quanti = (f" (documenti acquisiti {self.stato.documenti_acquisiti} su {self.stato.documenti_attesi})"
+                  if self.stato.documenti_attesi > 1 else "")
         esito = await self._backend.richiedi_receptionist(
-            f"Ospite senza documento d'identità ({testo}): serve il receptionist per completare il check-in.")
+            f"Ospite senza documento d'identità ({testo}){quanti}: serve il receptionist per completare il check-in.")
         logger.info("fase=%s: ospite senza documento, passaggio al receptionist", self.stato.fase.value)
         if not esito.ok:
             return ("Schermata foto chiusa, ma non sono riuscita ad avvisare il receptionist "
@@ -344,22 +461,34 @@ class ReceptionistAgent(Agent):
 
     @function_tool
     async def leggi_documento(self, context: RunContext) -> str:
-        """Legge nome e cognome UFFICIALI dal documento appena acquisito
-        (vision AI sul fronte) e mostra il riepilogo finale sullo schermo.
-        Chiamalo DOPO l'acquisizione dell'ultimo documento."""
+        """Ripete la lettura del documento del primo ospite (vision AI sul
+        fronte) e mostra il riepilogo finale sullo schermo. Dopo l'ultima foto
+        la lettura parte DA SOLA: chiamalo solo se l'esito automatico non è
+        arrivato o dopo una foto rifatta."""
         try:
             self.stato.richiedi_almeno(
                 Fase.DOCUMENTO, "Prima acquisisci il documento (acquisisci_documento), poi la lettura.")
         except AzioneFuoriFase as e:
             return self._fallimento(str(e))
+        if not self.stato.documenti_completi and not self.stato.documento_rinunciato:
+            return self._fallimento(
+                f"Mancano ancora {self.stato.documenti_mancanti} documenti su {self.stato.documenti_attesi} "
+                "(uno per ogni adulto): la schermata foto si riapre da sola per il prossimo ospite, "
+                "chiedigli di appoggiare il suo documento. Se non ce l'ha, senza_documento.")
 
+        ok, istruzione = await self._leggi_e_riepiloga()
+        return istruzione
+
+    async def _leggi_e_riepiloga(self) -> tuple[bool, str]:
+        """Legge (se la verifica è attiva) il documento dell'intestatario e fa
+        comparire il riepilogo. Restituisce (riuscita, istruzione per il modello)."""
         if not self._verifica_documento:
             # Demo: la foto è già salvata sulla prenotazione dall'acquisizione;
             # si accetta senza guardarla e il nome resta quello dato a voce.
             self.stato.documento_letto = True
             await self._mostra_riepilogo()
             logger.info("fase=%s esito=ok: documento accettato senza verifica", self.stato.fase.value)
-            return await self._successo(
+            return True, await self._successo(
                 None,
                 "Documento salvato così com'è (in questa configurazione non si legge né si "
                 "verifica). Il riepilogo (nome dato a voce, date, camera, codice) è già sullo "
@@ -367,39 +496,40 @@ class ReceptionistAgent(Agent):
 
         esito = await self._backend.documento_immagine()
         if not esito.ok:
-            return self._fallimento(f"Immagine documento non disponibile: {esito.errore}")
+            return False, self._fallimento(f"Immagine documento non disponibile: {esito.errore}")
 
         visione = await self._vision_estrai(esito["immagine"], esito.get("mime", "image/jpeg"))
 
         if visione is None:  # errore tecnico (rete/servizio), non colpa dell'ospite
             self.stato.documento_letto = True  # non insistere: verificherà il receptionist
             await self._mostra_riepilogo()
-            return self._fallimento(
+            return False, self._fallimento(
                 "Lettura automatica non disponibile: resta il nome dato a voce (riepilogo "
                 "comunque sullo schermo). Rassicura: il receptionist verificherà i dati.")
 
+        rifai = ("chiama acquisisci_documento con ospite=1 (la lettura poi riparte da sola)"
+                 if self.stato.documenti_attesi > 1 else
+                 "chiama di nuovo acquisisci_documento (la lettura poi riparte da sola)")
         if not visione.get("documento"):
             cosa = visione.get("descrizione") or "un oggetto diverso"
-            return self._fallimento(
-                f"L'immagine acquisita NON è un documento d'identità (sembra: {cosa}). "
-                "Dillo all'ospite con gentilezza e chiedigli di appoggiare il documento vero "
-                "nel riquadro: chiama di nuovo acquisisci_documento e poi leggi_documento.")
+            return False, self._fallimento(
+                f"L'immagine acquisita per il primo ospite NON è un documento d'identità (sembra: {cosa}). "
+                f"Dillo all'ospite con gentilezza e chiedigli di appoggiare il documento vero nel riquadro: {rifai}.")
 
         if not (visione.get("nome") and visione.get("cognome")):
-            return self._fallimento(
+            return False, self._fallimento(
                 "È un documento, ma nome e cognome non sono leggibili (riflessi, sfocato o "
-                "fuori riquadro). Chiedi all'ospite di riposizionarlo bene e rifai: "
-                "acquisisci_documento e poi leggi_documento.")
+                f"fuori riquadro). Chiedi all'ospite di riposizionarlo bene e {rifai}.")
 
         nome, cognome = str(visione["nome"]).strip(), str(visione["cognome"]).strip()
         agg = await self._backend.aggiorna_intestatario(nome, cognome)
         if not agg.ok:
-            return self._fallimento(f"Aggiornamento intestatario non riuscito: {agg.errore}")
+            return False, self._fallimento(f"Aggiornamento intestatario non riuscito: {agg.errore}")
 
         self.stato.registra({"nome": nome, "cognome": cognome})
         self.stato.documento_letto = True
         await self._mostra_riepilogo()
-        return await self._successo(
+        return True, await self._successo(
             None,
             f"Documento letto: l'intestatario ufficiale è {nome} {cognome}. Il riepilogo completo "
             "(nome, date, camera, codice) è già sullo schermo: presentalo in UNA frase e chiedi "
@@ -635,11 +765,14 @@ class ReceptionistAgent(Agent):
         # un'istruzione correttiva. Il secondo chiude comunque (l'ospite può
         # essersene andato o aver rifiutato).
         if self.stato.scopo == "checkin" and not self._termina_avvisato and not self.stato.documento_rinunciato:
-            if self.stato.fase in (Fase.SALVATA, Fase.CAMERA):
+            if self.stato.fase in (Fase.SALVATA, Fase.CAMERA) or not self.stato.documenti_completi:
                 self._termina_avvisato = True
-                return ("NON chiudere ancora: manca il documento d'identità. Proponi "
-                        "all'ospite di acquisirlo ora (acquisisci_documento). Solo se "
-                        "rifiuta o se ne è andato, richiama termina_conversazione.")
+                attesi, mancanti = self.stato.documenti_attesi, self.stato.documenti_mancanti
+                cosa = (f"mancano {mancanti} documenti d'identità su {attesi} (uno per ogni adulto)"
+                        if attesi > 1 else "manca il documento d'identità")
+                return (f"NON chiudere ancora: {cosa}. Proponi all'ospite di acquisirli ora "
+                        "(acquisisci_documento). Solo se rifiuta o se ne è andato, richiama "
+                        "termina_conversazione.")
             if self.stato.fase == Fase.DOCUMENTO and not self.stato.documento_letto:
                 self._termina_avvisato = True
                 return ("NON chiudere ancora: il documento è acquisito ma non letto. "

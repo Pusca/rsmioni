@@ -164,6 +164,8 @@ export default function AcquisizioneScreen({ chiosco, titolo, fronteRetro, onCom
     };
 
     const latoLabel    = fronteRetro ? (lato === 'fronte' ? 'FRONTE' : 'RETRO') : null;
+    const mOspite      = titolo?.match(/ospite\s+(\d+)\s+di\s+(\d+)/i);
+    const ospiteDi     = mOspite ? `Ospite ${mOspite[1]} di ${mOspite[2]}` : null;
     const stepLabel    = fronteRetro ? (lato === 'fronte' ? '1/2' : '2/2') : null;
     const confirmLabel = fronteRetro && lato === 'fronte' ? 'Conferma fronte' : 'Invia documento';
 
@@ -265,6 +267,12 @@ export default function AcquisizioneScreen({ chiosco, titolo, fronteRetro, onCom
                 {/* Istruzioni e controlli */}
                 {fase === 'preview' && ! snapshot && (
                     <div className="text-center space-y-2">
+                        {/* Più adulti: a chi tocca (il titolo arriva come «Documento d'identità · ospite 2 di 3») */}
+                        {ospiteDi && (
+                            <p className="text-xl font-semibold" style={{ color: '#93c5fd' }}>
+                                {ospiteDi} <span className="font-normal text-base" style={{ color: 'var(--color-text-muted)' }}>· guest {ospiteDi.replace(/^Ospite /, '').replace(' di ', ' of ')}</span>
+                            </p>
+                        )}
                         <p className="text-base font-light" style={{ color: 'var(--color-text-primary)' }}>
                             {fronteRetro
                                 ? (lato === 'fronte'

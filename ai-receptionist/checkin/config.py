@@ -68,6 +68,11 @@ class Impostazioni:
     # Conversazione
     llm_max_tokens: int
     lingua_default: str
+    # Riconoscimento vocale: "chiosco" (default) = Deepgram trascrive nella
+    # lingua scelta dall'ospite sul chiosco; "auto" = rilevamento automatico
+    # fra tutte le lingue ("multi"), che in produzione scambiava rumore e
+    # italiano per ebraico/croato e faceva saltare il turn detector.
+    stt_lingua: str
 
     problemi: list[str] = field(default_factory=list)
 
@@ -129,6 +134,7 @@ class Impostazioni:
             tts_speed=float(os.environ.get("TTS_SPEED", "1.2")),
             llm_max_tokens=int(os.environ.get("LLM_MAX_TOKENS", "600")),
             lingua_default=os.environ.get("AGENT_DEFAULT_LANGUAGE", "it"),
+            stt_lingua=_stt_lingua(os.environ.get("STT_LANGUAGE", "chiosco"), problemi),
             problemi=problemi,
         )
 
@@ -261,6 +267,15 @@ def _voci_per_lingua(raw: str, default: dict[str, str], nome_var: str, problemi:
             continue
         voci[lingua] = voce
     return voci
+
+
+def _stt_lingua(raw: str, problemi: list[str]) -> str:
+    """STT_LANGUAGE: chiosco (default) | auto."""
+    valore = (raw or "chiosco").strip().lower()
+    if valore not in ("chiosco", "auto"):
+        problemi.append(f"STT_LANGUAGE '{raw}' non valido (chiosco|auto): uso chiosco.")
+        return "chiosco"
+    return valore
 
 
 def _doc_verifica(raw: str, problemi: list[str]) -> str:
