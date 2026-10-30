@@ -47,3 +47,8 @@ class SchermoChiosco:
 
     async def fase(self, fase: Fase) -> None:
         await self._publish({"tipo": "fase", "fase": fase.value, "label": fase.label()})
+
+    async def receptionist(self, richiesto: bool = True, motivo: str | None = None) -> None:
+        """Receptionist umano chiamato dall'agent: il chiosco mostra la stessa
+        conferma «Richiesta inviata» del pulsante verde."""
+        await self._publish({"tipo": "receptionist", "richiesto": richiesto, "motivo": motivo})

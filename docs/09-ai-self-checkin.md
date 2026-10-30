@@ -75,6 +75,7 @@ L'agent è un **processo separato** (come Reverb, queue worker, kiosk-agent): no
 | Turn detection / VAD | LiveKit VAD + endpointing | Permette interruzione dell'ospite |
 | Vision documento | **Claude vision** sui frame del video LiveKit | Leggibilità + estrazione campi; no OCR separato in MVP |
 | Stato sessione AI | Redis / Cache (già in uso) | `gestita_da`, fase corrente, handoff |
+| Briefing per l'umano | `POST /agent/briefing` → cache 2 h + evento `.ai.briefing` | Ospite, soggiorno, fase, documenti, motivo, punti salienti, trascrizione: sotto il video in portineria (nascosto e dopo Subentra) — A38 |
 | Transcript → receptionist | Reverb (broadcast) + DataChannel | Per monitor e takeover |
 | Auth agent→Laravel | Service token + firma HMAC | L'agent agisce come receptionist-service |
 

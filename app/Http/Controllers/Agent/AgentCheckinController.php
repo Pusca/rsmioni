@@ -223,6 +223,69 @@ class AgentCheckinController extends Controller
         ]);
     }
 
+    /**
+     * Briefing della pratica per il receptionist umano: dati dell'ospite,
+     * fase, documenti, motivo del passaggio, punti salienti scritti dall'AI e
+     * trascrizione. L'agent lo aggiorna a ogni avanzamento e, con i punti,
+     * quando chiede un umano: chi subentra sa già con chi parla e perché.
+     *
+     * POST /agent/briefing {scopo, fase, fase_label, lingua, motivo?, ospite{}, soggiorno{}, documenti{}, punti[], trascrizione[]}
+     */
+    public function briefing(Request $request): JsonResponse
+    {
+        $sessione = $this->sessione($request);
+        if (! $sessione) {
+            return response()->json(['error' => 'Sessione AI non trovata o scaduta.'], 404);
+        }
+
+        $validated = $request->validate([
+            'scopo'                => ['nullable', 'string', 'max:20'],
+            'fase'                 => ['nullable', 'string', 'max:30'],
+            'fase_label'           => ['nullable', 'string', 'max:40'],
+            'lingua'               => ['nullable', 'string', 'max:5'],
+            'motivo'               => ['nullable', 'string', 'max:300'],
+            'ospite'               => ['nullable', 'array'],
+            'ospite.nome'          => ['nullable', 'string', 'max:80'],
+            'ospite.cognome'       => ['nullable', 'string', 'max:80'],
+            'soggiorno'            => ['nullable', 'array'],
+            'soggiorno.check_in'   => ['nullable', 'string', 'max:20'],
+            'soggiorno.check_out'  => ['nullable', 'string', 'max:20'],
+            'soggiorno.adulti'     => ['nullable', 'integer', 'min:0', 'max:20'],
+            'soggiorno.ragazzi'    => ['nullable', 'integer', 'min:0', 'max:20'],
+            'soggiorno.bambini'    => ['nullable', 'integer', 'min:0', 'max:20'],
+            'soggiorno.camera'     => ['nullable', 'string', 'max:40'],
+            'soggiorno.piano'      => ['nullable', 'integer'],
+            'soggiorno.codice'     => ['nullable', 'string', 'max:40'],
+            'documenti'            => ['nullable', 'array'],
+            'documenti.acquisiti'  => ['nullable', 'integer', 'min:0', 'max:20'],
+            'documenti.attesi'     => ['nullable', 'integer', 'min:0', 'max:20'],
+            'documenti.rinunciato' => ['nullable', 'boolean'],
+            'punti'                => ['nullable', 'array', 'max:8'],
+            'punti.*'              => ['string', 'max:200'],
+            'trascrizione'         => ['nullable', 'array', 'max:60'],
+            'trascrizione.*.chi'   => ['required', 'in:ospite,alice'],
+            'trascrizione.*.testo' => ['required', 'string', 'max:400'],
+            'aggiornato_at'        => ['nullable', 'string', 'max:40'],
+        ]);
+
+        $chiosco  = Chiosco::findOrFail($sessione['chiosco_id']);
+        $briefing = [
+            ...$validated,
+            'punti'         => array_values($validated['punti'] ?? []),
+            'trascrizione'  => array_values($validated['trascrizione'] ?? []),
+            'aggiornato_at' => $validated['aggiornato_at'] ?? now()->toIso8601String(),
+        ];
+
+        $this->portineria->salvaBriefing($chiosco, $briefing);
+        $this->audit('briefing', $request, $sessione, true, [
+            'fase'  => $briefing['fase'] ?? null,
+            'punti' => count($briefing['punti']),
+            'turni' => count($briefing['trascrizione']),
+        ]);
+
+        return response()->json(['ok' => true]);
+    }
+
     // ── Corrispondenza nominativi da voce ───────────────────────────────────
 
     /** "Pöplawska  Natalia" → "poplawska natalia" (solo lettere ASCII e spazi singoli). */

@@ -102,6 +102,10 @@ class BackendRsmioni:
     async def richiedi_receptionist(self, motivo: str | None) -> EsitoApi:
         return await self._post("/agent/handoff", {"motivo": motivo} if motivo else {})
 
+    async def briefing(self, payload: dict) -> EsitoApi:
+        """Briefing della pratica per il receptionist umano (portineria)."""
+        return await self._post("/agent/briefing", payload)
+
     async def avvia_pagamento(self) -> EsitoApi:
         return await self._post("/agent/pagamento")
 

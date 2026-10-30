@@ -381,6 +381,16 @@ Stesso giorno, conversazione a voce dalla presenza: spegnere il microfono del re
 
 ---
 
+## A38 — Briefing dell'AI per il receptionist che osserva o subentra
+
+**Contesto**: prova in produzione del 30/10/2026: il secondo ospite non aveva il documento, Alice ha chiamato il receptionist, l'umano è subentrato «al buio» (solo campanella e motivo in una riga) e ha dovuto rifarsi raccontare tutto. Il manuale non prevede il passaggio AI → umano, quindi nemmeno le consegne.
+
+**Assunzione adottata**: l'agent manda in portineria un briefing della pratica (`POST /agent/briefing`): ospite, soggiorno, camera, codice, fase, documenti acquisiti/attesi, motivo del passaggio, 3-5 punti salienti scritti dal modello e la trascrizione (ultime 40 battute). Parte in background a ogni avanzamento di fase (senza punti) e, con i punti, quando l'AI chiama un umano (`richiedi_receptionist`, `senza_documento`) o l'ospite tocca il pulsante verde. In portineria compare sotto il video del chiosco sia in ascolto nascosto sia dopo il subentro (evento Reverb `.ai.briefing`, cache 2 h, decade a chiosco idle). Il chiosco mostra «Richiesta inviata» anche quando è Alice a chiamare (evento `ai_ui` `receptionist`). Se il modello non risponde entro 12 s il briefing parte senza punti: dati e trascrizione non dipendono dal modello.
+
+**Impatto**: la trascrizione della conversazione (voce dell'ospite) finisce in cache lato server per 2 h e nel canale privato dell'hotel: rientra nella retention da definire in A25. I punti salienti sono una chiamata LLM in più per passaggio all'umano (~300 token).
+
+---
+
 ## Da Validare Prima dell'Implementazione
 
 | ID | Assunzione | Urgenza |
@@ -402,3 +412,4 @@ Stesso giorno, conversazione a voce dalla presenza: spegnere il microfono del re
 | A30 | Claim «receptionist di notte > 30.000 €/anno» nelle inserzioni Meta | Alta (prima di attivare la campagna) |
 | A36 | Voce Cartesia/Inworld via LiveKit Inference: voci italiane di default da ascoltare | Media (prima di cambiare TTS_PROVIDER in produzione) |
 | A37 | Documenti obbligatori per tutti gli adulti; vision solo sull'ospite 1; STT nella lingua del chiosco | Media (confermare con Edoardo la regola «uno per adulto») |
+| A38 | Briefing AI → receptionist con trascrizione in cache 2 h (retention, vedi A25) | Media |

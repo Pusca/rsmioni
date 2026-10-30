@@ -5,7 +5,7 @@ import ReceptionistLayout from '@/Layouts/ReceptionistLayout';
 import ChioscoCard from '@/Components/Portineria/ChioscoCard';
 import AreaVideo from '@/Components/Portineria/AreaVideo';
 import MessaggioAttesaModal from '@/Components/Portineria/MessaggioAttesaModal';
-import { usePortineriaRealtime, usePortineriaPolling, StatoAggiornato, AiHandoffEvento } from '@/hooks/usePortineriaRealtime';
+import { usePortineriaRealtime, usePortineriaPolling, StatoAggiornato, AiHandoffEvento, AiBriefingEvento } from '@/hooks/usePortineriaRealtime';
 import { cambiaStato, demoSimula, demoReset } from '@/services/portineriaApi';
 import * as liveKitCall from '@/services/liveKitCall';
 import { suonaChiamata, suonaCampanellaAi } from '@/services/suoneria';
@@ -85,6 +85,7 @@ export default function PortineriaIndex({ chioschi: chioschiIniziali, hotel_ids,
                         messaggio_attesa: update.messaggio ?? c.messaggio_attesa,
                         // sessione finita → la richiesta di aiuto dell'AI decade
                         ai_handoff: ['idle', 'offline'].includes(update.stato) ? null : c.ai_handoff,
+                        ai_briefing: ['idle', 'offline'].includes(update.stato) ? null : c.ai_briefing,
                     }
                     : c,
             ),
@@ -117,11 +118,17 @@ export default function PortineriaIndex({ chioschi: chioschiIniziali, hotel_ids,
         }
     }, [opzioniSuoneria]);
 
+    // ── Briefing della pratica scritto dall'AI (si aggiorna a ogni fase) ──
+    const handleAiBriefing = useCallback((e: AiBriefingEvento) => {
+        setChioschi((prev) => prev.map((c) => (c.id === e.chiosco_id ? { ...c, ai_briefing: e.briefing } : c)));
+    }, []);
+
     // ── Realtime (Reverb) ─────────────────────────────────────────────────
     const { realtimeAttivo } = usePortineriaRealtime({
         hotelIds:        hotel_ids,
         onStatoCambiato: handleStatoCambiato,
         onAiHandoff:     handleAiHandoff,
+        onAiBriefing:    handleAiBriefing,
     });
 
     // ── Polling fallback (se Reverb non è attivo) ─────────────────────────

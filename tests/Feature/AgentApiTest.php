@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\Profilo;
+use App\Enums\StatoChiosco;
 use App\Models\Camera;
 use App\Models\Chiosco;
 use App\Models\Hotel;
@@ -292,6 +293,34 @@ class AgentApiTest extends TestCase
             ->assertOk();
 
         $this->assertNull($portineria->richiestaAiuto($this->chiosco->id));
+    }
+
+    public function test_il_briefing_dell_ai_arriva_in_portineria_e_decade_a_chiosco_idle(): void
+    {
+        $this->agentPost('/agent/briefing', [
+            'scopo' => 'checkin', 'fase' => 'camera', 'fase_label' => 'Camera', 'lingua' => 'it',
+            'motivo'    => 'Secondo adulto senza documento',
+            'ospite'    => ['nome' => 'Tommaso', 'cognome' => 'Dal Mario'],
+            'soggiorno' => ['check_in' => '2026-10-30', 'check_out' => '2026-11-02', 'adulti' => 2, 'camera' => '301', 'piano' => 3, 'codice' => 'AI-TEST'],
+            'documenti' => ['acquisiti' => 1, 'attesi' => 2, 'rinunciato' => true],
+            'punti'     => ['Prenotazione trovata, suite 301', 'Manca il documento del secondo ospite'],
+            'trascrizione' => [['chi' => 'ospite', 'testo' => 'Sono Tommaso'], ['chi' => 'alice', 'testo' => 'Piacere Tommaso']],
+        ])->assertOk();
+
+        $portineria = app(\App\Services\PortineriaService::class);
+        $b = collect($portineria->chioschiConStato([$this->hotel->id]))->first()['ai_briefing'];
+        $this->assertSame('Dal Mario', $b['ospite']['cognome']);
+        $this->assertSame('Secondo adulto senza documento', $b['motivo']);
+        $this->assertCount(2, $b['punti']);
+        $this->assertSame('alice', $b['trascrizione'][1]['chi']);
+
+        // Trascrizione con un ruolo sconosciuto → rifiutata
+        $this->agentPost('/agent/briefing', ['trascrizione' => [['chi' => 'hacker', 'testo' => 'x']]])
+            ->assertStatus(422);
+
+        // Chiosco di nuovo libero → il briefing decade
+        $portineria->impostaStato($this->chiosco, StatoChiosco::Idle);
+        $this->assertNull($portineria->briefingAi($this->chiosco->id));
     }
 
     public function test_cerca_omonimi_lo_stesso_giorno_chiede_il_codice(): void

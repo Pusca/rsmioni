@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\Profilo;
 use App\Enums\StatoChiosco;
+use App\Events\AiBriefingAggiornato;
 use App\Events\AiHandoffRichiesto;
 use App\Events\ChioscoStatoCambiato;
 use App\Models\Chiosco;
@@ -82,6 +83,39 @@ class PortineriaService
         }
     }
 
+    // ── Briefing del self check-in per il receptionist umano ──────────────
+
+    /** @return array<string, mixed>|null */
+    public function briefingAi(string $chioscoId): ?array
+    {
+        return Cache::get($this->keyBriefing($chioscoId));
+    }
+
+    /**
+     * L'AI aggiorna il briefing della pratica (dati, fase, documenti, motivo,
+     * punti salienti, trascrizione). TTL 2 h: resta leggibile per tutta la
+     * chiamata, anche dopo il subentro dell'umano; decade a chiosco idle.
+     */
+    public function salvaBriefing(Chiosco $chiosco, array $briefing): void
+    {
+        Cache::put($this->keyBriefing($chiosco->id), $briefing, 7200);
+        try {
+            broadcast(new AiBriefingAggiornato($chiosco, $briefing));
+        } catch (\Throwable) {
+        }
+    }
+
+    public function azzeraBriefing(Chiosco $chiosco): void
+    {
+        if (! Cache::pull($this->keyBriefing($chiosco->id))) {
+            return;
+        }
+        try {
+            broadcast(new AiBriefingAggiornato($chiosco, null));
+        } catch (\Throwable) {
+        }
+    }
+
     /**
      * Carica tutti i chioschi arricchiti con stato runtime.
      * @param  string[]  $hotelIds
@@ -105,6 +139,7 @@ class PortineriaService
                 'stato'            => $this->statoChiosco($c->id)->value,
                 'messaggio_attesa' => $this->messaggioAttesa($c->id),
                 'ai_handoff'       => $this->richiestaAiuto($c->id),
+                'ai_briefing'      => $this->briefingAi($c->id),
                 'ultima_presenza'  => $presenza['online']
                     ? ['online' => true,  'secondi_fa' => $presenza['secondi_fa']]
                     : ['online' => false, 'secondi_fa' => null],
@@ -202,6 +237,7 @@ class PortineriaService
         } elseif ($stato === StatoChiosco::Idle || $stato === StatoChiosco::Offline) {
             Cache::forget($this->keyMessaggio($chiosco->id));
             $this->azzeraRichiestaAiuto($chiosco); // sessione finita: campanella spenta
+            $this->azzeraBriefing($chiosco);       // e il briefing della pratica decade
         }
 
         try {
@@ -279,5 +315,10 @@ class PortineriaService
     private function keyAiuto(string $chioscoId): string
     {
         return "kiosk_ai_handoff:{$chioscoId}";
+    }
+
+    private function keyBriefing(string $chioscoId): string
+    {
+        return "kiosk_ai_briefing:{$chioscoId}";
     }
 }

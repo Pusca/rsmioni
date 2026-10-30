@@ -87,11 +87,31 @@ export interface AiHandoff {
     at: string;
 }
 
+/** Briefing del self check-in scritto dall'AI per il receptionist (evento `.ai.briefing`) */
+export interface AiBriefing {
+    scopo: string;
+    fase: string | null;
+    fase_label: string | null;
+    lingua: string | null;
+    motivo: string | null;
+    ospite?: { nome?: string | null; cognome?: string | null } | null;
+    soggiorno?: {
+        check_in?: string | null; check_out?: string | null;
+        adulti?: number | null; ragazzi?: number | null; bambini?: number | null;
+        camera?: string | null; piano?: number | null; codice?: string | null;
+    } | null;
+    documenti?: { acquisiti: number; attesi: number; rinunciato: boolean } | null;
+    punti?: string[];
+    trascrizione?: { chi: 'ospite' | 'alice'; testo: string }[];
+    aggiornato_at: string;
+}
+
 export interface ChioscoConStato extends Chiosco {
     stato: StatoChiosco;
     messaggio_attesa: string | null;
     ultima_presenza: UltimaPresenza | null;
     ai_handoff?: AiHandoff | null;
+    ai_briefing?: AiBriefing | null;
     hotel?: Hotel & { suoneria_attiva?: boolean; volume_suoneria?: number };
 }
 

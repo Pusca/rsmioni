@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { StatoChiosco } from '@/types';
+import { StatoChiosco, AiBriefing } from '@/types';
 
 export interface StatoAggiornato {
     chiosco_id:   string;
@@ -17,6 +17,12 @@ export interface AiHandoffEvento {
     at:           string;
 }
 
+/** Evento `.ai.briefing`: l'AI aggiorna il briefing della pratica (null = decaduto). */
+export interface AiBriefingEvento {
+    chiosco_id: string;
+    briefing:   AiBriefing | null;
+}
+
 // Tipo minimo per i canali Echo che usiamo — evita dipendenza dal tipo
 // generico di Echo<'reverb'> che non espone i metodi in modo diretto.
 interface EchoChannel {
@@ -29,6 +35,7 @@ interface Options {
     hotelIds:        string[];
     onStatoCambiato: (update: StatoAggiornato) => void;
     onAiHandoff?:    (evento: AiHandoffEvento) => void;
+    onAiBriefing?:   (evento: AiBriefingEvento) => void;
 }
 
 /**
@@ -36,7 +43,7 @@ interface Options {
  * Se Echo non è disponibile o la connessione fallisce, segnala realtimeAttivo=false
  * così il chiamante può attivare il polling fallback.
  */
-export function usePortineriaRealtime({ hotelIds, onStatoCambiato, onAiHandoff }: Options): {
+export function usePortineriaRealtime({ hotelIds, onStatoCambiato, onAiHandoff, onAiBriefing }: Options): {
     realtimeAttivo: boolean;
 } {
     const [realtimeAttivo, setRealtimeAttivo] = useState(false);
@@ -44,6 +51,8 @@ export function usePortineriaRealtime({ hotelIds, onStatoCambiato, onAiHandoff }
     callbackRef.current = onStatoCambiato;
     const handoffRef = useRef(onAiHandoff);
     handoffRef.current = onAiHandoff;
+    const briefingRef = useRef(onAiBriefing);
+    briefingRef.current = onAiBriefing;
 
     useEffect(() => {
         if (typeof window === 'undefined' || !window.Echo || hotelIds.length === 0) {
@@ -63,6 +72,10 @@ export function usePortineriaRealtime({ hotelIds, onStatoCambiato, onAiHandoff }
 
                 ch.listen<AiHandoffEvento>('.ai.handoff', (e) => {
                     handoffRef.current?.(e);
+                });
+
+                ch.listen<AiBriefingEvento>('.ai.briefing', (e) => {
+                    briefingRef.current?.(e);
                 });
 
                 ch.subscribed(() => {

@@ -203,7 +203,10 @@ export default function KioskIndex({ chiosco, stato_iniziale, messaggio_attesa: 
     // dice a voce. La sessione resta dell'AI finché l'umano non subentra.
     // Stato a vista per l'ospite: invio in corso → inviata (conferma grande
     // sotto l'orb) oppure errore (resta il pulsante + messaggio per riprovare).
-    const [aiutoStato, setAiutoStato] = useState<'idle' | 'invio' | 'inviata' | 'errore'>('idle');
+    const [aiutoLocale, setAiutoStato] = useState<'idle' | 'invio' | 'inviata' | 'errore'>('idle');
+    // Se è stata Alice a chiamare il receptionist (ospite senza documento,
+    // prenotazione non trovata…) la conferma è la stessa del pulsante verde.
+    const aiutoStato = aiutoLocale === 'idle' && lk.aiUi.receptionist ? 'inviata' : aiutoLocale;
     const aiutoInviato = aiutoStato === 'inviata' || aiutoStato === 'invio';
     useEffect(() => { if (! inAi) setAiutoStato('idle'); }, [inAi]);
     const handleChiamaInAi = async () => {

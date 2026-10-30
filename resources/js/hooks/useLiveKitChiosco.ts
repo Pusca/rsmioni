@@ -61,9 +61,11 @@ export interface AiUiState {
     codice:    string | null;
     pagamento: { importo?: number; stato?: 'in_corso' | 'ok' | 'ko' } | null;
     fase:      string | null; // fase FSM del processo (stepper): dati, conferma, salvata, camera, documento...
+    /** L'agent ha chiamato un receptionist umano (handoff): mostra «Richiesta inviata» */
+    receptionist: boolean;
 }
 
-const AI_UI_INIZIALE: AiUiState = { form: {}, camera: null, camereOpzioni: null, riepilogo: null, codice: null, pagamento: null, fase: null };
+const AI_UI_INIZIALE: AiUiState = { form: {}, camera: null, camereOpzioni: null, riepilogo: null, codice: null, pagamento: null, fase: null, receptionist: false };
 
 interface Result {
     sessionTipo:        TipoMedia | null;
@@ -295,7 +297,7 @@ export function useLiveKitChiosco(): Result {
                 .on(RoomEvent.DataReceived, (payload: Uint8Array) => {
                     try {
                         const msg = JSON.parse(new TextDecoder().decode(payload)) as {
-                            topic?: string; testo?: string; tipo?: string;
+                            topic?: string; testo?: string; tipo?: string; richiesto?: boolean;
                             form?: AiUiState['form']; camera?: AiUiState['camera']; codice?: string;
                             pagamento?: AiUiState['pagamento']; fase?: string;
                             opzioni?: CameraOpzione[] | null;
@@ -314,6 +316,7 @@ export function useLiveKitChiosco(): Result {
                             if (msg.tipo === 'codice' && msg.codice) setAiUi((p) => ({ ...p, codice: msg.codice ?? null }));
                             if (msg.tipo === 'pagamento' && msg.pagamento) setAiUi((p) => ({ ...p, pagamento: msg.pagamento ?? null }));
                             if (msg.tipo === 'fase' && msg.fase) setAiUi((p) => ({ ...p, fase: msg.fase ?? null }));
+                            if (msg.tipo === 'receptionist') setAiUi((p) => ({ ...p, receptionist: msg.richiesto !== false }));
                         }
                     } catch { /* ignora messaggi non riconosciuti */ }
                 })

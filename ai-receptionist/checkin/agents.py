@@ -26,6 +26,7 @@ from .backend import BackendRsmioni
 from .config import Impostazioni
 from .fsm import AzioneFuoriFase, Fase, StatoConversazione
 from .ui import SchermoChiosco
+from . import briefing as briefing_mod
 
 logger = logging.getLogger("ai-receptionist.agent")
 
@@ -93,6 +94,12 @@ class ReceptionistAgent(Agent):
         # Attesa foto documento in background: l'agent resta in ascolto e
         # viene svegliato dal watcher quando la foto arriva (o viene annullata).
         self._acquisizione_task: asyncio.Task | None = None
+        # Briefing per il receptionist umano: parte in background a ogni fase
+        # e, con i punti salienti, quando serve un umano. Motivo e punti
+        # restano negli aggiornamenti successivi.
+        self._briefing_task: asyncio.Task | None = None
+        self._ultimo_motivo: str | None = None
+        self._ultimi_punti: list[str] = []
 
     # ── Helpers di processo ─────────────────────────────────────────────
 
@@ -107,6 +114,7 @@ class ReceptionistAgent(Agent):
         if fase:
             self.stato.avanza_a(fase)
             await self._schermo.fase(self.stato.fase)
+            self._avvia_briefing()
         logger.info("fase=%s esito=ok: %s", self.stato.fase.value, messaggio)
         return messaggio
 
@@ -416,10 +424,42 @@ class ReceptionistAgent(Agent):
         except Exception as e:
             logger.error("frase di riserva (%s) non pronunciata: %s", evento, e)
 
+    # ── Briefing per il receptionist umano ──────────────────────────────
+
+    def _avvia_briefing(self, motivo: str | None = None, con_punti: bool = False) -> None:
+        """Manda in portineria lo stato della pratica, in background (la voce
+        non deve aspettare). Con `con_punti` il modello scrive anche i punti
+        salienti della conversazione: si usa quando serve un umano."""
+        if motivo:
+            self._ultimo_motivo = motivo
+        if self._briefing_task and not self._briefing_task.done():
+            if not con_punti:
+                return  # un aggiornamento leggero alla volta: il prossimo arriva alla fase dopo
+            self._briefing_task.cancel()
+        self._briefing_task = asyncio.create_task(self._invia_briefing(con_punti))
+
+    async def _invia_briefing(self, con_punti: bool) -> None:
+        try:
+            dati = briefing_mod.dati_briefing(self.stato, self._lingua, self._ultimo_motivo)
+            turni = briefing_mod.trascrizione(getattr(self.session, "history", None))
+            if con_punti:
+                self._ultimi_punti = await briefing_mod.punti_salienti(self._config, dati, turni)
+            esito = await self._backend.briefing({**dati, "punti": self._ultimi_punti, "trascrizione": turni})
+            if esito.ok:
+                logger.info("briefing inviato: fase=%s punti=%d turni=%d",
+                            dati["fase"], len(self._ultimi_punti), len(turni))
+            else:
+                logger.warning("briefing rifiutato dal backend: %s", esito.errore)
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            logger.warning("briefing non inviato: %s", e)
+
     async def comando_ospite(self, tipo: str) -> None:
         """Comandi toccati dall'ospite sullo schermo del chiosco (DataChannel, topic ai_cmd)."""
         if tipo == "receptionist":
             logger.info("l'ospite ha toccato «Parla con il receptionist» sul chiosco")
+            self._avvia_briefing("L'ospite ha toccato «Parla con il receptionist» sul chiosco", con_punti=True)
             await self._sveglia(
                 "L'ospite ha appena toccato sullo schermo il pulsante «Parla con il receptionist»: "
                 "il receptionist è GIÀ stato avvisato (campanella in portineria), NON serve "
@@ -447,9 +487,13 @@ class ReceptionistAgent(Agent):
         testo = motivo or "non ha il documento con sé"
         quanti = (f" (documenti acquisiti {self.stato.documenti_acquisiti} su {self.stato.documenti_attesi})"
                   if self.stato.documenti_attesi > 1 else "")
-        esito = await self._backend.richiedi_receptionist(
-            f"Ospite senza documento d'identità ({testo}){quanti}: serve il receptionist per completare il check-in.")
+        motivo_handoff = (f"Ospite senza documento d'identità ({testo}){quanti}: "
+                          "serve il receptionist per completare il check-in.")
+        esito = await self._backend.richiedi_receptionist(motivo_handoff)
         logger.info("fase=%s: ospite senza documento, passaggio al receptionist", self.stato.fase.value)
+        if esito.ok:
+            await self._schermo.receptionist(True, motivo_handoff)  # il chiosco mostra «Richiesta inviata»
+            self._avvia_briefing(motivo_handoff, con_punti=True)
         if not esito.ok:
             return ("Schermata foto chiusa, ma non sono riuscita ad avvisare il receptionist "
                     f"({esito.errore}). Di' all'ospite di rivolgersi alla reception per il documento "
@@ -752,6 +796,8 @@ class ReceptionistAgent(Agent):
             return ("Non sono riuscita ad avvisare il receptionist automaticamente. Di' all'ospite "
                     f"di rivolgersi alla reception o di attendere. ({esito.errore})")
         logger.info("handoff richiesto: %s", motivo)
+        await self._schermo.receptionist(True, motivo)
+        self._avvia_briefing(motivo, con_punti=True)
         return esito.get("istruzione") or "Receptionist avvisato: resta a disposizione finché non subentra."
 
     # ── Tool: chiusura ──────────────────────────────────────────────────

@@ -17,6 +17,7 @@ import CatturaDocumento from './CatturaDocumento';
 import CollegamentoView from './CollegamentoView';
 import ParlatoView from './ParlatoView';
 import AzioneBtn from './AzioneBtn';
+import BriefingAi from './BriefingAi';
 import { EyeOffIcon, MsgIcon, MicIcon, XIcon, ScreenIcon, DocIcon, ScreenStopIcon } from '@/Components/Icons';
 
 interface Props {
@@ -715,6 +716,7 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
                                         Self check-in condotto dal receptionist AI · stai osservando in nascosto (audio e video)
                                     </p>
                                 </div>
+                                {chiosco.ai_briefing && <BriefingAi briefing={chiosco.ai_briefing} />}
                                 {!isRL && (
                                     <div className="flex gap-3 flex-wrap justify-center">
                                         <AzioneBtn
@@ -746,6 +748,8 @@ export default function AreaVideo({ chiosco, profilo, onStatoChanged, onApriMess
                                     errore={erroreMedia}
                                     condivisioneSchermo={snap.condivisioneLocale}
                                 />
+                                {/* Dopo il subentro all'AI: la pratica com'era rimasta */}
+                                {chiosco.ai_briefing && <BriefingAi briefing={chiosco.ai_briefing} />}
                                 <div className="flex gap-3 flex-wrap justify-center">
                                     {/* Condivisione schermo — solo quando connesso */}
                                     {call?.attiva && call?.stato === 'connected' && (
