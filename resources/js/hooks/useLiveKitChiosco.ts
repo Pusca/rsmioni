@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
     DisconnectReason,
     Room,
@@ -131,8 +131,32 @@ async function fetchToken(): Promise<TokenResp | null> {
 }
 
 export function useLiveKitChiosco(): Result {
-    const localVideoRef  = useRef<HTMLVideoElement | null>(null);
-    const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
+    // Il <video> dell'autoritratto viene smontato e rimontato a ogni cambio di
+    // schermata (es. schermata foto durante l'AI o il parlato): il ref è un
+    // oggetto con setter, così la webcam viene riagganciata appena React monta
+    // un nuovo elemento, senza dipendere da un cambio di sessione o di stato.
+    const localVideoEl    = useRef<HTMLVideoElement | null>(null);
+    const localTrackRef   = useRef<MediaStreamTrack | null>(null);
+    const localVideoRef   = useMemo<React.RefObject<HTMLVideoElement | null>>(() => ({
+        get current() { return localVideoEl.current; },
+        set current(el: HTMLVideoElement | null) {
+            localVideoEl.current = el;
+            const track = localTrackRef.current;
+            if (! el || ! track || track.readyState !== 'live') return;
+            if (el.srcObject instanceof MediaStream && el.srcObject.getVideoTracks()[0] === track) return;
+            el.srcObject = new MediaStream([track]);
+            el.play().catch(() => {});
+        },
+    }), []);
+    const remoteVideoEl   = useRef<HTMLVideoElement | null>(null);
+    const remoteTrackRef  = useRef<RemoteTrack | null>(null);
+    const remoteVideoRef  = useMemo<React.RefObject<HTMLVideoElement | null>>(() => ({
+        get current() { return remoteVideoEl.current; },
+        set current(el: HTMLVideoElement | null) {
+            remoteVideoEl.current = el;
+            if (el && remoteTrackRef.current) remoteTrackRef.current.attach(el);
+        },
+    }), []);
     const roomRef        = useRef<Room | null>(null);
     const connectedRef   = useRef<string | null>(null); // sessionId attualmente connesso
 
@@ -164,16 +188,18 @@ export function useLiveKitChiosco(): Result {
     // chiosco vengono creati/distrutti al variare di sessione e conduttore.
     useEffect(() => {
         const track = remoteScreenTrack ?? remoteCamTrack;
+        remoteTrackRef.current = track;
         const el = remoteVideoRef.current;
         if (el && track) track.attach(el);
-    }, [remoteCamTrack, remoteScreenTrack, sessionTipo, gestitaDa, stato]);
+    }, [remoteCamTrack, remoteScreenTrack, sessionTipo, gestitaDa, stato, remoteVideoRef]);
     useEffect(() => {
+        localTrackRef.current = localCameraTrack;
         const el = localVideoRef.current;
         if (!el || !localCameraTrack) return;
         if (el.srcObject instanceof MediaStream && el.srcObject.getVideoTracks()[0] === localCameraTrack) return;
         el.srcObject = new MediaStream([localCameraTrack]);
         el.play().catch(() => {});
-    }, [localCameraTrack, sessionTipo, gestitaDa, stato]);
+    }, [localCameraTrack, sessionTipo, gestitaDa, stato, localVideoRef]);
 
     useEffect(() => {
         let cancelled = false;
