@@ -112,8 +112,13 @@ async def main() -> None:
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     print(f"Provider: {', '.join(provider)} · lingua {args.lingua} · velocità {agent.CONFIG.tts_speed} · WAV in {out}/")
-    for p in provider:
-        await prova(agent, p, args.lingua, FRASI[args.lingua], out)
+    # Fuori dal worker (nessun job LiveKit) i plugin non hanno una sessione HTTP:
+    # va aperta a mano, altrimenti ogni sintesi fallisce con "Attempted to use
+    # an http session outside of a job context".
+    from livekit.agents.utils import http_context
+    async with http_context.open():
+        for p in provider:
+            await prova(agent, p, args.lingua, FRASI[args.lingua], out)
     print("\nAscoltare i WAV e impostare TTS_PROVIDER nel .env (es. cartesia,deepgram).")
 
 
