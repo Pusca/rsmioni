@@ -4,7 +4,9 @@
 # Framework agenti + plugin voce/cervello.
 # Gli extra installano i plugin: Anthropic (LLM), Deepgram (STT),
 # ElevenLabs (TTS), Silero (VAD), turn-detector (endpointing multilingua).
-livekit-agents[anthropic,deepgram,elevenlabs,openai,silero,turn-detector]~=1.0
+# Le voci Cartesia/Inworld passano da LiveKit Inference (modulo
+# `livekit.agents.inference`, nel core): serve una 1.8+, niente plugin extra.
+livekit-agents[anthropic,deepgram,elevenlabs,openai,silero,turn-detector]~=1.8
 
 # Caricamento .env in sviluppo
 python-dotenv~=1.0

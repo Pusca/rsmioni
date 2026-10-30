@@ -46,6 +46,15 @@ class Impostazioni:
     # «Requested model does not support the 'speed' parameter» sulle altre
     # (verificato 29/10/2026: inglese sì, italiano no) e la sessione cadrebbe.
     deepgram_speed_lingue: frozenset[str]
+    # LiveKit Inference — voci di terzi (Cartesia Sonic-3, Inworld TTS-2)
+    # servite da LiveKit Cloud: nessun account né chiave in più, autentica con
+    # LIVEKIT_API_KEY/SECRET e si paga a minuto sulla fattura LiveKit (il piano
+    # Build include un credito gratuito). Una voce per lingua; lingua assente →
+    # voce "en" (le voci sono multilingua). Velocità: TTS_SPEED, anche in italiano.
+    cartesia_model: str
+    cartesia_voci: dict[str, str]
+    inworld_model: str
+    inworld_voci: dict[str, str]
     # Carattere della voce (regolabili da .env senza toccare il codice):
     # stability bassa = più espressiva/variabile, alta = più piatta e costante.
     tts_stability: float
@@ -67,7 +76,8 @@ class Impostazioni:
         problemi: list[str] = []
         deepgram_key = os.environ.get("DEEPGRAM_API_KEY", "")
         el_key = os.environ.get("ELEVENLABS_API_KEY", "")
-        tts_providers = _tts_providers(os.environ.get("TTS_PROVIDER", ""), el_key, deepgram_key, problemi)
+        livekit_ok = bool(os.environ.get("LIVEKIT_API_KEY") and os.environ.get("LIVEKIT_API_SECRET"))
+        tts_providers = _tts_providers(os.environ.get("TTS_PROVIDER", ""), el_key, deepgram_key, livekit_ok, problemi)
 
         api_token = os.environ.get("RSMIONI_AGENT_HMAC_SECRET", "")
         if not api_token:
@@ -89,7 +99,14 @@ class Impostazioni:
 
         return cls(
             tts_providers=tts_providers,
-            deepgram_tts_voci=_deepgram_voci(os.environ.get("DEEPGRAM_TTS_VOICES", ""), problemi),
+            deepgram_tts_voci=_voci_per_lingua(os.environ.get("DEEPGRAM_TTS_VOICES", ""), DEEPGRAM_VOCI_DEFAULT,
+                                               "DEEPGRAM_TTS_VOICES", problemi),
+            cartesia_model=os.environ.get("CARTESIA_MODEL", "cartesia/sonic-3").strip() or "cartesia/sonic-3",
+            cartesia_voci=_voci_per_lingua(os.environ.get("CARTESIA_VOICES", ""), CARTESIA_VOCI_DEFAULT,
+                                           "CARTESIA_VOICES", problemi),
+            inworld_model=os.environ.get("INWORLD_MODEL", "inworld/inworld-tts-2").strip() or "inworld/inworld-tts-2",
+            inworld_voci=_voci_per_lingua(os.environ.get("INWORLD_VOICES", ""), INWORLD_VOCI_DEFAULT,
+                                          "INWORLD_VOICES", problemi),
             deepgram_speed_lingue=frozenset(
                 l.strip().lower() for l in os.environ.get("DEEPGRAM_SPEED_LANGS", "en,es").split(",") if l.strip()),
             api_base_url=os.environ.get("RSMIONI_API_BASE_URL", "http://localhost:8000"),
@@ -116,7 +133,10 @@ class Impostazioni:
         )
 
 
-TTS_PROVIDER_NOTI = ("elevenlabs", "deepgram")
+# Ordine = ordine di "auto" fra quelli disponibili (vedi _tts_providers).
+TTS_PROVIDER_NOTI = ("elevenlabs", "cartesia", "inworld", "deepgram")
+# Provider serviti da LiveKit Inference: bastano le credenziali LiveKit Cloud.
+TTS_PROVIDER_INFERENCE = ("cartesia", "inworld")
 LLM_PROVIDER_NOTI = ("anthropic", "openrouter")
 LLM_EFFORT_VALIDI = ("low", "medium", "high")
 
@@ -164,13 +184,37 @@ DEEPGRAM_VOCI_DEFAULT: dict[str, str] = {
     "fr": "aura-2-agathe-fr",
 }
 
+# Voci Cartesia Sonic-3 di default per lingua: ID della libreria Cartesia
+# (LiveKit Inference accetta tutte le voci di libreria, non quelle clonate).
+# ID presi da integrazioni pubbliche (SignalWire/LiveKit), NON ancora ascoltati
+# da noi (30/10/2026): il confronto si fa con `python prova_voce.py`. Altre
+# voci italiane in libreria (Alessandra, Francesca, Liv, Marco…): copiare
+# l'ID da play.cartesia.ai in CARTESIA_VOICES="it=<uuid>".
+CARTESIA_VOCI_DEFAULT: dict[str, str] = {
+    "it": "0e21713a-5e9a-428a-bed4-90d410b87f13",  # Italian Narrator Woman
+    "en": "9626c31c-bec5-4cca-baa8-f8ba9e84c8bc",  # Jacqueline — en-US, giovane, sicura
+    "es": "5c5ad5e7-1020-476b-8b91-fdcbe9cc313c",  # Daniela — es-MX, calma
+}
 
-def _tts_providers(raw: str, el_key: str, deepgram_key: str, problemi: list[str]) -> tuple[str, ...]:
+# Voci Inworld TTS-2 di default per lingua: si indicano per NOME. Sono
+# multilingua (la stessa voce parla 100+ lingue), quindi la voce "en" fa da
+# riserva per le lingue senza voce dedicata. Nomi da verificare all'ascolto.
+INWORLD_VOCI_DEFAULT: dict[str, str] = {
+    "it": "Orietta",   # femminile, italiana
+    "en": "Ashley",    # femminile, en-US, calda
+    "es": "Diego",     # maschile, es-MX
+}
+
+
+def _tts_providers(raw: str, el_key: str, deepgram_key: str, livekit_ok: bool,
+                   problemi: list[str]) -> tuple[str, ...]:
     """Ordine dei provider TTS da TTS_PROVIDER.
 
-    "" / "auto": ElevenLabs (se c'è la chiave) e poi Deepgram come riserva.
-    Altrimenti lista esplicita separata da virgole, es. "deepgram" o
-    "deepgram,elevenlabs". Ogni provider scelto deve avere la sua chiave.
+    "" / "auto": ElevenLabs (se c'è la chiave) e poi Deepgram come riserva —
+    invariato: Cartesia e Inworld (LiveKit Inference) si scelgono in modo
+    ESPLICITO, es. "cartesia,deepgram" o "inworld,deepgram", così la voce in
+    produzione non cambia da sola a un aggiornamento. Ogni provider scelto
+    deve avere le sue credenziali (per cartesia/inworld quelle LiveKit).
     """
     raw = raw.strip().lower()
     if raw in ("", "auto"):
@@ -193,23 +237,29 @@ def _tts_providers(raw: str, el_key: str, deepgram_key: str, problemi: list[str]
     if "deepgram" in scelti and not deepgram_key:
         problemi.append("TTS_PROVIDER include deepgram ma DEEPGRAM_API_KEY manca: Deepgram escluso.")
         scelti.remove("deepgram")
+    for p in TTS_PROVIDER_INFERENCE:
+        if p in scelti and not livekit_ok:
+            problemi.append(f"TTS_PROVIDER include {p} (LiveKit Inference) ma LIVEKIT_API_KEY/LIVEKIT_API_SECRET "
+                            f"mancano: {p} escluso.")
+            scelti.remove(p)
     if not scelti:
         problemi.append("Nessun provider TTS utilizzabile: niente sintesi vocale.")
     return tuple(scelti)
 
 
-def _deepgram_voci(raw: str, problemi: list[str]) -> dict[str, str]:
-    """Mappa lingua → modello Aura-2, default più eventuali override da env."""
-    voci = dict(DEEPGRAM_VOCI_DEFAULT)
+def _voci_per_lingua(raw: str, default: dict[str, str], nome_var: str, problemi: list[str]) -> dict[str, str]:
+    """Mappa lingua → voce (modello Aura-2, ID Cartesia o nome Inworld):
+    default più eventuali override da env nel formato "it=voce,en=voce"."""
+    voci = dict(default)
     for coppia in (x.strip() for x in raw.split(",")):
         if not coppia:
             continue
-        lingua, sep, modello = coppia.partition("=")
-        lingua, modello = lingua.strip().lower(), modello.strip()
-        if not sep or not lingua or not modello:
-            problemi.append(f"DEEPGRAM_TTS_VOICES: voce '{coppia}' non valida (atteso lingua=modello): ignorata.")
+        lingua, sep, voce = coppia.partition("=")
+        lingua, voce = lingua.strip().lower(), voce.strip()
+        if not sep or not lingua or not voce:
+            problemi.append(f"{nome_var}: voce '{coppia}' non valida (atteso lingua=voce): ignorata.")
             continue
-        voci[lingua] = modello
+        voci[lingua] = voce
     return voci
 
 

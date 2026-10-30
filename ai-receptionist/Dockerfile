@@ -14,6 +14,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY agent.py .
 COPY checkin/ checkin/
+COPY prova_voce.py .
 
 # Scarica i modelli locali (VAD, turn-detector) dentro l'immagine:
 # l'avvio in produzione non dipende da download esterni.

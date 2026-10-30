@@ -97,16 +97,45 @@ def crea_llm():
     return motori[0] if len(motori) == 1 else llm.FallbackAdapter(motori)
 
 
-def crea_tts(lingua: str):
-    """Voce dell'agent secondo CONFIG.tts_providers (vedi TTS_PROVIDER in .env).
+def _tts_inference(provider: str, lingua: str):
+    """Voce via LiveKit Inference: Cartesia Sonic-3 o Inworld TTS-2.
+
+    Nessuna chiave del fornitore: autentica con LIVEKIT_API_KEY/SECRET del
+    progetto e si paga a minuto sulla fattura LiveKit Cloud. A differenza di
+    Aura-2, entrambe accettano la velocità (TTS_SPEED) anche in italiano:
+    Cartesia 0.6–1.5 (`speed`), Inworld 0.5–1.5 (`speaking_rate`).
+    """
+    try:
+        from livekit.agents import inference
+    except ImportError as e:  # livekit-agents < 1.2: niente modulo inference
+        raise RuntimeError(
+            f"TTS_PROVIDER include {provider} ma questo livekit-agents non ha LiveKit Inference: "
+            "aggiornare con `pip install -U -r requirements.txt`") from e
+    if provider == "cartesia":
+        modello, voci = CONFIG.cartesia_model, CONFIG.cartesia_voci
+        extra = {"speed": max(0.6, min(1.5, CONFIG.tts_speed))}
+    else:
+        modello, voci = CONFIG.inworld_model, CONFIG.inworld_voci
+        extra = {"speaking_rate": max(0.5, min(1.5, CONFIG.tts_speed))}
+    # Voce della lingua scelta sul chiosco; senza, quella inglese (multilingua).
+    voce = voci.get(lingua) or voci.get("en") or next(iter(voci.values()))
+    logger.info("TTS %s: %s, voce %s, lingua %s, %s", provider, modello, voce, lingua, extra)
+    return inference.TTS(model=modello, voice=voce, language=lingua, extra_kwargs=extra)
+
+
+def crea_tts(lingua: str, providers: tuple[str, ...] | None = None):
+    """Voce dell'agent secondo CONFIG.tts_providers (vedi TTS_PROVIDER in .env);
+    `providers` lo sovrascrive (usato da prova_voce.py per confrontare le voci).
 
     Con più provider la voce è un FallbackAdapter: se il primo non produce
     audio (es. ElevenLabs con pagamento sospeso → 401) la frase passa al
     successivo invece di lasciare l'ospite davanti a un assistente muto.
     """
     motori = []
-    for provider in CONFIG.tts_providers:
-        if provider == "elevenlabs":
+    for provider in (providers or CONFIG.tts_providers):
+        if provider in ("cartesia", "inworld"):
+            motori.append(_tts_inference(provider, lingua))
+        elif provider == "elevenlabs":
             motori.append(elevenlabs.TTS(
                 api_key=CONFIG.elevenlabs_api_key,
                 voice_id=CONFIG.elevenlabs_voice_id,
@@ -140,7 +169,7 @@ def crea_tts(lingua: str):
             motori.append(deepgram.TTS(model=voce, **extra))
     if not motori:
         raise RuntimeError("Nessun provider TTS configurato (TTS_PROVIDER / chiavi API).")
-    logger.info("TTS: %s", " → ".join(CONFIG.tts_providers))
+    logger.info("TTS: %s", " → ".join(providers or CONFIG.tts_providers))
     return motori[0] if len(motori) == 1 else tts.FallbackAdapter(motori)
 
 
@@ -192,7 +221,8 @@ async def entrypoint(ctx: agents.JobContext) -> None:
         stt=deepgram.STT(model="nova-3", language="multi"),
         # Cervello: Claude (tool calling + ragionamento).
         llm=crea_llm(),
-        # Voce: ElevenLabs e/o Deepgram Aura-2 secondo TTS_PROVIDER.
+        # Voce: ElevenLabs, Cartesia/Inworld (LiveKit Inference) e/o Deepgram
+        # Aura-2 secondo TTS_PROVIDER, in cascata.
         tts=crea_tts(lingua),
         # Rilevamento attività vocale → barge-in (interruzione).
         vad=silero.VAD.load(),

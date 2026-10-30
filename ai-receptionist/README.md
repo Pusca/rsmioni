@@ -14,7 +14,7 @@ Architettura completa: [`../docs/09-ai-self-checkin.md`](../docs/09-ai-self-chec
 | Framework agente | LiveKit Agents (Python) |
 | Cervello / tool calling / vision | Claude (`claude-sonnet-4-6` default) |
 | STT (voce→testo) | Deepgram `nova-3` multilingua |
-| TTS (testo→voce) | ElevenLabs |
+| TTS (testo→voce) | Cartesia Sonic-3 / Inworld TTS-2 via **LiveKit Inference** (nessun account extra), ElevenLabs, Deepgram Aura-2 — in cascata, scelta da `TTS_PROVIDER` |
 | VAD / barge-in | Silero |
 
 ## Setup
@@ -87,6 +87,15 @@ Dal metadata del dispatch arrivano anche (docs/11):
 - **FASE 4 — parziale:** escalation a soglia per fase; restano metriche
   aggregate e Claude vision sul documento.
 
+## Provare le voci
+
+`python prova_voce.py` (con il `.env` compilato) sintetizza le stesse frasi di
+check-in con ogni provider disponibile e salva un WAV per frase in
+`prova_voce_out/`, stampando il tempo al primo audio. Si ascoltano alla cieca
+e si imposta `TTS_PROVIDER` (ed eventualmente la voce) di conseguenza:
+`python prova_voce.py cartesia inworld` limita il confronto, `--lingua en`
+prova un'altra lingua, `--velocita 1.0` la velocità naturale.
+
 ## Variabili d'ambiente
 
 Elenco completo (con default e commenti) in [`.env.example`](./.env.example);
@@ -103,7 +112,9 @@ la fonte di verità è `checkin/config.py`.
 | `OPENROUTER_MODEL` / `VISION_MODEL` | no | Modelli via OpenRouter (default `anthropic/claude-sonnet-4.6`) |
 | `LLM_MAX_TOKENS` | no | Token max per risposta (default `600`) |
 | `DEEPGRAM_API_KEY` | sì | STT — e TTS Aura-2 quando `TTS_PROVIDER` lo include |
-| `TTS_PROVIDER` | no | `auto` (default: ElevenLabs se c'è la chiave, poi Deepgram di riserva), `deepgram`, `elevenlabs` o lista |
+| `TTS_PROVIDER` | no | `auto` (default: ElevenLabs se c'è la chiave, poi Deepgram di riserva), oppure lista esplicita fra `cartesia`, `inworld` (LiveKit Inference: bastano le credenziali `LIVEKIT_*`), `elevenlabs`, `deepgram` — es. `cartesia,deepgram` |
+| `CARTESIA_MODEL` / `CARTESIA_VOICES` | no | Default `cartesia/sonic-3`; voci per lingua con ID di libreria, es. `it=<uuid>` |
+| `INWORLD_MODEL` / `INWORLD_VOICES` | no | Default `inworld/inworld-tts-2`; voci per lingua per nome, es. `it=Orietta,en=Ashley` |
 | `DEEPGRAM_TTS_VOICES` | no | Voci Aura-2 per lingua, es. `it=aura-2-cinzia-it,en=aura-2-helena-en` |
 | `ELEVENLABS_API_KEY` | no | TTS ElevenLabs, serve solo se il provider la include |
 | `ELEVENLABS_VOICE_ID` | no | Default `Xb7hH8MSUJpSbSDYk0k2` |

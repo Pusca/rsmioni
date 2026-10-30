@@ -16,3 +16,6 @@ env/
 # Log / temp
 *.log
 .DS_Store
+
+# Uscita di prova_voce.py (WAV di confronto)
+prova_voce_out/

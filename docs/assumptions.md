@@ -361,6 +361,16 @@ Stesso giorno, conversazione a voce dalla presenza: spegnere il microfono del re
 
 ---
 
+## A36 — Voce dell'assistente: Cartesia/Inworld via LiveKit Inference, voci italiane da ascoltare
+
+**Contesto**: la voce italiana Deepgram Aura-2 in produzione (30/10/2026, abbonamento ElevenLabs sospeso) è giudicata insufficiente e non accetta la velocità. Il manuale non prescrive il motore vocale; serve un'alternativa senza nuovi account né costi fissi.
+
+**Assunzione adottata**: si usano le voci di terzi servite da LiveKit Cloud (LiveKit Inference) con le credenziali già in uso: Cartesia Sonic-3 e Inworld TTS-2, entrambe con italiano e velocità regolabile, pagate a minuto sulla fattura LiveKit (credito gratuito del piano Build per le prove). La scelta è esplicita in `TTS_PROVIDER` (il default `auto` non cambia), Deepgram resta in cascata come riserva. Le voci italiane di default («Italian Narrator Woman» per Cartesia, «Orietta» per Inworld) vengono da cataloghi pubblici e **non sono ancora state ascoltate**: si confrontano con `ai-receptionist/prova_voce.py` prima di cambiare la produzione; se un ID non è valido, l'errore va in log e la frase passa a Deepgram.
+
+**Impatto**: `livekit-agents` aggiornato alla 1.8 sull'host del worker; costo a consumo da tenere d'occhio nel pannello LiveKit; ElevenLabs resta la strada se nessuna delle due voci convince.
+
+---
+
 ## Da Validare Prima dell'Implementazione
 
 | ID | Assunzione | Urgenza |
@@ -380,3 +390,4 @@ Stesso giorno, conversazione a voce dalla presenza: spegnere il microfono del re
 | A24 | Voce multilingua automatica | Media |
 | A25 | Privacy/retention audio-video sessione AI | Alta |
 | A30 | Claim «receptionist di notte > 30.000 €/anno» nelle inserzioni Meta | Alta (prima di attivare la campagna) |
+| A36 | Voce Cartesia/Inworld via LiveKit Inference: voci italiane di default da ascoltare | Media (prima di cambiare TTS_PROVIDER in produzione) |

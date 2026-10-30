@@ -110,14 +110,19 @@ LLM_MAX_TOKENS                                       # opz., default 600
 DEEPGRAM_API_KEY                                     # voce → testo (e testo → voce con Aura-2)
 TTS_PROVIDER                                         # opz., default auto = ElevenLabs se c'è la chiave, poi Deepgram
                                                      #   di riserva; "deepgram" = solo Deepgram (23/10/2026: in prod
-                                                     #   finché l'abbonamento ElevenLabs resta sospeso per pagamento)
+                                                     #   finché l'abbonamento ElevenLabs resta sospeso per pagamento).
+                                                     #   30/10/2026: "cartesia,deepgram" o "inworld,deepgram" = voce
+                                                     #   via LiveKit Inference (nessun account extra, a minuto sulla
+                                                     #   fattura LiveKit, credito gratuito sul piano Build); vedi §2.1
+CARTESIA_MODEL / CARTESIA_VOICES                     # opz., default cartesia/sonic-3; voci per lingua (ID libreria)
+INWORLD_MODEL / INWORLD_VOICES                       # opz., default inworld/inworld-tts-2; voci per lingua (nome)
 DEEPGRAM_TTS_VOICES                                  # opz., voci Aura-2 per lingua: it=aura-2-cinzia-it,en=...
 TTS_SPEED                                            # opz., default 1.2 — velocità della voce su ENTRAMBI i provider
                                                      #   (ElevenLabs 0.7–1.2, Aura-2 0.7–1.5); 29/10/2026: in demo a 1.0 troppo lenta.
                                                      #   Su Deepgram richiede livekit-plugins-deepgram recente (pip install -U)
                                                      #   e vale SOLO per le lingue in DEEPGRAM_SPEED_LANGS (default en,es):
                                                      #   la voce italiana Aura-2 NON accetta speed (400) → velocità naturale.
-                                                     #   Per l'italiano più svelto serve ElevenLabs (TTS_PROVIDER=auto con abbonamento attivo).
+                                                     #   Per l'italiano più svelto: Cartesia/Inworld (speed anche in it) o ElevenLabs.
 ELEVENLABS_API_KEY / ELEVENLABS_VOICE_ID             # testo → voce (voice id opz., ha default)
 ELEVENLABS_MODEL                                     # opz., default eleven_flash_v2_5
 RSMIONI_API_BASE_URL=https://rsmioni.it              # ← non più localhost!
@@ -127,6 +132,29 @@ RSMIONI_AGENT_HMAC_SECRET=<stesso AGENT_SERVICE_TOKEN del server>
 AGENT_DEFAULT_LANGUAGE                               # opz., default it
 DOC_VERIFICA                                         # opz., auto (default: hotel demo → foto accettata senza lettura) | on | off
 ```
+
+### 2.1 Cambiare voce (LiveKit Inference, 30/10/2026)
+
+Cartesia Sonic-3 e Inworld TTS-2 sono serviti da LiveKit Cloud con le stesse
+credenziali `LIVEKIT_*` già in uso: niente account né chiavi nuove, costo a
+minuto parlato sulla fattura LiveKit (Cartesia ≈ 0,03 $/min, Inworld ≈ 0,015 $/min,
+il piano Build include 2,50 $ di credito, circa 50 minuti). Sull'host del worker:
+
+```bash
+cd /opt/rsmioni/ai-receptionist && source .venv/bin/activate
+pip install -U -r requirements.txt          # serve livekit-agents 1.8+ (modulo inference)
+python prova_voce.py                        # WAV di confronto in prova_voce_out/ (ascoltarli!)
+# poi nel .env, ad esempio:
+#   TTS_PROVIDER=cartesia,deepgram          # Deepgram resta di riserva se Inference fallisce
+#   TTS_SPEED=1.15                          # vale anche in italiano
+sudo systemctl restart rsmioni-ai && journalctl -u rsmioni-ai -f   # attendere la riga "TTS: cartesia → deepgram"
+```
+
+Le voci italiane di default (Cartesia «Italian Narrator Woman», Inworld «Orietta»)
+sono prese dai cataloghi pubblici ma non ancora ascoltate: se una non convince,
+copiare un altro ID/nome in `CARTESIA_VOICES` / `INWORLD_VOICES` e rilanciare
+`prova_voce.py`. Se LiveKit rifiuta la voce, in log compare l'errore e la frase
+passa a Deepgram: l'ospite non resta muto.
 
 ### Con Docker (VPS, Railway, Render)
 
